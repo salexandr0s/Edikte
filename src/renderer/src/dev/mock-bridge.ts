@@ -5,29 +5,31 @@ import {
   PRESET_WIEN_UNDER_5000,
   type AppInfo,
   type AreaValue,
+  type KurzgutachtenFacts,
   type ListingDetail,
   type ListingRow,
+  type RelatedEdict,
   type SavedFilter,
-  type Settings,
   type SyncRunSummary,
-  type SyncStatus,
   type UserState,
 } from '@shared/domain'
-import { EDIKTE_ORIGIN, EX_DB_PATH } from '@shared/edikte-codes'
+import { EDIKTE_ORIGIN, EX_DB_PATH, STATUS_BY_NOTICE } from '@shared/edikte-codes'
 import { AppError, isAppError, type AppErrorShape } from '@shared/errors'
 import {
   eventContract,
   ipcContract,
   type EdikteBridge,
-  type EventPayload,
   type IpcHandlerRequest,
-  type IpcHandlerResponse,
   type IpcResponse,
   type IpcResult,
 } from '@shared/ipc'
 import type { EventChannel, InvokeChannel } from '@shared/ipc-channels'
 import { applyListingQuery, withPriceBasis } from '@shared/listing-query'
-import { PROVIDER_IDS, type ModelOption, type ProviderStatus } from '@shared/providers'
+import { PROVIDER_IDS } from '@shared/providers'
+import { analysisArea, fakeAnalysisHistory, rowWithAnalyses } from './mock-analysis'
+import { delay, type Emit, type MockHandlers, type MockState } from './mock-core'
+import { createJobHandlers, fakeDocuments, fakeEstimates } from './mock-jobs'
+import { createProviderHandlers, fakeProviderStatus } from './mock-providers'
 
 /*
  * Stands in for the preload bridge when the renderer runs in a browser
@@ -41,23 +43,6 @@ import { PROVIDER_IDS, type ModelOption, type ProviderStatus } from '@shared/pro
  */
 
 const LATENCY_MS = 120
-
-type MockHandlers = {
-  [C in InvokeChannel]?: (
-    request: IpcHandlerRequest<C>,
-  ) => IpcHandlerResponse<C> | Promise<IpcHandlerResponse<C>>
-}
-
-type Emit = <E extends EventChannel>(event: E, payload: EventPayload<E>) => void
-
-interface MockState {
-  settings: Settings
-  rows: ListingRow[]
-  userState: Map<string, UserState>
-  filters: SavedFilter[]
-  providers: ProviderStatus[]
-  sync: SyncStatus
-}
 
 export function createMockBridge(): EdikteBridge {
   const listeners = new Map<EventChannel, Set<(payload: unknown) => void>>()
@@ -191,7 +176,7 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
       const index = state.rows.findIndex((candidate) => candidate.id === id)
       const row = rowsWithUserState()[index]
       if (!row) throw new AppError('not_found', `No mock listing ${id}`)
-      return fakeDetail(row, index, state.userState.get(row.caseKey))
+      return fakeDetail(state, row, index + 1)
     },
 
     'userState:update': ({ caseKey, ...changes }) => {
@@ -204,6 +189,8 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
         updatedAt: new Date().toISOString(),
       }
       state.userState.set(caseKey, next)
+      const edictIds = state.rows.filter((row) => row.caseKey === caseKey).map((row) => row.id)
+      emit('listings:changed', { edictIds })
       return next
     },
 
@@ -234,23 +221,8 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
       state.filters = state.filters.filter((candidate) => candidate.id !== id)
     },
 
-    'providers:list': () => state.providers,
-    'providers:detect': () => state.providers,
-    'providers:models': ({ provider }) => fakeModels(provider),
-    'providers:select': ({ provider }) => {
-      state.providers = state.providers.map((status) => ({
-        ...status,
-        selected: status.id === provider,
-      }))
-      emit('providers:changed', state.providers)
-      return state.providers
-    },
-    'providers:setModel': ({ provider, model }) => {
-      const status = state.providers.find((candidate) => candidate.id === provider)
-      if (!status) throw new AppError('not_found', `Unknown provider ${provider}`)
-      status.model = model
-      return status
-    },
+    ...createProviderHandlers(state, emit),
+    ...createJobHandlers(state, emit, rowsWithUserState),
 
     'shell:openExternal': ({ url }) => {
       window.open(url, '_blank', 'noopener,noreferrer')
@@ -260,9 +232,15 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
 
 function createState(): MockState {
   const now = new Date().toISOString()
+  const listings = fakeListings()
+  const documents = fakeDocuments(listings)
+  const analyses = fakeAnalysisHistory(listings)
   return {
     settings: { ...DEFAULT_SETTINGS },
-    rows: fakeListings(),
+    rows: listings.map((row) => rowWithAnalyses(row, analyses, documents)),
+    documents,
+    estimates: fakeEstimates(listings, documents),
+    analyses,
     userState: new Map(),
     filters: [
       {
@@ -312,74 +290,9 @@ function fakeAppInfo(): AppInfo {
   }
 }
 
-function fakeProviderStatus(id: ProviderStatus['id'], checkedAt: string): ProviderStatus {
-  const base: ProviderStatus = {
-    id,
-    state: 'signed_out',
-    version: null,
-    binaryPath: null,
-    binaryPathSource: null,
-    accountLabel: null,
-    plan: null,
-    detail: null,
-    selected: false,
-    model: null,
-    checkedAt,
-  }
-  switch (id) {
-    case 'claude-cli':
-      return {
-        ...base,
-        state: 'ready',
-        version: '2.1.226',
-        binaryPath: '/Users/example/.local/bin/claude',
-        binaryPathSource: 'known_location',
-        accountLabel: 'you@example.com',
-        plan: 'Max',
-      }
-    case 'codex-cli':
-      return { ...base, state: 'not_installed' }
-    default:
-      return base
-  }
-}
-
-function fakeModels(provider: ProviderStatus['id']): ModelOption[] {
-  const option = (id: string, label: string, isDefault = false): ModelOption => ({
-    id,
-    label,
-    supportsImages: true,
-    isDefault,
-  })
-  switch (provider) {
-    case 'claude-cli':
-      return [
-        option('default', 'Default', true),
-        option('opus', 'Opus'),
-        option('sonnet', 'Sonnet'),
-        option('haiku', 'Haiku'),
-      ]
-    case 'codex-cli':
-      return [option('default', 'Default', true)]
-    default:
-      return []
-  }
-}
-
-function fakeArea(
-  sqm: number,
-  kind: AreaValue['kind'],
-  source: AreaValue['source'] = 'listing',
-): AreaValue {
-  const fromDocument = source !== 'listing'
-  return {
-    sqm,
-    kind,
-    source,
-    page: fromDocument ? 8 : null,
-    quote: fromDocument ? `Nutzfläche gesamt ${String(sqm).replace('.', ',')} m²` : null,
-    documentId: fromDocument ? 1 : null,
-  }
+/** An area stated on the edict page (Objektgröße). */
+function fakeArea(sqm: number, kind: AreaValue['kind']): AreaValue {
+  return { sqm, kind, source: 'listing', page: null, quote: null, documentId: null }
 }
 
 function fakeListing(
@@ -449,7 +362,14 @@ function fakeListings(): ListingRow[] {
       auctionAt: '2026-12-10T09:30',
       schaetzwertEur: 260_000,
       geringstesGebotEur: 130_000,
-      area: fakeArea(48.2, 'nutzflaeche', 'ai_verified'),
+      area: {
+        sqm: 48.2,
+        kind: 'nutzflaeche',
+        source: 'ai_verified',
+        page: 8,
+        quote: 'Nutzfläche gesamt 48,20 m²',
+        documentId: 2,
+      },
     }),
     fakeListing(3, {
       title: 'Einfamilienhaus',
@@ -519,7 +439,6 @@ function fakeListings(): ListingRow[] {
       auctionAt: '2026-12-15T10:00',
       schaetzwertEur: 350_000,
       geringstesGebotEur: 175_000,
-      area: fakeArea(80, 'nutzflaeche'),
     }),
     fakeListing(8, {
       title: 'Eigentumswohnung Top 7',
@@ -554,11 +473,31 @@ function fakeListings(): ListingRow[] {
   ]
 }
 
-function fakeDetail(row: ListingRow, index: number, user: UserState | undefined): ListingDetail {
+function fakeDetail(state: MockState, row: ListingRow, n: number): ListingDetail {
   const rawLabels: Record<string, string> = {}
   if (row.court) rawLabels.Dienststelle = row.court
   if (row.caseNumber) rawLabels.Aktenzeichen = row.caseNumber
   if (row.schaetzwertEur !== null) rawLabels.Schätzwert = `EUR ${row.schaetzwertEur}`
+  const documents = state.documents.filter((doc) => doc.edictId === row.id)
+  const analyses = state.analyses.filter((record) => record.edictId === row.id)
+  const estimates = state.estimates.filter((estimate) =>
+    documents.some((doc) => doc.id === estimate.documentId),
+  )
+  const gutachten = documents.find((doc) => doc.kind === 'langgutachten')
+  const latestDone = analyses.findLast((record) => record.status === 'done')
+  const aiArea = latestDone === undefined ? null : analysisArea(latestDone, gutachten?.id ?? null)
+  const areaCandidates: AreaValue[] = [
+    ...(row.area?.source === 'listing' ? [row.area] : []),
+    ...(aiArea === null ? [] : [aiArea]),
+    ...estimates.map(({ sqm, kind, page, quote, documentId }) => ({
+      sqm,
+      kind,
+      source: 'local_estimate' as const,
+      page,
+      quote,
+      documentId,
+    })),
+  ]
   return {
     ...row,
     vadiumEur: row.schaetzwertEur === null ? null : Math.round(row.schaetzwertEur / 10),
@@ -566,40 +505,54 @@ function fakeDetail(row: ListingRow, index: number, user: UserState | undefined)
     zubehoer: null,
     objektgroesseRaw: row.area?.source === 'listing' ? `${row.area.sqm} m²` : null,
     grundbuch: '01234 Beispielort',
-    ez: String(100 + index),
+    ez: String(100 + n),
     auctionPlace: row.court === null ? null : `${row.court}, Saal 1`,
-    viewing: null,
+    viewing: n === 1 ? '25.11.2026, 14:00 bis 15:00 Uhr' : null,
     remarks: null,
     rawLabels,
-    kurzgutachten: null,
-    documents: row.hasLanggutachten
-      ? [
-          {
-            id: index + 1,
-            edictId: row.id,
-            kind: 'langgutachten',
-            title: 'Langgutachten (pdf) (7360 KB)',
-            fileName: 'gutachten.pdf',
-            url: `${EDIKTE_ORIGIN}${EX_DB_PATH}/0/${row.id}/$file/gutachten.pdf`,
-            statedSizeKb: 7360,
-            downloaded: false,
-            downloadedAt: null,
-            pageCount: null,
-            scannedPages: [],
-            extractError: null,
-          },
-        ]
-      : [],
-    estimates: [],
-    areaCandidates: row.area ? [row.area] : [],
-    related: [],
-    analysis: null,
-    notes: user?.notes ?? '',
+    kurzgutachten: fakeKurzgutachten(row),
+    documents,
+    estimates,
+    areaCandidates,
+    related: fakeRelated(row, n),
+    analysis: analyses.at(-1) ?? null,
+    notes: state.userState.get(row.caseKey)?.notes ?? '',
     firstSeenAt: '2026-10-21T08:00:00.000Z',
     lastSeenAt: new Date().toISOString(),
   }
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+/** Facts from the Kurzgutachten page; only homes with a Gutachten have one here. */
+function fakeKurzgutachten(row: ListingRow): KurzgutachtenFacts | null {
+  if (!row.hasLanggutachten || (row.propertyType !== 'apartment' && row.propertyType !== 'house')) {
+    return null
+  }
+  const house = row.propertyType === 'house'
+  return {
+    anschluesse: house ? 'Wasser, Kanal, Strom, Gas' : 'Wasser, Kanal, Strom, Fernwärme',
+    baubewilligung: house ? '1961, Benützungsbewilligung 1963' : '1973',
+    widmung: house ? 'Bauland-Wohngebiet, Bauklasse I' : 'Bauland-Wohngebiet, Bauklasse III',
+    bestandsverhaeltnisse: house ? 'Von der Eigentümerin selbst bewohnt' : 'Bestandfrei',
+    stichtag: house ? '20.05.2026' : '15.06.2026',
+    lasten: house ? null : 'Dienstbarkeit des Gehens über den Hof',
+    erstelltVon:
+      'DI Erika Mustermann, allgemein beeidete und gerichtlich zertifizierte Sachverständige',
+    other: {},
+  }
+}
+
+/** The earlier Versteigerung edict of a postponed or sold listing. */
+function fakeRelated(row: ListingRow, n: number): RelatedEdict[] {
+  if (row.noticeType === 'versteigerung') return []
+  const id = (0xa000 + n).toString(16).padStart(32, '0')
+  return [
+    {
+      id,
+      noticeType: 'versteigerung',
+      status: STATUS_BY_NOTICE.versteigerung,
+      publishedAt: '2026-08-20',
+      auctionAt: row.status === 'sold' ? row.auctionAt : '2026-11-26T10:00',
+      url: `${EDIKTE_ORIGIN}${EX_DB_PATH}/alldoc/${id}!OpenDocument`,
+    },
+  ]
 }
