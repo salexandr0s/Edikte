@@ -12,12 +12,14 @@ import {
   installSessionGuards,
   isTrustedSender,
 } from './security'
+import { runSmokeCheck } from './smoke-check'
 
 // Before anything reads app paths or safeStorage: both derive from the name.
 app.setName('Edikte')
 // Tests and the packaged-app smoke check point the app at a scratch folder.
 const userDataOverride = process.env.EDIKTE_USER_DATA_DIR
 if (userDataOverride) app.setPath('userData', userDataOverride)
+const smokeTest = process.env.EDIKTE_SMOKE_TEST === '1'
 app.enableSandbox()
 
 const devServerUrl = app.isPackaged ? null : (process.env.ELECTRON_RENDERER_URL ?? null)
@@ -29,7 +31,10 @@ let mainWindow: BrowserWindow | null = null
 let database: AppDatabase | null = null
 
 if (!app.requestSingleInstanceLock()) {
-  app.quit()
+  // Usually another instance is running. The lock also fails when the data
+  // folder is unusable, so the self-check must not report that as a pass.
+  if (smokeTest) fail(new Error('Could not take the single-instance lock'))
+  else app.quit()
 } else {
   app.on('second-instance', () => {
     if (mainWindow === null) return
@@ -54,6 +59,7 @@ function start(): void {
   registerIpcHandlers(router, { db: database, paths })
 
   mainWindow = createMainWindow()
+  if (smokeTest) runSmokeCheck(mainWindow)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) mainWindow = createMainWindow()
   })

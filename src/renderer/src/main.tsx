@@ -17,6 +17,8 @@ try {
       <App info={info} initialSettings={settings} />
     </StrictMode>,
   )
+  // Read by the packaged-app self-check (src/main/smoke-check.ts).
+  document.documentElement.dataset.startup = 'ready'
 } catch (error) {
   await initI18n(resolveLanguage('system', navigator.language))
   root.render(
@@ -24,4 +26,5 @@ try {
       <StartupError code={errorCode(error)} />
     </StrictMode>,
   )
+  document.documentElement.dataset.startup = 'failed'
 }
