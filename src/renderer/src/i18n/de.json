@@ -6,7 +6,8 @@
     "label": "Sprache",
     "system": "Systemsprache",
     "de": "Deutsch",
-    "en": "English"
+    "en": "English",
+    "saveFailed": "Die Sprache konnte nicht gespeichert werden."
   },
   "common": {
     "cancel": "Abbrechen",
@@ -15,12 +16,19 @@
     "retry": "Erneut versuchen",
     "loading": "Wird geladen …",
     "unknown": "Unbekannt",
-    "details": "Technische Details"
+    "details": "Technische Details",
+    "back": "Zurück",
+    "continue": "Weiter",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "notStated": "Nicht angegeben",
+    "openOnSite": "Auf edikte.justiz.gv.at öffnen"
   },
   "shell": {
     "version": "Version {{version}}",
     "dataDir": "Datenordner: {{path}}",
-    "sampleData": "Beispieldaten"
+    "sampleData": "Beispieldaten",
+    "skipToContent": "Zum Inhalt springen"
   },
   "startup": {
     "failed": "Edikte konnte nicht starten"
@@ -76,5 +84,129 @@
     "cli_update_required": "Dieser Version des Kommandozeilenprogramms fehlen Optionen, die die App braucht. Aktualisieren Sie das Programm und versuchen Sie es erneut.",
     "cli_failed": "Das Kommandozeilenprogramm wurde mit einem Fehler beendet.",
     "internal": "In der App ist ein unerwarteter Fehler aufgetreten."
+  },
+  "nav": {
+    "label": "Hauptnavigation",
+    "listings": "Versteigerungen",
+    "settings": "Einstellungen"
+  },
+  "toast": {
+    "region": "Benachrichtigungen"
+  },
+  "listingStatus": {
+    "upcoming": "Bevorstehend",
+    "postponed": "Verschoben",
+    "cancelled": "Abgesagt",
+    "sold": "Zuschlag erteilt",
+    "closed": "Abgeschlossen"
+  },
+  "noticeType": {
+    "versteigerung": "Versteigerung",
+    "schriftliche_anbote": "Schriftliche Anbote",
+    "verschiebung": "Verschiebung",
+    "entfall": "Entfall des Termins",
+    "zuschlag_ohne_ueberbot": "Zuschlag ohne Überbot",
+    "zuschlag_mit_ueberbot": "Zuschlag mit Überbot",
+    "zuschlag_nach_ueberbot": "Zuschlag nach Überbot",
+    "meistbotsverteilung": "Meistbotsverteilung",
+    "other": "Sonstiges Edikt"
+  },
+  "propertyType": {
+    "apartment": "Wohnung",
+    "house": "Haus",
+    "multi_family_house": "Mehrfamilienhaus",
+    "land": "Grundstück",
+    "agricultural": "Land- und Forstwirtschaft",
+    "commercial": "Gewerbeobjekt",
+    "other": "Sonstiges"
+  },
+  "areaKind": {
+    "nutzflaeche": "Nutzfläche",
+    "wohnflaeche": "Wohnfläche",
+    "grundflaeche": "Grundfläche",
+    "keller": "Keller",
+    "balkon_terrasse": "Balkon oder Terrasse",
+    "garten": "Garten",
+    "sonstige": "Sonstige Fläche"
+  },
+  "areaSource": {
+    "listing": "Edikt",
+    "ai_verified": "KI, geprüft",
+    "ai_unverified": "KI, ungeprüft",
+    "local_estimate": "Textsuche"
+  },
+  "riskLevel": {
+    "low": "Gering",
+    "medium": "Mittel",
+    "high": "Hoch"
+  },
+  "approximate": {
+    "partial_ownership": "Miteigentumsanteil",
+    "multiple_units": "Mehrere Einheiten",
+    "bundled_parking": "Mit Stellplatz",
+    "area_mismatch": "Flächen weichen ab"
+  },
+  "analysisStatus": {
+    "queued": "Wartet",
+    "running": "Läuft",
+    "done": "Analysiert",
+    "failed": "Fehlgeschlagen",
+    "cancelled": "Abgebrochen"
+  },
+  "priceBasis": {
+    "schaetzwert": "Schätzwert",
+    "geringstes_gebot": "Geringstes Gebot"
+  },
+  "bezirk": {
+    "short": "{{number}}.",
+    "full": "{{number}}. Bezirk, {{name}}"
+  },
+  "providerName": {
+    "chatgpt": "ChatGPT",
+    "claude-cli": "Claude (CLI)",
+    "codex-cli": "Codex (CLI)",
+    "openai-api": "OpenAI (API-Schlüssel)",
+    "anthropic-api": "Anthropic (API-Schlüssel)"
+  },
+  "analysisGate": {
+    "queued_one": "Analyse eingereiht",
+    "queued_other": "{{count}} Analysen eingereiht",
+    "failed": "Die Analyse konnte nicht gestartet werden.",
+    "openSettings": "Einstellungen öffnen",
+    "provider": {
+      "noneTitle": "KI-Anbieter auswählen",
+      "noneText": "Analysen laufen über einen KI-Anbieter, bei dem Sie angemeldet sind. Wählen Sie ihn in den Einstellungen aus.",
+      "notReadyTitle": "{{provider}} ist nicht bereit",
+      "notReadyText": "Melden Sie sich in den Einstellungen an oder wählen Sie einen anderen Anbieter."
+    },
+    "consent": {
+      "title": "Gutachten an {{provider}} senden?",
+      "text": "Für eine Analyse sendet die App den Text des Gutachtens und Bilder gescannter Seiten an {{provider}}. Gutachten nennen die Eigentümer und enthalten Grundbuchdaten.",
+      "terms": "Wie diese Daten gespeichert und verwendet werden, regeln die Bedingungen von {{provider}}.",
+      "once": "Sie bestätigen das einmal. Es gilt dann für alle Analysen, auch mit anderen Anbietern.",
+      "accept": "Zustimmen und fortfahren"
+    },
+    "confirm": {
+      "title_one": "Diese Versteigerung analysieren?",
+      "title_other": "{{count}} Versteigerungen analysieren?",
+      "provider": "Anbieter",
+      "model": "Modell",
+      "defaultModel": "Standard des Anbieters",
+      "download": "Vorher laden",
+      "tokens": "Umfang",
+      "tokenCounts": "Etwa {{input}} Tokens Eingabe, {{output}} Tokens Ausgabe",
+      "cost": "Kosten",
+      "estimatedCost": "Etwa {{cost}} zu Listenpreisen",
+      "planCost": "Zählt zum Nutzungslimit Ihres Plans bei {{provider}}",
+      "skipped_one": "Eine Versteigerung hat kein Gutachten und wird übersprungen.",
+      "skipped_other": "{{count}} Versteigerungen haben kein Gutachten und werden übersprungen.",
+      "again_one": "Eine Versteigerung wurde schon analysiert und wird neu analysiert.",
+      "again_other": "{{count}} Versteigerungen wurden schon analysiert und werden neu analysiert.",
+      "start": "Analyse starten"
+    },
+    "nothing": {
+      "title": "Nichts zu analysieren",
+      "text": "Keine dieser Versteigerungen hat ein Gutachten, das analysiert werden kann."
+    }
   }
 }

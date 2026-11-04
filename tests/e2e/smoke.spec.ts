@@ -31,6 +31,9 @@ test('starts the built app, reaches main and switches language', async () => {
     await expect(footer).toContainText(/Version \d+\.\d+\.\d+/)
     await expect(footer).toContainText(userDataDir)
 
+    // A new data folder opens on the first-run screen; finishing it saves a setting.
+    await window.getByRole('button', { name: /^(Weiter|Continue)$/ }).click()
+
     const language = window.getByRole('combobox', { name: /^(Sprache|Language)$/ })
     const heading = window.getByRole('heading', { level: 1 })
     await language.selectOption('de')
