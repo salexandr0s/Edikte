@@ -33,15 +33,6 @@
   "startup": {
     "failed": "Edikte konnte nicht starten"
   },
-  "listings": {
-    "title": "Versteigerungen",
-    "empty": "Noch keine Versteigerungen geladen."
-  },
-  "filters": {
-    "presets": {
-      "wien_under_5000": "Wien unter 5.000 €/m²"
-    }
-  },
   "bundesland": {
     "wien": "Wien",
     "noe": "Niederösterreich",

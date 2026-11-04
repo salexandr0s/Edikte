@@ -1,0 +1,11 @@
+{
+  "listings": {
+    "title": "Versteigerungen",
+    "empty": "Noch keine Versteigerungen geladen."
+  },
+  "filters": {
+    "presets": {
+      "wien_under_5000": "Wien unter 5.000 €/m²"
+    }
+  }
+}

@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BundeslandSchema } from '@shared/enums'
 import { AppErrorCodeSchema } from '@shared/errors'
-import de from '../src/renderer/src/i18n/de.json'
-import en from '../src/renderer/src/i18n/en.json'
+import { resources, translationFiles } from '../src/renderer/src/i18n/resources'
 
 interface Tree {
   [key: string]: string | Tree
@@ -22,9 +21,24 @@ function placeholders(text: string): string[] {
   return [...text.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((match) => match[1] ?? '').sort()
 }
 
-const languages = { de: flatten(de), en: flatten(en) }
+const languages = {
+  de: flatten(resources.de.translation),
+  en: flatten(resources.en.translation),
+}
 
 describe('translations', () => {
+  it('define each namespace in one file only', () => {
+    for (const [language, files] of Object.entries(translationFiles)) {
+      const owners = new Map<string, string>()
+      for (const [file, tree] of Object.entries(files)) {
+        for (const namespace of Object.keys(tree)) {
+          expect(owners.get(namespace), `${language}: ${namespace} in ${file}`).toBeUndefined()
+          owners.set(namespace, file)
+        }
+      }
+    }
+  })
+
   it('have the same keys in German and English', () => {
     expect([...languages.de.keys()].sort()).toEqual([...languages.en.keys()].sort())
   })

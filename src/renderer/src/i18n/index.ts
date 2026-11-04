@@ -1,14 +1,7 @@
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import type { Settings } from '@shared/domain'
-import de from './de.json'
-import en from './en.json'
-
-// Both files have the same keys (tests/i18n.test.ts); en.json types `t`.
-export const resources = {
-  de: { translation: de },
-  en: { translation: en },
-} as const
+import { resources } from './resources'
 
 export type UiLanguage = keyof typeof resources
 

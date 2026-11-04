@@ -1,0 +1,11 @@
+{
+  "listings": {
+    "title": "Auctions",
+    "empty": "No auctions loaded yet."
+  },
+  "filters": {
+    "presets": {
+      "wien_under_5000": "Vienna under €5,000/m²"
+    }
+  }
+}
