@@ -1,0 +1,80 @@
+{
+  "app": {
+    "name": "Edikte"
+  },
+  "language": {
+    "label": "Language",
+    "system": "System language",
+    "de": "Deutsch",
+    "en": "English"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "retry": "Try again",
+    "loading": "Loading…",
+    "unknown": "Unknown",
+    "details": "Technical details"
+  },
+  "shell": {
+    "version": "Version {{version}}",
+    "dataDir": "Data folder: {{path}}",
+    "sampleData": "Sample data"
+  },
+  "startup": {
+    "failed": "Edikte could not start"
+  },
+  "listings": {
+    "title": "Auctions",
+    "empty": "No auctions loaded yet."
+  },
+  "filters": {
+    "presets": {
+      "wien_under_5000": "Vienna under €5,000/m²"
+    }
+  },
+  "bundesland": {
+    "wien": "Vienna",
+    "noe": "Lower Austria",
+    "bgld": "Burgenland",
+    "ooe": "Upper Austria",
+    "sbg": "Salzburg",
+    "stmk": "Styria",
+    "ktn": "Carinthia",
+    "tirol": "Tyrol",
+    "vbg": "Vorarlberg"
+  },
+  "errors": {
+    "invalid_request": "The request was invalid. This is a bug in the app.",
+    "forbidden": "This action is not allowed.",
+    "not_found": "Not found. It may have been removed.",
+    "not_implemented": "This feature is not available yet.",
+    "busy": "Another task is still running. Try again when it has finished.",
+    "cancelled": "Cancelled.",
+    "timeout": "This took too long and was stopped.",
+    "network": "No connection. Check your internet connection and try again.",
+    "site_unavailable": "edikte.justiz.gv.at is not responding. Try again later.",
+    "site_changed": "edikte.justiz.gv.at returned a page the app cannot read. The site may have changed.",
+    "rate_limited": "edikte.justiz.gv.at is limiting requests. Try again in a few minutes.",
+    "document_too_large": "The document is larger than the app's download limit.",
+    "document_unreadable": "The PDF could not be read. It may be damaged or protected.",
+    "storage_unavailable": "The app cannot write to its data folder. Check free disk space and folder permissions.",
+    "database_newer": "The data folder was created by a newer version of Edikte. Install that version to open it.",
+    "consent_required": "Confirm first that the appraisal report text may be sent to your AI provider.",
+    "provider_not_selected": "Choose an AI provider in Settings first.",
+    "provider_not_connected": "The selected AI provider is not signed in. Sign in under Settings.",
+    "provider_auth": "The AI provider rejected the sign-in or API key. Sign in again or check the key.",
+    "provider_billing": "The AI provider reports a billing or plan problem. Check your account with the provider.",
+    "provider_rate_limit": "You have reached the AI provider's usage limit. Try again later.",
+    "provider_refused": "The AI model declined this request.",
+    "provider_incomplete": "The AI model stopped before finishing its answer.",
+    "provider_invalid_output": "The AI model's answer did not have the expected format.",
+    "provider_unavailable": "The AI provider cannot be reached right now. Try again later.",
+    "provider_account_changed": "The signed-in account changed during the analysis, so the result was discarded.",
+    "cli_not_found": "The command-line tool was not found. Install it or choose its file in Settings.",
+    "cli_update_required": "This version of the command-line tool lacks options the app needs. Update it and try again.",
+    "cli_failed": "The command-line tool stopped with an error.",
+    "internal": "An unexpected error occurred in the app."
+  }
+}

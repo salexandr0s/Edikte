@@ -1,0 +1,242 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens from ~/.claude/uiux-contract/design_tokens.json
+ * (tokens.apple-minimal.v1). Only these values exist as utilities:
+ * colors, radii, shadows, font sizes and easings are reset first.
+ * Spacing keeps Tailwind's 4px step, so p-1 = 4px … p-16 = 64px match
+ * the token scale; use only the token steps 0, 0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10, 12, 16.
+ * Controls (button.v1): h-8/px-3 small, h-10/px-4 medium, h-12/px-5 large.
+ * Durations: duration-120, the default 160 and duration-220 only.
+ * Layers: z-(--edk-z-dropdown) and the other --edk-z-* values below.
+ */
+
+@theme {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f4f4f5;
+  --color-neutral-200: #e4e4e7;
+  --color-neutral-300: #d4d4d8;
+  --color-neutral-400: #a1a1aa;
+  --color-neutral-500: #71717a;
+  --color-neutral-600: #52525b;
+  --color-neutral-700: #3f3f46;
+  --color-neutral-800: #27272a;
+  --color-neutral-900: #18181b;
+  --color-neutral-1000: #0a0a0b;
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #0a84ff;
+  --color-blue-600: #0077e6;
+  --color-blue-700: #0062bf;
+  --color-blue-800: #004a99;
+  --color-blue-900: #003373;
+  --color-green-50: #f0fdf4;
+  --color-green-100: #dcfce7;
+  --color-green-200: #bbf7d0;
+  --color-green-300: #86efac;
+  --color-green-400: #4ade80;
+  --color-green-500: #34c759;
+  --color-green-600: #28a745;
+  --color-green-700: #15803d;
+  --color-green-800: #166534;
+  --color-green-900: #14532d;
+  --color-amber-50: #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #ff9f0a;
+  --color-amber-600: #e38700;
+  --color-amber-700: #b45309;
+  --color-amber-800: #92400e;
+  --color-amber-900: #78350f;
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-red-500: #ff3b30;
+  --color-red-600: #e02a21;
+  --color-red-700: #b91c1c;
+  --color-red-800: #991b1b;
+  --color-red-900: #7f1d1d;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', Roboto,
+    Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+
+  --font-weight-*: initial;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --text-*: initial;
+  --text-xs: 12px;
+  --text-xs--line-height: 1.35;
+  --text-sm: 14px;
+  --text-sm--line-height: 1.5;
+  --text-base: 16px;
+  --text-base--line-height: 1.5;
+  --text-lg: 18px;
+  --text-lg--line-height: 1.35;
+  --text-xl: 20px;
+  --text-xl--line-height: 1.35;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 1.35;
+  --text-3xl: 30px;
+  --text-3xl--line-height: 1.2;
+  --text-4xl: 36px;
+  --text-4xl--line-height: 1.2;
+
+  --leading-*: initial;
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  --tracking-*: initial;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.01em;
+
+  --radius-*: initial;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --shadow-*: initial;
+  --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.16);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.2);
+
+  --ease-*: initial;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+
+  --default-transition-duration: 160ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --spacing: 4px;
+}
+
+/* Semantic colors follow the OS appearance (Electron's nativeTheme). */
+:root {
+  color-scheme: light dark;
+  --edk-bg: var(--color-white);
+  --edk-bg-muted: var(--color-neutral-50);
+  --edk-surface: var(--color-white);
+  --edk-surface-elevated: var(--color-white);
+  --edk-fg: var(--color-neutral-900);
+  --edk-fg-muted: var(--color-neutral-600);
+  --edk-border: var(--color-neutral-200);
+  --edk-border-strong: var(--color-neutral-300);
+  --edk-accent: var(--color-blue-500);
+  --edk-accent-hover: var(--color-blue-600);
+  --edk-ring: var(--color-blue-500);
+  --edk-danger: var(--color-red-500);
+  --edk-warning: var(--color-amber-500);
+  --edk-success: var(--color-green-500);
+  --edk-overlay: rgba(0, 0, 0, 0.4);
+
+  /*
+   * Text-safe variants (QG-ACCESS-001, WCAG AA 4.5:1). White text measures
+   * 3.6:1 on accent blue-500 and 4.4:1 on blue-600, so buttons and other
+   * filled controls with text use blue-700 (6.0:1). The 500 status colors
+   * are too light for small text on white; use the *-text colors for text.
+   */
+  --edk-accent-fill: var(--color-blue-700);
+  --edk-accent-fill-hover: var(--color-blue-800);
+  --edk-accent-text: var(--color-blue-700);
+  --edk-danger-text: var(--color-red-700);
+  --edk-warning-text: var(--color-amber-700);
+  --edk-success-text: var(--color-green-700);
+
+  --edk-z-dropdown: 50;
+  --edk-z-sticky: 60;
+  --edk-z-overlay: 70;
+  --edk-z-modal: 80;
+  --edk-z-toast: 90;
+  --edk-z-tooltip: 100;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --edk-bg: var(--color-neutral-1000);
+    --edk-bg-muted: var(--color-neutral-900);
+    --edk-surface: var(--color-neutral-900);
+    --edk-surface-elevated: var(--color-neutral-800);
+    --edk-fg: var(--color-neutral-100);
+    --edk-fg-muted: var(--color-neutral-400);
+    --edk-border: var(--color-neutral-800);
+    --edk-border-strong: var(--color-neutral-700);
+    --edk-overlay: rgba(0, 0, 0, 0.55);
+    --edk-accent-text: var(--color-blue-400);
+    --edk-danger-text: var(--color-red-400);
+    --edk-warning-text: var(--color-amber-400);
+    --edk-success-text: var(--color-green-400);
+  }
+}
+
+@theme inline {
+  --color-bg: var(--edk-bg);
+  --color-bg-muted: var(--edk-bg-muted);
+  --color-surface: var(--edk-surface);
+  --color-surface-elevated: var(--edk-surface-elevated);
+  --color-fg: var(--edk-fg);
+  --color-fg-muted: var(--edk-fg-muted);
+  --color-border: var(--edk-border);
+  --color-border-strong: var(--edk-border-strong);
+  --color-accent: var(--edk-accent);
+  --color-accent-hover: var(--edk-accent-hover);
+  --color-accent-fill: var(--edk-accent-fill);
+  --color-accent-fill-hover: var(--edk-accent-fill-hover);
+  --color-accent-text: var(--edk-accent-text);
+  --color-ring: var(--edk-ring);
+  --color-danger: var(--edk-danger);
+  --color-danger-text: var(--edk-danger-text);
+  --color-warning: var(--edk-warning);
+  --color-warning-text: var(--edk-warning-text);
+  --color-success: var(--edk-success);
+  --color-success-text: var(--edk-success-text);
+  --color-overlay: var(--edk-overlay);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+    }
+  }
+}
