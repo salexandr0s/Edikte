@@ -1,0 +1,9 @@
+out/
+dist/
+release/
+coverage/
+test-results/
+playwright-report/
+corpus/
+package-lock.json
+src/main/db/migrations/
