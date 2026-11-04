@@ -304,34 +304,52 @@ export type AnalysisProgress = z.infer<typeof AnalysisProgressSchema>
 
 export const LanguageSettingSchema = z.enum(['system', 'de', 'en'])
 
-export const SettingsSchema = z.object({
-  language: LanguageSettingSchema.default('system'),
-  syncBundeslaender: z.array(BundeslandSchema).min(1).default(['wien']),
-  autoSync: z.boolean().default(true),
-  priceBasis: PriceBasisSchema.default('schaetzwert'),
-  selectedProvider: ProviderIdSchema.nullable().default(null),
+// Each setting without its default. Zod 4 applies a default even inside an
+// optional field, so a patch schema that inherited the defaults would reset
+// every field a patch leaves out.
+const settingsFields = {
+  language: LanguageSettingSchema,
+  syncBundeslaender: z.array(BundeslandSchema).min(1),
+  autoSync: z.boolean(),
+  priceBasis: PriceBasisSchema,
+  selectedProvider: ProviderIdSchema.nullable(),
   /** Chosen model per provider. */
-  models: z.partialRecord(ProviderIdSchema, z.string().min(1)).default({}),
+  models: z.partialRecord(ProviderIdSchema, z.string().min(1)),
   /** User-chosen CLI binaries. Only set through the main-process file dialog. */
-  cliPaths: z.partialRecord(z.enum(['claude-cli', 'codex-cli']), z.string().min(1)).default({}),
+  cliPaths: z.partialRecord(z.enum(['claude-cli', 'codex-cli']), z.string().min(1)),
   /** When the user accepted that Gutachten text goes to the selected provider. */
-  analysisConsentAt: z.string().nullable().default(null),
-  firstRunCompletedAt: z.string().nullable().default(null),
+  analysisConsentAt: z.string().nullable(),
+  firstRunCompletedAt: z.string().nullable(),
   /** Days to keep downloaded documents after a case closes. */
-  documentRetentionDays: z.number().int().min(1).max(3650).default(90),
+  documentRetentionDays: z.number().int().min(1).max(3650),
+}
+
+export const SettingsSchema = z.object({
+  language: settingsFields.language.default('system'),
+  syncBundeslaender: settingsFields.syncBundeslaender.default(['wien']),
+  autoSync: settingsFields.autoSync.default(true),
+  priceBasis: settingsFields.priceBasis.default('schaetzwert'),
+  selectedProvider: settingsFields.selectedProvider.default(null),
+  models: settingsFields.models.default({}),
+  cliPaths: settingsFields.cliPaths.default({}),
+  analysisConsentAt: settingsFields.analysisConsentAt.default(null),
+  firstRunCompletedAt: settingsFields.firstRunCompletedAt.default(null),
+  documentRetentionDays: settingsFields.documentRetentionDays.default(90),
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
 /** Fields the renderer may change through `settings:update`. */
-export const SettingsPatchSchema = SettingsSchema.pick({
-  language: true,
-  syncBundeslaender: true,
-  autoSync: true,
-  priceBasis: true,
-  analysisConsentAt: true,
-  firstRunCompletedAt: true,
-  documentRetentionDays: true,
-})
+export const SettingsPatchSchema = z
+  .object(settingsFields)
+  .pick({
+    language: true,
+    syncBundeslaender: true,
+    autoSync: true,
+    priceBasis: true,
+    analysisConsentAt: true,
+    firstRunCompletedAt: true,
+    documentRetentionDays: true,
+  })
   .partial()
   .strict()
 export type SettingsPatch = z.infer<typeof SettingsPatchSchema>

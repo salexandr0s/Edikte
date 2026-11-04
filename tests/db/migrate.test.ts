@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS } from '@shared/domain'
+import { DEFAULT_SETTINGS, SettingsPatchSchema } from '@shared/domain'
 import { isAppError } from '@shared/errors'
 import { openDatabase, type AppDatabase } from '../../src/main/db/client'
 import { bundledMigrations, runMigrations } from '../../src/main/db/migrate'
@@ -124,6 +124,18 @@ describe('settings store', () => {
     expect(readSettings(database)).toEqual(DEFAULT_SETTINGS)
     updateSettings(database, { language: 'en', documentRetentionDays: 30 })
     expect(readSettings(database)).toMatchObject({ language: 'en', documentRetentionDays: 30 })
+  })
+
+  it('keeps the fields a settings:update patch leaves out', () => {
+    const database = open()
+    const consentAt = '2026-11-05T08:00:00.000Z'
+    updateSettings(database, { autoSync: false, analysisConsentAt: consentAt })
+    updateSettings(database, SettingsPatchSchema.parse({ language: 'en' }))
+    expect(readSettings(database)).toMatchObject({
+      language: 'en',
+      autoSync: false,
+      analysisConsentAt: consentAt,
+    })
   })
 
   it('drops only the invalid fields of stored settings', () => {
