@@ -38,7 +38,9 @@ electronFuses:
 # --arm64 and --x64 for targets that list their own. The release workflow
 # passes one architecture per job, and `npm run dist:mac` builds for the
 # machine it runs on.
+# build/icon.svg is the source of the icon files; `npm run icons` renders them.
 mac:
+  icon: build/icon.icns
   target:
     - dmg
     - zip
@@ -50,6 +52,7 @@ dmg:
   writeUpdateInfo: false
 
 win:
+  icon: build/icon.ico
   target:
     - nsis
   files:
