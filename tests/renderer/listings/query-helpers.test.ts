@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { ListingQuery, ListingRow } from '@shared/domain'
 import {
+  activeFilters,
   analyzableIds,
   applyPatch,
   applyUserStatePatches,
+  clearFilter,
+  countActiveFilters,
   defaultQuery,
   EMPTY_TRACKER,
   nextPendingUserState,
@@ -158,5 +161,67 @@ describe('pending star and hide changes', () => {
       { kind: 'failed', id: 3 },
     ])
     expect(pendingPatches(changes).get('case-a')).toEqual({ starred: true, hidden: true })
+  })
+})
+
+describe('active filters', () => {
+  const base = defaultQuery('schaetzwert')
+  const patches: Partial<ListingQuery>[] = [
+    { text: ' Favoriten ' },
+    { minPrice: 100_000 },
+    { maxPricePerSqm: 4_000 },
+    { includeWithoutArea: true },
+    { maxArea: 120 },
+    { bundeslaender: ['wien'] },
+    { bezirke: [3, 22] },
+    { propertyTypes: ['apartment'] },
+    { statuses: ['sold'] },
+    { auctionTo: '2027-03-31' },
+    { riskLevels: ['high'] },
+    { analyzedOnly: true },
+    { starredOnly: true },
+    { showHidden: true },
+  ]
+  const all = patches.reduce<ListingQuery>((query, patch) => applyPatch(query, patch), base)
+
+  it('lists one entry per changed filter, in the order of the dialog', () => {
+    expect(activeFilters(base)).toEqual([])
+    expect(activeFilters(all).map((filter) => filter.key)).toEqual([
+      'text',
+      'price',
+      'maxPricePerSqm',
+      'includeWithoutArea',
+      'area',
+      'bundeslaender',
+      'bezirke',
+      'propertyTypes',
+      'statuses',
+      'auctionDate',
+      'riskLevels',
+      'analyzedOnly',
+      'starredOnly',
+      'showHidden',
+    ])
+    expect(activeFilters(all)[0]).toEqual({ key: 'text', text: 'Favoriten' })
+    expect(countActiveFilters(all)).toBe(patches.length)
+  })
+
+  it('counts neither the price basis nor the default statuses in any order', () => {
+    const same = applyPatch(base, {
+      statuses: ['postponed', 'upcoming'],
+      priceBasis: 'geringstes_gebot',
+    })
+    expect(activeFilters(same)).toEqual([])
+    expect(activeFilters(applyPatch(base, { statuses: [] }))).toEqual([
+      { key: 'statuses', values: [] },
+    ])
+  })
+
+  it('clears each filter on its own', () => {
+    for (const filter of activeFilters(all)) {
+      const cleared = applyPatch(all, clearFilter(filter.key))
+      expect(activeFilters(cleared).map((entry) => entry.key)).not.toContain(filter.key)
+      expect(countActiveFilters(cleared)).toBe(patches.length - 1)
+    }
   })
 })

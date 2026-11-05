@@ -4,7 +4,14 @@ import {
   type ListingQuery,
   type ListingRow,
 } from '@shared/domain'
-import type { AnalysisStatus, Bundesland, PriceBasis } from '@shared/enums'
+import type {
+  AnalysisStatus,
+  Bundesland,
+  ListingStatus,
+  PriceBasis,
+  PropertyType,
+  RiskLevel,
+} from '@shared/enums'
 import { parseGermanNumber } from '@shared/parse-numbers'
 
 // Pure helpers for the listings screen. No React and no DOM, so the unit
@@ -59,27 +66,104 @@ export function showsBezirke(bundeslaender: readonly Bundesland[]): boolean {
   return bundeslaender.length === 0 || bundeslaender.includes('wien')
 }
 
-/** Filters that differ from the defaults. Price basis and sort order are not filters. */
+export type ActiveFilter =
+  | { key: 'text'; text: string }
+  | { key: 'price'; min: number | null; max: number | null }
+  | { key: 'maxPricePerSqm'; value: number }
+  | { key: 'includeWithoutArea' }
+  | { key: 'area'; min: number | null; max: number | null }
+  | { key: 'bundeslaender'; values: readonly Bundesland[] }
+  | { key: 'bezirke'; values: readonly number[] }
+  | { key: 'propertyTypes'; values: readonly PropertyType[] }
+  | { key: 'statuses'; values: readonly ListingStatus[] }
+  | { key: 'auctionDate'; from: string | null; to: string | null }
+  | { key: 'riskLevels'; values: readonly RiskLevel[] }
+  | { key: 'analyzedOnly' }
+  | { key: 'starredOnly' }
+  | { key: 'showHidden' }
+
+export type ActiveFilterKey = ActiveFilter['key']
+
+/**
+ * The filters that differ from the defaults, in the order of the filter
+ * dialog. Price basis and sort order are not filters.
+ */
+export function activeFilters(query: ListingQuery): ActiveFilter[] {
+  const filters: ActiveFilter[] = []
+  const text = query.text.trim()
+  if (text !== '') filters.push({ key: 'text', text })
+  if (query.minPrice !== null || query.maxPrice !== null) {
+    filters.push({ key: 'price', min: query.minPrice, max: query.maxPrice })
+  }
+  if (query.maxPricePerSqm !== null) {
+    filters.push({ key: 'maxPricePerSqm', value: query.maxPricePerSqm })
+  }
+  if (query.includeWithoutArea) filters.push({ key: 'includeWithoutArea' })
+  if (query.minArea !== null || query.maxArea !== null) {
+    filters.push({ key: 'area', min: query.minArea, max: query.maxArea })
+  }
+  if (query.bundeslaender.length > 0) {
+    filters.push({ key: 'bundeslaender', values: query.bundeslaender })
+  }
+  if (query.bezirke.length > 0) filters.push({ key: 'bezirke', values: query.bezirke })
+  if (query.propertyTypes.length > 0) {
+    filters.push({ key: 'propertyTypes', values: query.propertyTypes })
+  }
+  if (statusesChanged(query.statuses)) filters.push({ key: 'statuses', values: query.statuses })
+  if (query.auctionFrom !== null || query.auctionTo !== null) {
+    filters.push({ key: 'auctionDate', from: query.auctionFrom, to: query.auctionTo })
+  }
+  if (query.riskLevels.length > 0) filters.push({ key: 'riskLevels', values: query.riskLevels })
+  if (query.analyzedOnly) filters.push({ key: 'analyzedOnly' })
+  if (query.starredOnly) filters.push({ key: 'starredOnly' })
+  if (query.showHidden) filters.push({ key: 'showHidden' })
+  return filters
+}
+
+function statusesChanged(statuses: readonly ListingStatus[]): boolean {
+  return (
+    statuses.length !== DEFAULT_STATUSES.length ||
+    DEFAULT_STATUSES.some((status) => !statuses.includes(status))
+  )
+}
+
+/** The change that takes one filter back to its default. */
+export function clearFilter(key: ActiveFilterKey): Partial<ListingQuery> {
+  switch (key) {
+    case 'text':
+      return { text: '' }
+    case 'price':
+      return { minPrice: null, maxPrice: null }
+    case 'maxPricePerSqm':
+      return { maxPricePerSqm: null }
+    case 'includeWithoutArea':
+      return { includeWithoutArea: false }
+    case 'area':
+      return { minArea: null, maxArea: null }
+    case 'bundeslaender':
+      return { bundeslaender: [] }
+    case 'bezirke':
+      return { bezirke: [] }
+    case 'propertyTypes':
+      return { propertyTypes: [] }
+    case 'statuses':
+      return { statuses: DEFAULT_STATUSES }
+    case 'auctionDate':
+      return { auctionFrom: null, auctionTo: null }
+    case 'riskLevels':
+      return { riskLevels: [] }
+    case 'analyzedOnly':
+      return { analyzedOnly: false }
+    case 'starredOnly':
+      return { starredOnly: false }
+    case 'showHidden':
+      return { showHidden: false }
+  }
+}
+
+/** How many filters differ from the defaults. */
 export function countActiveFilters(query: ListingQuery): number {
-  const statusesChanged =
-    query.statuses.length !== DEFAULT_STATUSES.length ||
-    DEFAULT_STATUSES.some((status) => !query.statuses.includes(status))
-  return [
-    query.bundeslaender.length > 0,
-    query.bezirke.length > 0,
-    query.propertyTypes.length > 0,
-    statusesChanged,
-    query.maxPricePerSqm !== null,
-    query.minArea !== null || query.maxArea !== null,
-    query.minPrice !== null || query.maxPrice !== null,
-    query.auctionFrom !== null || query.auctionTo !== null,
-    query.riskLevels.length > 0,
-    query.analyzedOnly,
-    query.includeWithoutArea,
-    query.starredOnly,
-    query.showHidden,
-    query.text.trim() !== '',
-  ].filter(Boolean).length
+  return activeFilters(query).length
 }
 
 /** The direction a column starts with: soonest, cheapest, largest, newest first. */

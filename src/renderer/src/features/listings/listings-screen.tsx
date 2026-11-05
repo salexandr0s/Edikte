@@ -5,9 +5,10 @@ import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { FilterIcon } from '../../components/ui/icons'
 import { useApp } from '../../lib/app-context'
+import { ActiveFilterChips } from './active-filter-chips'
 import { AnalysisQueueStatus, AnalyzeFilteredButton } from './analysis-actions'
 import { FillAreasButton, FillProgressPanel, useFillJob } from './fill-areas'
-import { FilterPanel } from './filter-panel'
+import { FilterDialog } from './filter-dialog'
 import { ListingResults } from './listing-results'
 import { applyPatch, countActiveFilters, defaultQuery, resetFilters } from './query-helpers'
 import { SavedFilters } from './saved-filters'
@@ -17,12 +18,11 @@ import { useListingPage } from './use-listing-page'
 import { useSync } from './use-sync'
 import { useUserState } from './use-user-state'
 
-/** From Tailwind's `xl` (1280 px) the filters fit beside the table. */
-const WIDE_WINDOW = '(min-width: 80rem)'
-
 /**
  * The auction list. The shell keeps this screen mounted while a listing or
- * Settings is open, so the query lives here and survives navigation.
+ * Settings is open, so the query lives here and survives navigation. The
+ * filters open in a dialog over the list; the chips under the toolbar show
+ * which ones are in force.
  */
 export function ListingsScreen() {
   const { t } = useTranslation()
@@ -34,9 +34,8 @@ export function ListingsScreen() {
     setPriceBasis(settings.priceBasis)
     setQuery((current) => applyPatch(current, { priceBasis: settings.priceBasis }))
   }
-  const [filtersOpen, setFiltersOpen] = useState(() => window.matchMedia(WIDE_WINDOW).matches)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const titleId = useId()
-  const panelId = useId()
 
   const listing = useListingPage(query)
   const userState = useUserState(listing, query)
@@ -62,57 +61,54 @@ export function ListingsScreen() {
         <SyncBar sync={sync} />
       </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant={filtersOpen ? 'secondary' : 'outline'}
-          size="sm"
-          aria-expanded={filtersOpen}
-          aria-controls={panelId}
-          onClick={() => setFiltersOpen((open) => !open)}
-        >
-          <FilterIcon />
-          {t('filters.title')}
-          {activeFilters > 0 && (
-            <Badge size="sm" variant="primary" className="-mr-1">
-              {t('filters.activeCount', { count: activeFilters })}
-            </Badge>
-          )}
-        </Button>
-        <SavedFilters query={query} onApply={setQuery} />
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          <AnalysisQueueStatus rows={userState.rows} tracker={tracker} />
-          <FillAreasButton job={fill} />
-          <AnalyzeFilteredButton rows={userState.rows} tracker={tracker} />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterDialog
+            trigger={
+              <Button variant="outline" size="sm">
+                <FilterIcon />
+                {t('filters.title')}
+                {activeFilters > 0 && (
+                  <Badge size="sm" variant="primary" className="-mr-1">
+                    {t('filters.activeCount', { count: activeFilters })}
+                  </Badge>
+                )}
+              </Button>
+            }
+            open={filtersOpen}
+            onOpenChange={setFiltersOpen}
+            query={query}
+            onChange={updateQuery}
+            onReset={reset}
+            activeCount={activeFilters}
+            matches={listing.page === null ? null : userState.rows.length}
+            loading={listing.loading}
+          />
+          <SavedFilters query={query} onApply={setQuery} />
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            <AnalysisQueueStatus rows={userState.rows} tracker={tracker} />
+            <FillAreasButton job={fill} />
+            <AnalyzeFilteredButton rows={userState.rows} tracker={tracker} />
+          </div>
         </div>
+        <ActiveFilterChips query={query} onChange={updateQuery} onReset={reset} />
       </div>
 
       <FillProgressPanel job={fill} />
 
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
-        <FilterPanel
-          id={panelId}
-          hidden={!filtersOpen}
-          query={query}
-          activeCount={activeFilters}
-          onChange={updateQuery}
-          onReset={reset}
-        />
-        <div className="min-w-0 flex-1">
-          <ListingResults
-            titleId={titleId}
-            query={query}
-            state={listing}
-            rows={userState.rows}
-            tracker={tracker}
-            sync={sync}
-            onSort={(sort) => updateQuery({ sort })}
-            onReset={reset}
-            onOpen={(row) => navigate({ screen: 'detail', id: row.id })}
-            onStar={userState.star}
-            onToggleHidden={userState.toggleHidden}
-          />
-        </div>
-      </div>
+      <ListingResults
+        titleId={titleId}
+        query={query}
+        state={listing}
+        rows={userState.rows}
+        tracker={tracker}
+        sync={sync}
+        onSort={(sort) => updateQuery({ sort })}
+        onReset={reset}
+        onOpen={(row) => navigate({ screen: 'detail', id: row.id })}
+        onStar={userState.star}
+        onToggleHidden={userState.toggleHidden}
+      />
     </div>
   )
 }

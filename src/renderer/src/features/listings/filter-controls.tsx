@@ -16,6 +16,8 @@ export interface ChipOption<T extends string | number> {
 
 interface ChipGroupProps<T extends string | number> {
   label: string
+  /** Keeps the label for screen readers only, when a section title already names the group. */
+  hideLabel?: boolean
   options: readonly ChipOption<T>[]
   selected: readonly T[]
   onChange: (selected: T[]) => void
@@ -32,6 +34,7 @@ const CHIP = cx(
 /** Multiple choice as toggle chips: Tab enters, arrow keys move, Space toggles. */
 export function ChipGroup<T extends string | number>({
   label,
+  hideLabel = false,
   options,
   selected,
   onChange,
@@ -39,7 +42,7 @@ export function ChipGroup<T extends string | number>({
   const labelId = useId()
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <span id={labelId} className="text-sm font-medium text-fg">
+      <span id={labelId} className={cx('text-sm font-medium text-fg', hideLabel && 'sr-only')}>
         {label}
       </span>
       <ToggleGroup.Root
@@ -84,6 +87,7 @@ interface NumberFilterProps {
   onChange: (value: number | null) => void
   /** Maximums must be above zero (ListingQuerySchema). */
   positive?: boolean
+  className?: string
 }
 
 /**
@@ -96,6 +100,7 @@ export function NumberFilter({
   value,
   onChange,
   positive = false,
+  className,
 }: NumberFilterProps) {
   const { t, i18n } = useTranslation()
   const [text, setText] = useState(() => (value === null ? '' : String(value)))
@@ -131,7 +136,7 @@ export function NumberFilter({
   }
 
   return (
-    <Field label={label} hideLabel={hideLabel} error={error}>
+    <Field label={label} hideLabel={hideLabel} error={error} className={className}>
       {(control) => (
         <Input
           {...control}
@@ -156,14 +161,15 @@ interface Range<T> {
 interface RangeFilterProps extends Range<number> {
   label: string
   help?: string
+  className?: string
   onChange: (range: Range<number>) => void
 }
 
 /** Two number fields side by side, "From" and "To" as placeholders. */
-export function RangeFilter({ label, help, min, max, onChange }: RangeFilterProps) {
+export function RangeFilter({ label, help, className, min, max, onChange }: RangeFilterProps) {
   const { t } = useTranslation()
   return (
-    <fieldset className="flex min-w-0 flex-col gap-2">
+    <fieldset className={cx('flex min-w-0 flex-col gap-2', className)}>
       <Legend>{label}</Legend>
       <div className="grid grid-cols-2 gap-2">
         <NumberFilter
@@ -192,15 +198,16 @@ export function RangeFilter({ label, help, min, max, onChange }: RangeFilterProp
 
 interface DateRangeFilterProps extends Range<string> {
   label: string
+  className?: string
   onChange: (range: Range<string>) => void
 }
 
 /** Dates as `YYYY-MM-DD`; a date input reports an incomplete date as "". */
-export function DateRangeFilter({ label, min, max, onChange }: DateRangeFilterProps) {
+export function DateRangeFilter({ label, className, min, max, onChange }: DateRangeFilterProps) {
   const { t } = useTranslation()
   const read = (value: string) => (LocalDateSchema.safeParse(value).success ? value : null)
   return (
-    <fieldset className="flex min-w-0 flex-col gap-2">
+    <fieldset className={cx('flex min-w-0 flex-col gap-2', className)}>
       <Legend>{label}</Legend>
       <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
         <DateBound

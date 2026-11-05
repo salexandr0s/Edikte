@@ -6,6 +6,7 @@ import {
   analysisView,
   areaMismatch,
   checkedSource,
+  daysUntil,
   knownZubehoer,
   nextDocumentProgress,
   pageRanges,
@@ -174,5 +175,21 @@ describe('site text in the detail screen', () => {
     expect(titleAddsToKind('Foto', 'Fotos')).toBe(false)
     expect(titleAddsToKind('Grundriss', 'Plan')).toBe(true)
     expect(titleAddsToKind('Anhang zum Langgutachten', 'Langgutachten')).toBe(true)
+  })
+})
+
+describe('daysUntil', () => {
+  // Local time, like the clock of the computer the app runs on.
+  const now = new Date(2026, 10, 5, 23, 30)
+
+  it('counts calendar days, whatever the time of day', () => {
+    expect(daysUntil('2026-11-05T09:00', now)).toBe(0)
+    expect(daysUntil('2026-11-06T00:15', now)).toBe(1)
+    expect(daysUntil('2026-12-03T10:00', now)).toBe(28)
+    expect(daysUntil('2026-11-01', now)).toBe(-4)
+  })
+
+  it('returns null for text that is not a site date', () => {
+    expect(daysUntil('Dezember 2026', now)).toBeNull()
   })
 })

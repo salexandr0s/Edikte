@@ -1,9 +1,8 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ListingDetail } from '@shared/domain'
 import { bezirkName } from '@shared/wien-bezirke'
 import { Button } from '../../components/ui/button'
-import { Card } from '../../components/ui/card'
 import {
   AlertIcon,
   ChevronLeftIcon,
@@ -16,21 +15,30 @@ import { errorCode, invoke } from '../../lib/bridge'
 import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
 import { joinPresent } from './detail-helpers'
-import { Fact, FactList } from './fact-list'
 import { ListingStatusBadge } from './status-badge'
 import { useOpenExternal } from './use-detail-actions'
+
+/** The way back to the list, shown above the title and while the listing loads. */
+export function BackToListButton({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <Button variant="ghost" size="sm" className="-ml-3 text-fg-muted" onClick={onBack}>
+      <ChevronLeftIcon />
+      {t('detail.backToList')}
+    </Button>
+  )
+}
 
 interface DetailHeaderProps {
   detail: ListingDetail
   onBack: () => void
 }
 
-/** Back button, title, status and actions, then the facts from the edict page. */
+/** Back and the actions on one row, then status, title and address. */
 export function DetailHeader({ detail, onBack }: DetailHeaderProps) {
   const { t } = useTranslation()
   const format = useFormat()
   const openExternal = useOpenExternal()
-  const notStated = t('common.notStated')
 
   const address = joinPresent([detail.street, joinPresent([detail.plz, detail.city], ' ')], ', ')
   const district =
@@ -38,129 +46,49 @@ export function DetailHeader({ detail, onBack }: DetailHeaderProps) {
       ? t('bezirk.full', { number: detail.bezirk, name: bezirkName(detail.bezirk) ?? '' })
       : null
   const location = joinPresent([address, district], ' · ')
-  const landRegister = joinPresent(
-    [
-      detail.grundbuch === null ? null : t('detail.facts.kg', { value: detail.grundbuch }),
-      detail.ez === null ? null : t('detail.facts.ez', { value: detail.ez }),
-    ],
-    ', ',
-  )
 
   return (
     <header className="flex flex-col gap-5">
-      <Button variant="ghost" size="sm" className="-ml-3 self-start text-fg-muted" onClick={onBack}>
-        <ChevronLeftIcon />
-        {t('common.back')}
-      </Button>
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <ListingStatusBadge status={detail.status} />
-            <span className="text-sm text-fg-muted">{t(`noticeType.${detail.noticeType}`)}</span>
-          </div>
-          <h1
-            lang="de"
-            tabIndex={-1}
-            className="text-2xl font-semibold tracking-tight wrap-break-word outline-none"
-          >
-            {detail.title}
-          </h1>
-          <p className="flex items-center gap-1.5 text-sm text-fg-muted">
-            <MapPinIcon className="size-3.5 shrink-0" />
-            <span>{location === '' ? notStated : location}</span>
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <BackToListButton onBack={onBack} />
         <div className="flex flex-wrap gap-2">
           <StarToggle caseKey={detail.caseKey} starred={detail.starred} />
-          <Button variant="outline" onClick={() => void openExternal(detail.url)}>
+          <Button variant="outline" size="sm" onClick={() => void openExternal(detail.url)}>
             {t('common.openOnSite')}
             <ExternalLinkIcon className="text-fg-muted" />
           </Button>
         </div>
       </div>
 
-      {detail.removedAt !== null && (
-        <p className="flex items-center gap-2 rounded-md border border-warning-subtle bg-warning-subtle/40 px-4 py-3 text-sm text-warning-text">
-          <AlertIcon />
-          {t('detail.removed', { date: format.timestamp(detail.removedAt) })}
-        </p>
-      )}
-
-      <Card>
-        <FactList columns={4}>
-          <Fact label={t('detail.facts.auction')}>
-            {detail.auctionAt === null ? notStated : format.localDateTime(detail.auctionAt)}
-          </Fact>
-          <Fact
-            label={t('detail.facts.place')}
-            lang={detail.auctionPlace === null ? undefined : 'de'}
-          >
-            {detail.auctionPlace ?? notStated}
-          </Fact>
-          <Fact label={t('detail.facts.viewing')} lang={detail.viewing === null ? undefined : 'de'}>
-            {detail.viewing ?? notStated}
-          </Fact>
-          <Fact label={t('detail.facts.published')}>
-            {detail.publishedAt === null ? notStated : format.localDate(detail.publishedAt)}
-          </Fact>
-          <Fact label={t('detail.facts.court')} lang={detail.court === null ? undefined : 'de'}>
-            {detail.court ?? notStated}
-          </Fact>
-          <Fact label={t('detail.facts.caseNumber')}>{detail.caseNumber ?? notStated}</Fact>
-          <Fact label={t('detail.facts.propertyType')}>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-muted">
+          <ListingStatusBadge status={detail.status} />
+          <span>{t(`noticeType.${detail.noticeType}`)}</span>
+          <span aria-hidden="true">·</span>
+          <span>
             {t(`propertyType.${detail.propertyType}`)}
-            {detail.categoryLabel !== null && (
-              <span lang="de" className="text-fg-muted">
-                {' '}
-                ({detail.categoryLabel})
-              </span>
-            )}
-          </Fact>
-          <Fact label={t('detail.facts.landRegister')}>
-            {landRegister === '' ? notStated : landRegister}
-          </Fact>
-          {detail.remarks !== null && (
-            <Fact label={t('detail.facts.remarks')} className="col-span-full">
-              <ClampedText text={detail.remarks} />
-            </Fact>
-          )}
-        </FactList>
-      </Card>
-    </header>
-  )
-}
-
-/**
- * Site text that can run to a page, such as the remarks, cut to three lines
- * with a button that shows the rest. The button appears only when lines were cut.
- */
-function ClampedText({ text }: { text: string }) {
-  const { t } = useTranslation()
-  const id = useId()
-  const ref = useRef<HTMLSpanElement>(null)
-  const [expanded, setExpanded] = useState(false)
-  const [cut, setCut] = useState(false)
-  useLayoutEffect(() => {
-    const element = ref.current
-    if (element !== null && !expanded) setCut(element.scrollHeight > element.clientHeight)
-  }, [text, expanded])
-  return (
-    <span className="flex flex-col items-start gap-1">
-      <span id={id} ref={ref} lang="de" className={cx(!expanded && 'line-clamp-3')}>
-        {text}
-      </span>
-      {(cut || expanded) && (
-        <Button
-          variant="link"
-          aria-expanded={expanded}
-          aria-controls={id}
-          onClick={() => setExpanded((open) => !open)}
+            {detail.categoryLabel !== null && <span lang="de"> ({detail.categoryLabel})</span>}
+          </span>
+        </div>
+        <h1
+          lang="de"
+          tabIndex={-1}
+          className="text-3xl font-semibold tracking-tight wrap-break-word outline-none"
         >
-          {expanded ? t('detail.facts.showLess') : t('detail.facts.showMore')}
-        </Button>
-      )}
-    </span>
+          {detail.title}
+        </h1>
+        <p className="flex items-center gap-2 text-base text-fg-muted">
+          <MapPinIcon className="shrink-0" />
+          <span>{location === '' ? t('common.notStated') : location}</span>
+        </p>
+        {detail.removedAt !== null && (
+          <p className="flex items-center gap-2 rounded-md border border-warning-subtle bg-warning-subtle/40 px-4 py-3 text-sm text-warning-text">
+            <AlertIcon />
+            {t('detail.removed', { date: format.timestamp(detail.removedAt) })}
+          </p>
+        )}
+      </div>
+    </header>
   )
 }
 
@@ -195,6 +123,7 @@ function StarToggle({ caseKey, starred }: { caseKey: string; starred: boolean })
   return (
     <Button
       variant="outline"
+      size="sm"
       aria-pressed={shown}
       className={cx(shown && 'border-warning-subtle bg-warning-subtle/40')}
       onClick={() => void toggle()}
