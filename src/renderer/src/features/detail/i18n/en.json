@@ -240,6 +240,10 @@
         "label": "Quote found",
         "hint": "The quote appears on the stated page of the PDF."
       },
+      "wrong_page": {
+        "label": "Found on another page",
+        "hint": "The quote is on a different page than the one the AI cited. The page link goes to the page where it was found."
+      },
       "quote_not_found": {
         "label": "Quote not found",
         "hint": "The quote does not appear on the stated page. Check the value in the PDF."

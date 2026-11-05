@@ -70,6 +70,7 @@ export function toAnalysisRecord(row: AnalysisRow): AnalysisRecord {
   return {
     id: row.id,
     edictId: row.edictId,
+    documentId: parseItems(IntSchema, row.documentIds)[0] ?? null,
     provider: row.provider,
     model: row.model,
     promptVersion: row.promptVersion,
@@ -262,14 +263,14 @@ function analysisArea(analysis: FinishedAnalysis): AreaValue | null {
   const index = analysis.result?.primary_area_index ?? null
   const area = index === null ? undefined : analysis.result?.areas[index]
   if (area === undefined) return null
-  const verified = analysis.evidence.some(
-    (item) => item.path === `areas.${index}` && item.status === 'verified',
-  )
+  const evidence = analysis.evidence.find((item) => item.path === `areas.${index}`)
+  const found = evidence?.status === 'verified' || evidence?.status === 'wrong_page'
   return {
     sqm: area.sqm,
     kind: area.kind,
-    source: verified ? 'ai_verified' : 'ai_unverified',
-    page: area.page,
+    source: found ? 'ai_verified' : 'ai_unverified',
+    // For wrong_page the evidence holds the page where the quote really is.
+    page: found ? (evidence?.page ?? area.page) : area.page,
     quote: area.quote,
     documentId: analysis.documentId,
   }

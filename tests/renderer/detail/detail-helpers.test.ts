@@ -16,6 +16,7 @@ function run(id: number, status: AnalysisRecord['status']): AnalysisRecord {
   return {
     id,
     edictId: EDICT,
+    documentId: null,
     provider: 'claude-cli',
     model: 'opus',
     promptVersion: 1,

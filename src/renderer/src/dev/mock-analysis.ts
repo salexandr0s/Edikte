@@ -45,6 +45,7 @@ export function queuedRecord(
   return {
     id,
     edictId,
+    documentId: null,
     provider,
     model,
     promptVersion: MOCK_PROMPT_VERSION,
@@ -133,14 +134,14 @@ export function analysisArea(record: AnalysisRecord, documentId: number | null):
   const index = record.result?.primary_area_index ?? null
   const area = index === null ? undefined : record.result?.areas[index]
   if (area === undefined) return null
-  const verified = record.evidence.some(
-    (item) => item.path === `areas.${index}` && item.status === 'verified',
-  )
+  const evidence = record.evidence.find((item) => item.path === `areas.${index}`)
+  const found = evidence?.status === 'verified' || evidence?.status === 'wrong_page'
   return {
     sqm: area.sqm,
     kind: area.kind,
-    source: verified ? 'ai_verified' : 'ai_unverified',
-    page: area.page,
+    source: found ? 'ai_verified' : 'ai_unverified',
+    // For wrong_page the evidence holds the page where the quote really is.
+    page: found ? (evidence?.page ?? area.page) : area.page,
     quote: area.quote,
     documentId,
   }

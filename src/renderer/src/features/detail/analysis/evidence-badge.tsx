@@ -5,6 +5,7 @@ import { Badge, type BadgeVariant } from '../../../components/ui/badge'
 
 const VARIANTS: Readonly<Record<EvidenceStatus, BadgeVariant>> = {
   verified: 'success',
+  wrong_page: 'success',
   quote_not_found: 'warning',
   number_mismatch: 'warning',
   scanned_page: 'default',

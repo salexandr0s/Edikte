@@ -12,6 +12,13 @@ export interface EvidenceClaim {
   value: number | null
 }
 
+/** The check's verdict and the page it applies to. */
+export interface EvidenceOutcome {
+  status: EvidenceStatus
+  /** The cited page, or the page where the quote was found when that is another one. */
+  page: number | null
+}
+
 export interface EvidenceContext {
   /** Every page of the document. */
   pages: readonly AnalysisPage[]
@@ -28,15 +35,12 @@ const NUMBER_TOKEN = /\d[\d.,'\u00A0\u2009\u202F]*\d|\d/g
 
 /**
  * Checks every quoted fact against the page it cites: the quote has to appear
- * on that page, and the number in it has to match the extracted value.
+ * on that page, or failing that on another one, and the number in it has to
+ * match the extracted value.
  */
 export function checkEvidence(result: AnalysisResult, context: EvidenceContext): EvidenceItem[] {
   const check = evidenceChecker(context)
-  return evidenceClaims(result).map((claim) => ({
-    path: claim.path,
-    page: claim.page,
-    status: check(claim),
-  }))
+  return evidenceClaims(result).map((claim) => ({ path: claim.path, ...check(claim) }))
 }
 
 export function evidenceClaims(result: AnalysisResult): EvidenceClaim[] {
@@ -70,7 +74,7 @@ export function evidenceClaims(result: AnalysisResult): EvidenceClaim[] {
 
 export function evidenceChecker(
   context: EvidenceContext,
-): (claim: EvidenceClaim) => EvidenceStatus {
+): (claim: EvidenceClaim) => EvidenceOutcome {
   const pages = new Map(context.pages.map((page) => [page.pageNumber, page]))
   const images = new Set(context.imagePages)
   const normalized = new Map<number, string>()
@@ -81,22 +85,44 @@ export function evidenceChecker(
     normalized.set(page.pageNumber, text)
     return text
   }
+  const holds = (page: AnalysisPage, fragments: readonly string[]): boolean =>
+    page.hasText && fragments.every((fragment) => pageText(page).includes(fragment))
 
   return (claim) => {
-    if (claim.quote === null) return 'no_quote'
+    const cited = claim.page
+    if (claim.quote === null) return { status: 'no_quote', page: cited }
     const fragments = quoteFragments(claim.quote)
-    if (fragments.length === 0) return 'no_quote'
-    if (claim.page === null) return 'quote_not_found'
-    const page = pages.get(claim.page)
-    if (page === undefined) return 'page_out_of_range'
-    // A scan has no text to compare with. Unless the model saw its image, it
-    // cannot have read the page at all.
-    if (!page.hasText) return images.has(page.pageNumber) ? 'scanned_page' : 'quote_not_found'
-    const text = pageText(page)
-    if (!fragments.every((fragment) => text.includes(fragment))) return 'quote_not_found'
-    if (claim.value !== null && !containsNumber(claim.quote, claim.value)) return 'number_mismatch'
-    return 'verified'
+    if (fragments.length === 0) return { status: 'no_quote', page: cited }
+    const numberMatches = claim.value === null || containsNumber(claim.quote, claim.value)
+    const page = cited === null ? undefined : pages.get(cited)
+    if (page !== undefined && holds(page, fragments)) {
+      return { status: numberMatches ? 'verified' : 'number_mismatch', page: cited }
+    }
+    // A scan has no text to compare with, but the model may have read its image.
+    if (page !== undefined && !page.hasText && images.has(page.pageNumber)) {
+      return { status: 'scanned_page', page: cited }
+    }
+    // Models often cite the printed page number ("Seite 5"), which can differ
+    // from the PDF page. The nearest other page that holds the quote counts.
+    let found: AnalysisPage | undefined
+    for (const candidate of context.pages) {
+      if (candidate.pageNumber === cited || !holds(candidate, fragments)) continue
+      if (found === undefined || distance(candidate, cited) < distance(found, cited)) {
+        found = candidate
+      }
+    }
+    if (found !== undefined) {
+      return { status: numberMatches ? 'wrong_page' : 'number_mismatch', page: found.pageNumber }
+    }
+    return {
+      status: cited !== null && page === undefined ? 'page_out_of_range' : 'quote_not_found',
+      page: cited,
+    }
   }
+}
+
+function distance(page: AnalysisPage, cited: number | null): number {
+  return Math.abs(page.pageNumber - (cited ?? 0))
 }
 
 /**

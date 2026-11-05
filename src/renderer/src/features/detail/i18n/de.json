@@ -240,6 +240,10 @@
         "label": "Zitat gefunden",
         "hint": "Das Zitat steht auf der angegebenen Seite im PDF."
       },
+      "wrong_page": {
+        "label": "Auf anderer Seite gefunden",
+        "hint": "Das Zitat steht auf einer anderen Seite als der von der KI genannten. Der Seitenlink führt zu der Seite, auf der es steht."
+      },
       "quote_not_found": {
         "label": "Zitat nicht gefunden",
         "hint": "Das Zitat steht nicht auf der angegebenen Seite. Prüfen Sie den Wert im PDF."

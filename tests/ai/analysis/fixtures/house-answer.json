@@ -84,6 +84,13 @@
       "amount_eur": null,
       "page": 6,
       "quote": "Risse im Mauerwerk"
+    },
+    {
+      "text_de": "Die Elektroinstallation ist veraltet.",
+      "text_en": "The wiring is outdated.",
+      "amount_eur": null,
+      "page": 5,
+      "quote": "Die Elektroinstallation entspricht nicht mehr dem Stand der Technik."
     }
   ],
   "interior_inspected": true,
@@ -110,5 +117,7 @@
   "summary_de": "Einfamilienhaus in 1100 Wien mit 71,01 m² Wohnnutzfläche und 64,92 m² Kellergeschoss, Baujahr 1968, von der Eigentümerseite bewohnt. Verkehrswert 556.000 Euro zum 12.03.2024. Feuchtigkeit im Keller und ein Gehrecht für den Nachbarn mindern den Wert.",
   "summary_en": "Detached house in 1100 Vienna with 71.01 m² of living space and a 64.92 m² cellar, built in 1968 and lived in by the owner. Market value 556,000 euros as of 12 March 2024. Damp in the cellar and a neighbour's right of way lower the value.",
   "confidence": "medium",
-  "unread_pages": [99]
+  "unread_pages": [
+    99
+  ]
 }

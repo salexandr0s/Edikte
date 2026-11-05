@@ -114,6 +114,8 @@ export type AnalysisResult = z.infer<typeof AnalysisResultSchema>
 
 export const EvidenceStatusSchema = z.enum([
   'verified',
+  /** The quote is on another page than the one cited; `page` is where it was found. */
+  'wrong_page',
   'quote_not_found',
   'number_mismatch',
   'scanned_page',
@@ -125,6 +127,7 @@ export type EvidenceStatus = z.infer<typeof EvidenceStatusSchema>
 export const EvidenceItemSchema = z.object({
   /** Path into the result, e.g. "areas.0" or "risks.2". */
   path: z.string(),
+  /** Cited PDF page, or for `wrong_page` the page where the quote was found. */
   page: z.number().int().nullable(),
   status: EvidenceStatusSchema,
 })
@@ -144,6 +147,8 @@ export type CrossCheck = z.infer<typeof CrossCheckSchema>
 export const AnalysisRecordSchema = z.object({
   id: z.number().int(),
   edictId: z.string(),
+  /** The Langgutachten the analysis read; result page numbers refer to it. */
+  documentId: z.number().int().nullable(),
   provider: ProviderIdSchema,
   model: z.string(),
   promptVersion: z.number().int(),

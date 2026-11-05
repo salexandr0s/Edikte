@@ -27,6 +27,8 @@ describe('checkEvidence', () => {
       'arrears.0': 'verified',
       'defects.0': 'quote_not_found',
       'defects.1': 'scanned_page',
+      // Cites the printed "Seite 5", which is PDF page 7.
+      'defects.2': 'wrong_page',
       // Hyphenated across a line break on the page.
       'risks.0': 'verified',
       'risks.1': 'page_out_of_range',
@@ -34,6 +36,7 @@ describe('checkEvidence', () => {
     expect(new Set(evidence.map((item) => item.status))).toEqual(
       new Set(EvidenceStatusSchema.options),
     )
+    expect(evidence.find((item) => item.path === 'defects.2')?.page).toBe(7)
   })
 
   it('rejects a quote from a scanned page the model never saw', () => {
@@ -55,12 +58,12 @@ describe('checkEvidence', () => {
     })
     const claim = { path: 'verkehrswert', page: 1 }
     expect(
-      check({ ...claim, quote: 'Verkehrswert (gerundet) … € 556.000,00', value: 556_000 }),
+      check({ ...claim, quote: 'Verkehrswert (gerundet) … € 556.000,00', value: 556_000 }).status,
     ).toBe('verified')
-    expect(check({ ...claim, quote: 'Verkehrswert [...] € 565.000', value: 565_000 })).toBe(
+    expect(check({ ...claim, quote: 'Verkehrswert [...] € 565.000', value: 565_000 }).status).toBe(
       'quote_not_found',
     )
-    expect(check({ ...claim, quote: '…', value: null })).toBe('no_quote')
+    expect(check({ ...claim, quote: '…', value: null }).status).toBe('no_quote')
   })
 })
 
