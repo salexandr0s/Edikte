@@ -28,8 +28,8 @@ import {
  */
 export function createCodexCliProvider(options: CliProviderOptions): AiProvider {
   const runtime = new CliRuntime('codex-cli', options)
-  /** The `--disable` names per installed version. */
-  const disabledFeatures = new Map<string, string[]>()
+  /** The `--disable` names per installed version, or why the version cannot be used. */
+  const disabledFeatures = new Map<string, string[] | string>()
 
   const readAccount = async (cli: ResolvedCli, signal?: AbortSignal): Promise<CliAccount> => {
     const run = await runtime.invoke(cli, ['login', 'status'], {
@@ -43,7 +43,8 @@ export function createCodexCliProvider(options: CliProviderOptions): AiProvider 
    * The features to switch off, read with `codex features list` once per
    * version. A string says why the version cannot be used: a run without the
    * list, without the shell features in it, or with a shell_tool that the
-   * flags leave on would keep shell access.
+   * flags leave on would keep shell access. Failed runs are not cached, since
+   * they may not happen again; what a list says is.
    */
   const readFeatures = async (
     cli: ResolvedCli,
@@ -52,14 +53,18 @@ export function createCodexCliProvider(options: CliProviderOptions): AiProvider 
   ): Promise<string[] | string> => {
     const key = versionKey(cli, version)
     const cached = disabledFeatures.get(key)
-    if (cached) return cached
+    if (cached !== undefined) return cached
     const run = await runtime.invoke(cli, ['features', 'list'], {
       timeoutMs: runtime.limits.probeTimeoutMs,
       signal,
     })
     if (run.exitCode !== 0) return `codex features list ${describeExit(run.exitCode)}`
     const names = codexFeaturesToDisable(parseCodexFeatures(run.stdout))
-    if (!names) return `codex features list lacks ${CODEX_SHELL_FEATURES.join(' or ')}`
+    if (!names) {
+      const reason = `codex features list lacks ${CODEX_SHELL_FEATURES.join(' or ')}`
+      disabledFeatures.set(key, reason)
+      return reason
+    }
     // The same list again with the flags, to see that they take.
     const check = await runtime.invoke(cli, [...codexDisableArgs(names), 'features', 'list'], {
       timeoutMs: runtime.limits.probeTimeoutMs,
@@ -69,7 +74,9 @@ export function createCodexCliProvider(options: CliProviderOptions): AiProvider 
       return `codex features list with --disable ${describeExit(check.exitCode)}`
     }
     if (!codexShellToolOff(parseCodexFeatures(check.stdout))) {
-      return 'codex --disable shell_tool has no effect'
+      const reason = 'codex --disable shell_tool has no effect'
+      disabledFeatures.set(key, reason)
+      return reason
     }
     disabledFeatures.set(key, names)
     return names
