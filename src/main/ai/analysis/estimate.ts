@@ -6,12 +6,15 @@ import { planPages } from './page-plan'
 import { buildSystemPrompt } from './prompt'
 import type { AnalysisPage } from './types'
 
-/** German report text runs at 3 to 4 characters per token; 3 keeps estimates on the high side. */
-export const CHARS_PER_TOKEN = 3
-/** A page image 1,600 px on the long side costs about this many input tokens on Claude, less on OpenAI. */
-export const TOKENS_PER_IMAGE = 1_600
+// Measured on a real analysis in November 2026: a Gutachten with 61,247
+// characters of text and 3 page images took about 46,000 input tokens on
+// Claude and 12,700 output tokens.
+/** German report text, with its numbers and tables, runs at about 2 characters per token. */
+export const CHARS_PER_TOKEN = 2
+/** A 1,600 by 1,130 px page image costs width × height / 750 tokens on Claude, less on OpenAI. */
+export const TOKENS_PER_IMAGE = 2_400
 /** The JSON answer in two languages plus the reasoning tokens models bill as output. */
-export const OUTPUT_TOKENS_PER_ANALYSIS = 8_000
+export const OUTPUT_TOKENS_PER_ANALYSIS = 13_000
 // For a Gutachten not downloaded yet. The two sample reports had 25,000 and
 // 62,000 characters of text and 8 and 2 scanned pages.
 const UNKNOWN_DOCUMENT_CHARS = 60_000

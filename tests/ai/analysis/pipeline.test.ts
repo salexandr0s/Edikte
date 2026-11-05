@@ -91,7 +91,7 @@ describe('runAnalysis', () => {
     const outcome = await runAnalysis(input(provider, { imagesSupported: false }), signal())
     expect(provider.requests[0]?.content).toHaveLength(1)
     expect(userText(provider.requests[0])).toContain(
-      'Scanned pages without an image, which you cannot read: 6, 12.',
+      'Scanned pages without an image, which you cannot read beyond any text given for them above: 6, 12.',
     )
     expect(outcome.result.unread_pages).toEqual([6, 12])
     expect(statusOf(outcome.evidence, 'defects.1')).toBe('quote_not_found')
@@ -153,6 +153,47 @@ describe('runAnalysis', () => {
       inputTokens: 2_000,
       outputTokens: 400,
       costUsd: null,
+    })
+  })
+
+  it('adds what failed attempts used to the usage of the run', async () => {
+    const usage = { inputTokens: 5_000, outputTokens: 32_000, costUsd: 0.5 }
+    const provider = fakeProvider('anthropic-api', [
+      {
+        error: new ProviderError('anthropic-api', 'provider_incomplete', 'Cut off (max_tokens)', {
+          usage,
+        }),
+      },
+      { json: houseAnswer, usage: { costUsd: 0.25 } },
+    ])
+    expect(await runAnalysis(input(provider), signal())).toMatchObject({
+      attempts: 2,
+      inputTokens: 6_000,
+      outputTokens: 32_200,
+      costUsd: 0.75,
+    })
+  })
+
+  it('does not retry when the pages do not fit the context window', async () => {
+    const usage = { inputTokens: 190_000, outputTokens: 10_000, costUsd: 0.7 }
+    const provider = fakeProvider('anthropic-api', [
+      {
+        error: new ProviderError(
+          'anthropic-api',
+          'document_too_large',
+          'The pages do not fit the context window (model_context_window_exceeded)',
+          { usage },
+        ),
+      },
+      { json: houseAnswer },
+    ])
+    const error = await runAnalysis(input(provider), signal()).catch((caught: unknown) => caught)
+    expect(provider.requests).toHaveLength(1)
+    expect(analysisFailure(error)).toMatchObject({
+      error: { code: 'document_too_large' },
+      inputTokens: 190_000,
+      outputTokens: 10_000,
+      costUsd: 0.7,
     })
   })
 

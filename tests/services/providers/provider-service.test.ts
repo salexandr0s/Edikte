@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AppError } from '@shared/errors'
+import type { ProviderId } from '@shared/providers'
 import { readSettings, updateSettings } from '../../../src/main/db/settings-store'
 import {
   detectionFor,
   failureCode,
+  gate,
   openHarness,
   stateOf,
   statusIn,
@@ -158,5 +160,36 @@ describe('active provider', () => {
 
     h.service.select('anthropic-api')
     expect((await h.service.active()).model).toBe('anthropic-api-default')
+  })
+
+  it('tells listeners about a new selection, only when it changed', async () => {
+    const h = open({ states: { 'openai-api': 'ready' } })
+    await h.service.detect()
+    const seen: (ProviderId | null)[] = []
+    const stop = h.service.onSelectionChange((selected) => seen.push(selected))
+
+    h.service.select('claude-cli')
+    h.service.select('claude-cli')
+    h.service.select('openai-api')
+    await h.service.disconnect('openai-api')
+    stop()
+    h.service.select('claude-cli')
+
+    expect(seen).toEqual(['claude-cli', 'openai-api', null])
+  })
+
+  it('stops waiting for detection when the signal aborts, and dispose aborts the checks', async () => {
+    const h = open()
+    const held = gate()
+    h.providers['claude-cli'].detectGate = held.promise
+    const controller = new AbortController()
+
+    const waiting = h.service.active(controller.signal)
+    controller.abort()
+    expect(await failureCode(() => waiting)).toBe('cancelled')
+
+    h.service.dispose()
+    expect(h.providers['claude-cli'].detectSignal?.aborted).toBe(true)
+    held.release()
   })
 })

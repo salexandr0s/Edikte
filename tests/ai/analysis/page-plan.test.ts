@@ -72,3 +72,25 @@ describe('planPages', () => {
     expect(plan.textChars).toBe(charsOf(kept))
   })
 })
+
+describe('planPages with short text pages', () => {
+  const pages: AnalysisPage[] = [
+    { pageNumber: 1, printedLabel: null, hasText: true, text: 'Befund und Bewertung der Wohnung' },
+    {
+      pageNumber: 2,
+      printedLabel: null,
+      hasText: false,
+      text: 'Wien, am 3. März 2025\nUnterschrift',
+    },
+    { pageNumber: 3, printedLabel: null, hasText: false, text: '' },
+  ]
+
+  it('sends any text and renders the pages without enough text of their own', () => {
+    const plan = planPages(pages, { imagesSupported: true })
+    expect(plan.textPages.map((page) => page.pageNumber)).toEqual([1, 2])
+    expect(plan.imagePages).toEqual([2, 3])
+    const textOnly = planPages(pages, { imagesSupported: false })
+    expect(textOnly.textPages.map((page) => page.pageNumber)).toEqual([1, 2])
+    expect(textOnly.unreadPages).toEqual([2, 3])
+  })
+})

@@ -212,9 +212,10 @@ describe('AnalysisQueue', () => {
     expect(pending.map((item) => memory.status(item.analysisId))).toEqual(['done', 'done', 'done'])
   })
 
-  it('keeps going when a status cannot be stored', async () => {
+  it('stores a result it cannot write as failed, without asking the provider again', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const { store, status } = memoryStore()
+    const { store, rows } = memoryStore()
+    const run = vi.fn(instantRunner)
     const queue = new AnalysisQueue({
       store: {
         ...store,
@@ -222,11 +223,45 @@ describe('AnalysisQueue', () => {
           throw new Error('Disk full')
         },
       },
-      run: instantRunner,
+      run,
+      storeRetryMs: 0,
     })
     queue.enqueue([job(1), job(2)])
     await queue.idle()
-    expect([status(1), status(2)]).toEqual(['running', 'running'])
-    expect(logged).toHaveBeenCalledTimes(2)
+    expect(run).toHaveBeenCalledTimes(2)
+    expect(rows.get(1)).toMatchObject({
+      status: 'failed',
+      failure: {
+        error: { code: 'storage_unavailable' },
+        rawResponse: '{}',
+        inputTokens: null,
+        outputTokens: null,
+        costUsd: null,
+      },
+    })
+    expect(rows.get(2)?.status).toBe('failed')
+    // Two attempts per job before it is stored as failed.
+    expect(logged).toHaveBeenCalledTimes(4)
+  })
+
+  it('reports the listings of a cancel at once', async () => {
+    const changes: string[][] = []
+    const queue = new AnalysisQueue({
+      store: memoryStore().store,
+      run: controlledRunner().run,
+      onStatusChange: (edictIds) => changes.push(edictIds),
+    })
+    queue.enqueue([job(1), job(2), job(3)])
+    await flush()
+    changes.length = 0
+    expect(queue.owns(3)).toBe(true)
+
+    expect(await queue.cancel({ all: true })).toBe(3)
+    expect(queue.owns(3)).toBe(false)
+    await queue.idle()
+    // The waiting jobs in one call; the running one when its run has stopped.
+    expect(changes).toHaveLength(2)
+    expect(changes).toContainEqual([job(2).edictId, job(3).edictId])
+    expect(changes).toContainEqual([job(1).edictId])
   })
 })

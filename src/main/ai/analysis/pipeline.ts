@@ -8,12 +8,18 @@ import {
 import { AppError, isAppError, type AppErrorCode, type AppErrorShape } from '@shared/errors'
 import type { ProviderId } from '@shared/providers'
 import { log } from '../../log'
-import type { AiProvider, AnalysisRequest, AnalysisResponse, AnalysisUsage } from '../provider'
+import {
+  ProviderError,
+  type AiProvider,
+  type AnalysisRequest,
+  type AnalysisResponse,
+  type AnalysisUsage,
+} from '../provider'
 import { runCrossChecks } from './cross-checks'
 import { analysisCostUsd, roundUsd } from './estimate'
 import { checkEvidence } from './evidence'
 import { ANALYSIS_SCHEMA_NAME, analysisJsonSchema } from './json-schema'
-import { MAX_IMAGES, pageChars, planPages } from './page-plan'
+import { MAX_IMAGES, planPages } from './page-plan'
 import { PROMPT_VERSION, buildContent, buildSystemPrompt, correctionNote } from './prompt'
 import type { AnalysisPage, EdictFacts, RenderPages, RenderedPage } from './types'
 
@@ -165,7 +171,7 @@ export async function runAnalysis(
     ...plan.unreadPages,
     ...plan.imagePages.filter((page) => !imagePages.includes(page)),
   ])
-  if (images.length === 0 && plan.textPages.every((page) => pageChars(page) === 0)) {
+  if (images.length === 0 && plan.textPages.length === 0) {
     throw new AppError('document_unreadable', 'The Gutachten has no page text or images to analyze')
   }
 
@@ -179,7 +185,7 @@ export async function runAnalysis(
     },
     images,
   )
-  const { result, responses, attempts } = await ask(
+  const { result, responses, usage, attempts } = await ask(
     provider,
     {
       model,
@@ -203,7 +209,6 @@ export async function runAnalysis(
       ...unreadPages,
     ]),
   }
-  const usage = usageOf(provider.id, model, responses)
   const last = responses.at(-1)
   const reportedModel = last?.model.trim() ?? ''
   return {
@@ -228,7 +233,15 @@ export async function runAnalysis(
 interface Answer {
   result: AnalysisResult
   responses: AnalysisResponse[]
+  /** Every attempt, failed requests that reported their usage included. */
+  usage: AnalysisUsage
   attempts: number
+}
+
+/** What one request used, with the model it is priced by. */
+interface Spend {
+  model: string
+  usage: AnalysisUsage
 }
 
 async function ask(
@@ -238,12 +251,13 @@ async function ask(
   report: (event: AnalysisStepEvent) => void,
 ): Promise<Answer> {
   const responses: AnalysisResponse[] = []
+  const spent: Spend[] = []
   const fail = (error: AppError, attempt: number, cause?: unknown): AnalysisRunError =>
     new AnalysisRunError(
       error.code,
       error.message,
       responses.length === 0 ? null : joinRaw(responses),
-      usageOf(provider.id, request.model, responses),
+      usageOf(provider.id, spent),
       attempt,
       { cause: cause ?? error },
     )
@@ -259,6 +273,10 @@ async function ask(
         (event) => report({ step: 'asking', attempt, outputTokens: event.outputTokens }),
       )
     } catch (error) {
+      // A failed request can still be billed, e.g. an answer cut off at the output limit.
+      if (error instanceof ProviderError && error.usage !== null) {
+        spent.push({ model: request.model, usage: error.usage })
+      }
       if (signal.aborted) throw cancelledError(error)
       if (attempt < MAX_ATTEMPTS && isRetryable(error)) {
         correction = correctionNote([])
@@ -267,6 +285,7 @@ async function ask(
       throw fail(toAppError(error), attempt, error)
     }
     responses.push(response)
+    spent.push({ model: response.model.trim() || request.model, usage: response.usage })
     if (accountChanged(responses)) {
       throw fail(
         new AppError('provider_account_changed', 'The provider account changed between attempts'),
@@ -274,7 +293,10 @@ async function ask(
       )
     }
     const parsed = parseAnalysisAnswer(response.json)
-    if (parsed.ok) return { result: parsed.result, responses, attempts: attempt }
+    if (parsed.ok) {
+      const usage = usageOf(provider.id, spent)
+      return { result: parsed.result, responses, usage, attempts: attempt }
+    }
     if (attempt >= MAX_ATTEMPTS) {
       throw fail(
         new AppError(
@@ -314,29 +336,21 @@ async function renderImages(
   }
 }
 
-function usageOf(
-  provider: ProviderId,
-  model: string,
-  responses: readonly AnalysisResponse[],
-): AnalysisUsage {
-  const reported = sumOrNull(responses.map((response) => response.usage.costUsd))
+function usageOf(provider: ProviderId, spent: readonly Spend[]): AnalysisUsage {
+  const reported = sumOrNull(spent.map(({ usage }) => usage.costUsd))
   return {
-    inputTokens: sumOrNull(responses.map((response) => response.usage.inputTokens)),
-    outputTokens: sumOrNull(responses.map((response) => response.usage.outputTokens)),
-    costUsd: reported ?? computedCost(provider, model, responses),
+    inputTokens: sumOrNull(spent.map(({ usage }) => usage.inputTokens)),
+    outputTokens: sumOrNull(spent.map(({ usage }) => usage.outputTokens)),
+    costUsd: reported ?? computedCost(provider, spent),
   }
 }
 
 // API-key providers that report no cost get one from the price table.
-function computedCost(
-  provider: ProviderId,
-  model: string,
-  responses: readonly AnalysisResponse[],
-): number | null {
-  if (responses.length === 0) return null
+function computedCost(provider: ProviderId, spent: readonly Spend[]): number | null {
+  if (spent.length === 0) return null
   let total = 0
-  for (const response of responses) {
-    const cost = analysisCostUsd(provider, response.model.trim() || model, response.usage)
+  for (const { model, usage } of spent) {
+    const cost = analysisCostUsd(provider, model, usage)
     if (cost === null) return null
     total += cost
   }
@@ -368,6 +382,8 @@ function accountChanged(responses: readonly AnalysisResponse[]): boolean {
   return first != null && last != null && first !== last
 }
 
+// Pages that do not fit the model's context window come as document_too_large,
+// which is not retried: the same pages would fail again and cost as much.
 function isRetryable(error: unknown): boolean {
   return (
     isAppError(error) &&

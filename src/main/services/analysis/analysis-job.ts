@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { AppError, isAppError } from '@shared/errors'
-import type { ProviderStatus } from '@shared/providers'
+import type { ProviderId, ProviderStatus } from '@shared/providers'
 import type { AnalysisJobRunner, AnalysisJobStep } from '../../ai/analysis/batch'
 import { runAnalysis } from '../../ai/analysis/pipeline'
 import type { RenderPages } from '../../ai/analysis/types'
@@ -21,8 +21,13 @@ export interface ActiveProvider {
 
 /** Implemented by the providers service. */
 export interface ActiveProviderSource {
-  /** The selected, ready provider and the model to use. Throws provider_not_selected or provider_not_connected. */
-  active(): Promise<ActiveProvider>
+  /**
+   * The selected, ready provider and the model to use. Throws provider_not_selected
+   * or provider_not_connected, and `cancelled` once `signal` aborts.
+   */
+  active(signal?: AbortSignal): Promise<ActiveProvider>
+  /** Calls `listener` with the new selection after it changed. Returns the unsubscribe function. */
+  onSelectionChange(listener: (selected: ProviderId | null) => void): () => void
 }
 
 /** `renderPdfPages` from src/main/documents/raster.ts with the raster page location bound. */
@@ -50,7 +55,7 @@ export function createJobRunner(deps: JobRunnerDeps): AnalysisJobRunner {
       current = next
       onStep(next)
     }
-    const { provider } = await deps.providers.active()
+    const { provider } = await deps.providers.active(signal)
     // A job keeps its provider (batch.ts), and only the selected one can be reached.
     if (provider.id !== job.provider) {
       throw new AppError('provider_not_selected', `The job was queued for ${job.provider}`)

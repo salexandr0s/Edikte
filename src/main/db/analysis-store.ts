@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, notInArray, type SQL } from 'drizzle-orm'
 import type { AnalysisRecord } from '@shared/analysis-schema'
 import type { AnalysisStatus } from '@shared/enums'
 import type { ProviderId } from '@shared/providers'
@@ -115,6 +115,30 @@ export function createAnalysisJobStore(db: AppDatabase): AnalysisJobStore {
     markCancelled: (analysisId, finishedAt) =>
       update(analysisId, { status: 'cancelled', finishedAt }),
   }
+}
+
+/**
+ * Marks pending rows cancelled in one statement: those of `providers` (every
+ * provider when null), except the jobs in `keep`, whose queue stores how they
+ * end. Returns the edicts of the rows it changed.
+ */
+export function cancelPendingAnalyses(
+  db: AppDatabase,
+  options: { keep: readonly number[]; providers: readonly ProviderId[] | null; finishedAt: string },
+): string[] {
+  const rows = db
+    .update(analyses)
+    .set({ status: 'cancelled', finishedAt: options.finishedAt })
+    .where(
+      and(
+        inArray(analyses.status, PENDING_STATUSES),
+        options.providers === null ? undefined : inArray(analyses.provider, [...options.providers]),
+        options.keep.length === 0 ? undefined : notInArray(analyses.id, [...options.keep]),
+      ),
+    )
+    .returning({ edictId: analyses.edictId })
+    .all()
+  return [...new Set(rows.map((row) => row.edictId))]
 }
 
 /** Every analysis of an edict, newest first. */

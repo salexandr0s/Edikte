@@ -44,11 +44,18 @@ export interface AnalysisQueueOptions {
   store: AnalysisJobStore
   run: AnalysisJobRunner
   onProgress?: (progress: AnalysisProgress) => void
+  /** Edicts whose job started or ended. A cancel reports all of its jobs in one call. */
+  onStatusChange?: (edictIds: string[]) => void
   /** ISO UTC time for startedAt and finishedAt. */
   now?: () => string
+  /** Wait before a result that could not be stored is written again. */
+  storeRetryMs?: number
 }
 
 type FinalStatus = Extract<AnalysisProgress['status'], 'done' | 'failed' | 'cancelled'>
+
+/** Writes of a finished result before the job is stored as failed instead. */
+const RESULT_WRITE_ATTEMPTS = 2
 
 interface RunningJob {
   job: AnalysisJob
@@ -75,14 +82,18 @@ export class AnalysisQueue {
   private readonly store: AnalysisJobStore
   private readonly run: AnalysisJobRunner
   private readonly onProgress: (progress: AnalysisProgress) => void
+  private readonly onStatusChange: (edictIds: string[]) => void
   private readonly now: () => string
+  private readonly storeRetryMs: number
   private stopped = false
 
   constructor(options: AnalysisQueueOptions) {
     this.store = options.store
     this.run = options.run
     this.onProgress = options.onProgress ?? (() => undefined)
+    this.onStatusChange = options.onStatusChange ?? (() => undefined)
     this.now = options.now ?? (() => new Date().toISOString())
+    this.storeRetryMs = options.storeRetryMs ?? 1000
   }
 
   /** Queues the jobs the last session left pending. Returns how many were queued. */
@@ -95,7 +106,7 @@ export class AnalysisQueue {
     if (this.stopped) return 0
     const added: AnalysisJob[] = []
     for (const job of jobs) {
-      if (this.has(job.analysisId)) continue
+      if (this.owns(job.analysisId)) continue
       this.lane(job.provider).waiting.push(job)
       added.push(job)
     }
@@ -104,7 +115,10 @@ export class AnalysisQueue {
     return added.length
   }
 
-  /** Cancels matching jobs and returns how many there were. A running job ends once its run stops. */
+  /**
+   * Cancels matching jobs and returns how many there were. A running job ends
+   * once its run stops; until then the queue still owns it.
+   */
   async cancel(target: AnalysisCancelTarget): Promise<number> {
     const removed: AnalysisJob[] = []
     let running = 0
@@ -122,7 +136,25 @@ export class AnalysisQueue {
       await this.write(job, () => this.store.markCancelled(job.analysisId, this.now()))
       this.emit(job, 'cancelled', null)
     }
+    this.statusChanged(removed)
     return removed.length + running
+  }
+
+  /** Whether the job is queued or running here. Pending rows the queue does not own are left over. */
+  owns(analysisId: number): boolean {
+    for (const lane of this.lanes.values()) {
+      if (lane.running?.job.analysisId === analysisId) return true
+      if (lane.waiting.some((job) => job.analysisId === analysisId)) return true
+    }
+    return false
+  }
+
+  /** IDs of the jobs queued or running here. */
+  ownedIds(): number[] {
+    return [...this.lanes.values()].flatMap((lane) => [
+      ...(lane.running === null ? [] : [lane.running.job.analysisId]),
+      ...lane.waiting.map((job) => job.analysisId),
+    ])
   }
 
   /** Jobs queued or running, for one provider or for all. */
@@ -173,7 +205,10 @@ export class AnalysisQueue {
       lane.running = current
       const status = await this.execute(current)
       lane.running = null
-      if (status !== null) this.emit(job, status, null)
+      if (status !== null) {
+        this.emit(job, status, null)
+        this.statusChanged([job])
+      }
       if (this.stopped) return
     }
   }
@@ -182,16 +217,15 @@ export class AnalysisQueue {
   private async execute(current: RunningJob): Promise<FinalStatus | null> {
     const { job } = current
     const { signal } = current.controller
+    let outcome: AnalysisOutcome
     try {
       await this.store.markRunning(job.analysisId, this.now())
       if (signal.aborted) throw new AppError('cancelled', 'Analysis cancelled')
       this.emit(job, 'running', null)
-      const outcome = await this.run(job, signal, (step) => {
+      this.statusChanged([job])
+      outcome = await this.run(job, signal, (step) => {
         if (!signal.aborted) this.emit(job, 'running', step)
       })
-      // A run that completes despite a late cancel keeps its result: it has been paid for.
-      await this.write(job, () => this.store.markDone(job.analysisId, outcome, this.now()))
-      return 'done'
     } catch (error) {
       if (signal.aborted && !current.cancelled) return null
       if (current.cancelled || (isAppError(error) && error.code === 'cancelled')) {
@@ -202,6 +236,38 @@ export class AnalysisQueue {
       await this.write(job, () => this.store.markFailed(job.analysisId, failure, this.now()))
       return 'failed'
     }
+    // A run that completes despite a late cancel keeps its result: it has been paid for.
+    return this.storeOutcome(job, outcome)
+  }
+
+  /**
+   * Stores a finished run, trying again once. A result that cannot be stored
+   * ends the job as failed with what the run spent and received, so a restart
+   * does not pay for the same analysis twice.
+   */
+  private async storeOutcome(job: AnalysisJob, outcome: AnalysisOutcome): Promise<FinalStatus> {
+    for (let attempt = 1; attempt <= RESULT_WRITE_ATTEMPTS; attempt += 1) {
+      if (attempt > 1) await delay(this.storeRetryMs)
+      try {
+        await this.store.markDone(job.analysisId, outcome, this.now())
+        return 'done'
+      } catch (error) {
+        log.error(
+          'analysis-queue',
+          `Could not store the result of analysis ${job.analysisId}`,
+          errorName(error),
+        )
+      }
+    }
+    const failure: AnalysisFailure = {
+      error: { code: 'storage_unavailable', message: 'The analysis result could not be saved' },
+      rawResponse: outcome.rawResponse,
+      inputTokens: outcome.inputTokens,
+      outputTokens: outcome.outputTokens,
+      costUsd: outcome.costUsd,
+    }
+    await this.write(job, () => this.store.markFailed(job.analysisId, failure, this.now()))
+    return 'failed'
   }
 
   private emit(
@@ -224,6 +290,15 @@ export class AnalysisQueue {
     }
   }
 
+  private statusChanged(jobs: readonly AnalysisJob[]): void {
+    if (jobs.length === 0) return
+    try {
+      this.onStatusChange([...new Set(jobs.map((job) => job.edictId))])
+    } catch (error) {
+      log.error('analysis-queue', 'Status listener failed', errorName(error))
+    }
+  }
+
   // The run is over either way; one failed write must not stop the queue.
   private async write(job: AnalysisJob, action: () => void | Promise<void>): Promise<void> {
     try {
@@ -235,14 +310,6 @@ export class AnalysisQueue {
         errorName(error),
       )
     }
-  }
-
-  private has(analysisId: number): boolean {
-    for (const lane of this.lanes.values()) {
-      if (lane.running?.job.analysisId === analysisId) return true
-      if (lane.waiting.some((job) => job.analysisId === analysisId)) return true
-    }
-    return false
   }
 
   private lane(provider: ProviderId): Lane {
@@ -259,6 +326,10 @@ function matches(job: AnalysisJob, target: AnalysisCancelTarget): boolean {
   if ('all' in target) return true
   if ('provider' in target) return job.provider === target.provider
   return job.analysisId === target.analysisId
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 // Error codes and names only: messages may quote stored data.

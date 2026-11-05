@@ -64,11 +64,18 @@ export interface ProviderService {
   /** Fails with `cancelled` when the user closes the dialog. */
   chooseCliPath(id: CliProviderId): Promise<ProviderStatus>
   resetCliPath(id: CliProviderId): Promise<ProviderStatus>
-  /** The selected provider if it is ready, and the model to use. For the analysis service. */
-  active(): Promise<ActiveProvider>
-  /** Aborts running sign-ins. Nothing is emitted afterwards. */
+  /**
+   * The selected provider if it is ready, and the model to use. For the analysis
+   * service; fails with `cancelled` once `signal` aborts.
+   */
+  active(signal?: AbortSignal): Promise<ActiveProvider>
+  /** Calls `listener` with the new selection after it changed. Returns the unsubscribe function. */
+  onSelectionChange(listener: SelectionListener): () => void
+  /** Aborts running sign-ins and checks. Nothing is emitted afterwards. */
   dispose(): void
 }
+
+export type SelectionListener = (selected: ProviderId | null) => void
 
 interface SignIn {
   controller: AbortController
@@ -98,6 +105,9 @@ export function createProviderService(deps: ProviderServiceDeps): ProviderServic
   const tickets = new Map<ProviderId, number>()
   let lastTicket = 0
   const signIns = new Map<ProviderId, SignIn>()
+  const selectionListeners = new Set<SelectionListener>()
+  // Every check and model list gets this signal, so dispose() stops the CLIs they started.
+  const lifetime = new AbortController()
   let detecting: Promise<ProviderStatus[]> | null = null
   let detected = false
   let disposed = false
@@ -129,7 +139,7 @@ export function createProviderService(deps: ProviderServiceDeps): ProviderServic
   async function detectOne(id: ProviderId): Promise<ProviderDetection> {
     if (deps.offline && PROVIDER_KINDS[id] === 'cli') return offlineDetection(id, now())
     try {
-      return await providers[id].detect()
+      return await providers[id].detect(lifetime.signal)
     } catch (error) {
       if (!isAppError(error)) log.warn('providers', `${id} detection failed unexpectedly`)
       return failedDetection(id, error, now())
@@ -157,8 +167,26 @@ export function createProviderService(deps: ProviderServiceDeps): ProviderServic
     return detecting
   }
 
+  /** Saves the selection and tells the listeners when it changed. */
+  function setSelected(id: ProviderId | null): void {
+    if (readSettings(db).selectedProvider === id) return
+    updateSettings(db, { selectedProvider: id })
+    if (disposed) return
+    for (const listener of selectionListeners) {
+      try {
+        listener(id)
+      } catch (error) {
+        log.error(
+          'providers',
+          'Selection listener failed',
+          isAppError(error) ? error.code : undefined,
+        )
+      }
+    }
+  }
+
   function deselect(id: ProviderId): void {
-    if (readSettings(db).selectedProvider === id) updateSettings(db, { selectedProvider: null })
+    if (readSettings(db).selectedProvider === id) setSelected(null)
   }
 
   /** Aborts a running sign-in and shows the provider as signed out. */
@@ -240,19 +268,19 @@ export function createProviderService(deps: ProviderServiceDeps): ProviderServic
   async function setApiKey(id: ApiKeyProviderId, key: string): Promise<ProviderStatus> {
     const provider = providers[id]
     if (!provider.setApiKey) throw new AppError('invalid_request', `${id} takes no API key`)
-    store(id, await provider.setApiKey(key))
+    store(id, await provider.setApiKey(key, lifetime.signal))
     publish()
     return statusOf(id)
   }
 
   async function models(id: ProviderId): Promise<ModelOption[]> {
     if (PROVIDER_KINDS[id] !== 'cli' && detectionOf(id).state !== 'ready') throw notConnected(id)
-    return await providers[id].models()
+    return await providers[id].models(lifetime.signal)
   }
 
   function select(id: ProviderId | null): ProviderStatus[] {
     if (id !== null && detectionOf(id).state !== 'ready') throw notConnected(id)
-    updateSettings(db, { selectedProvider: id })
+    setSelected(id)
     publish()
     return list()
   }
@@ -290,24 +318,36 @@ export function createProviderService(deps: ProviderServiceDeps): ProviderServic
     return statusOf(id)
   }
 
-  async function active(): Promise<ActiveProvider> {
-    if (!detected) await detect()
+  async function active(signal?: AbortSignal): Promise<ActiveProvider> {
+    // The detection is shared: one caller's abort stops its wait, not the check.
+    if (!detected) await untilAborted(detect(), signal)
     const settings = readSettings(db)
     const id = settings.selectedProvider
     if (id === null) throw new AppError('provider_not_selected', 'No AI provider is selected')
     const status = toStatus(detectionOf(id), settings)
     if (status.state !== 'ready') throw notConnected(id)
     const provider = providers[id]
+    const listSignal =
+      signal === undefined ? lifetime.signal : AbortSignal.any([lifetime.signal, signal])
     const model =
       status.model ??
-      (PROVIDER_KINDS[id] === 'cli' ? CLI_DEFAULT_MODEL : await defaultModel(provider))
+      (PROVIDER_KINDS[id] === 'cli' ? CLI_DEFAULT_MODEL : await defaultModel(provider, listSignal))
     return { provider, model, status }
+  }
+
+  function onSelectionChange(listener: SelectionListener): () => void {
+    selectionListeners.add(listener)
+    return () => {
+      selectionListeners.delete(listener)
+    }
   }
 
   function dispose(): void {
     disposed = true
+    lifetime.abort()
     for (const signIn of signIns.values()) signIn.controller.abort()
     signIns.clear()
+    selectionListeners.clear()
   }
 
   return {
@@ -323,17 +363,35 @@ export function createProviderService(deps: ProviderServiceDeps): ProviderServic
     chooseCliPath,
     resetCliPath,
     active,
+    onSelectionChange,
     dispose,
   }
 }
 
-async function defaultModel(provider: AiProvider): Promise<string> {
-  const options = await provider.models()
+async function defaultModel(provider: AiProvider, signal: AbortSignal): Promise<string> {
+  const options = await provider.models(signal)
   const option = options.find((candidate) => candidate.isDefault) ?? options[0]
   if (option === undefined) {
     throw new AppError('provider_unavailable', `${provider.id} lists no models`)
   }
   return option.id
+}
+
+/** Waits for `promise`, or fails with `cancelled` as soon as `signal` aborts. */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (signal === undefined) return promise
+  return new Promise<T>((resolve, reject) => {
+    const abort = (): void => reject(new AppError('cancelled', 'Cancelled'))
+    if (signal.aborted) {
+      abort()
+      return
+    }
+    signal.addEventListener('abort', abort, { once: true })
+    promise
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener('abort', abort))
+      .catch(() => undefined)
+  })
 }
 
 function notConnected(id: ProviderId): AppError {

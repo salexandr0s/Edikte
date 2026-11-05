@@ -39,7 +39,7 @@ export interface PagePlanOptions {
 export interface PagePlan {
   /** Highest PDF page number. */
   pageCount: number
-  /** Pages with a text layer that go into the prompt, in page order. */
+  /** Pages with any text that go into the prompt, in page order. */
   textPages: AnalysisPage[]
   /** Scanned pages to send as images, in page order. */
   imagePages: number[]
@@ -64,6 +64,9 @@ export function planPages(pages: readonly AnalysisPage[], options: PagePlanOptio
   const limit = options.textCharLimit ?? TEXT_CHAR_LIMIT
   const maxImages = options.imagesSupported ? (options.maxImages ?? MAX_IMAGES) : 0
 
+  // Pages without enough text of their own are scans, photos or plans, rendered
+  // when the model takes images. The few lines such a page may carry (a caption,
+  // a signature) still go into the prompt with the other text.
   const scanned = sorted.filter((page) => !page.hasText).map((page) => page.pageNumber)
   const imagePages = [
     ...scanned.filter((pageNumber) => !appendix.has(pageNumber)),
@@ -73,7 +76,7 @@ export function planPages(pages: readonly AnalysisPage[], options: PagePlanOptio
     .sort(byNumber)
   const unreadPages = scanned.filter((pageNumber) => !imagePages.includes(pageNumber))
 
-  const withText = sorted.filter((page) => page.hasText)
+  const withText = sorted.filter((page) => pageChars(page) > 0)
   let textChars = withText.reduce((total, page) => total + pageChars(page), 0)
   const dropped = new Set<number>()
   for (const page of dropOrder(withText, appendix)) {

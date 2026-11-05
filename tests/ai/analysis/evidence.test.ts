@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { EvidenceStatusSchema, type EvidenceItem } from '@shared/analysis-schema'
 import {
+  amountsIn,
   checkEvidence,
   evidenceChecker,
   normalizeForMatch,
@@ -56,7 +57,7 @@ describe('checkEvidence', () => {
       ],
       imagePages: [],
     })
-    const claim = { path: 'verkehrswert', page: 1 }
+    const claim = { path: 'verkehrswert', page: 1, unit: 'eur' as const }
     expect(
       check({ ...claim, quote: 'Verkehrswert (gerundet) … € 556.000,00', value: 556_000 }).status,
     ).toBe('verified')
@@ -64,6 +65,57 @@ describe('checkEvidence', () => {
       'quote_not_found',
     )
     expect(check({ ...claim, quote: '…', value: null }).status).toBe('no_quote')
+  })
+})
+
+describe('evidenceChecker', () => {
+  it('reads the text of a page that is mostly a scan', () => {
+    const pages = [
+      { pageNumber: 1, printedLabel: null, hasText: true, text: 'Befund\nDas Objekt ist bewohnt.' },
+      { pageNumber: 2, printedLabel: null, hasText: false, text: 'Beilage 3\nPlan des Kellers' },
+    ]
+    const claim = { path: 'risks.0', page: 2, value: null, unit: null }
+    const textOnly = evidenceChecker({ pages, imagePages: [] })
+    expect(textOnly({ ...claim, quote: 'Plan des Kellers' }).status).toBe('verified')
+    const withImage = evidenceChecker({ pages, imagePages: [2] })
+    expect(withImage({ ...claim, quote: 'Feuchte Wand im Keller' }).status).toBe('scanned_page')
+    // A quote cited from the scan but printed on a text page is found there.
+    expect(withImage({ ...claim, quote: 'Das Objekt ist bewohnt' })).toEqual({
+      status: 'wrong_page',
+      page: 1,
+    })
+  })
+
+  it('checks a number only where its unit is written', () => {
+    const check = evidenceChecker({
+      pages: [
+        {
+          pageNumber: 1,
+          printedLabel: null,
+          hasText: true,
+          text: 'Nutzfläche Top 12: 65,76 m²\nVerkehrswert EUR 556 000,-',
+        },
+      ],
+      imagePages: [],
+    })
+    const area = { path: 'areas.0', page: 1, quote: 'Nutzfläche Top 12: 65,76 m²' }
+    expect(check({ ...area, value: 65.76, unit: 'sqm' }).status).toBe('verified')
+    expect(check({ ...area, value: 12, unit: 'sqm' }).status).toBe('number_mismatch')
+    const quote = 'Verkehrswert EUR 556 000,-'
+    expect(check({ ...area, quote, value: 556_000, unit: 'eur' }).status).toBe('verified')
+    // A quote without its unit has nothing to anchor to, so any number in it counts.
+    expect(check({ ...area, quote: 'Nutzfläche Top 12', value: 12, unit: 'sqm' }).status).toBe(
+      'verified',
+    )
+  })
+})
+
+describe('amountsIn', () => {
+  it('reads only the numbers written with the unit', () => {
+    expect(amountsIn('€ 1.234.567,89 oder 556.000,-- EUR am 12.03.2024', 'eur')).toEqual([
+      1_234_567.89, 556_000,
+    ])
+    expect(amountsIn('Top 4 120,50 m², Keller 3.353 qm, Stiege 2', 'sqm')).toEqual([120.5, 3353])
   })
 })
 

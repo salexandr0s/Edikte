@@ -1,11 +1,13 @@
 import { ANALYSIS_SCHEMA_VERSION, type AnalysisRecord } from '@shared/analysis-schema'
-import type { AnalysisEstimate, AnalysisProgress, Settings } from '@shared/domain'
+import type { AnalysisEstimate, Settings } from '@shared/domain'
 import { AppError, isAppError, type AppErrorCode } from '@shared/errors'
+import { PROVIDER_IDS, type ProviderId } from '@shared/providers'
 import { AnalysisQueue } from '../../ai/analysis/batch'
 import { buildAnalysisEstimate } from '../../ai/analysis/estimate'
 import { PROMPT_VERSION } from '../../ai/analysis/prompt'
 import {
   analyzedEdicts,
+  cancelPendingAnalyses,
   createAnalysisJobStore,
   findAnalysis,
   listAnalyses,
@@ -14,6 +16,7 @@ import {
 } from '../../db/analysis-store'
 import type { AppDatabase } from '../../db/client'
 import type { EmitEvent } from '../../ipc/events'
+import { log } from '../../log'
 import {
   createJobRunner,
   modelTakesImages,
@@ -58,18 +61,44 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
   const { db, store, emit } = deps
   const now = deps.now ?? (() => new Date())
   const jobs = createAnalysisJobStore(db)
-  const report = (progress: AnalysisProgress): void => {
-    emit('analysis:progress', progress)
-    // Step null marks a job that started or ended: the listing's status changed.
-    if (progress.status !== 'queued' && progress.step === null) {
-      emit('listings:changed', { edictIds: [progress.edictId] })
-    }
+  const changed = (edictIds: readonly string[]): void => {
+    if (edictIds.length > 0) emit('listings:changed', { edictIds: [...edictIds] })
   }
   const queue = new AnalysisQueue({
     store: jobs,
     run: createJobRunner(deps),
-    onProgress: report,
+    onProgress: (progress) => emit('analysis:progress', progress),
+    onStatusChange: changed,
     now: () => now().toISOString(),
+  })
+
+  /**
+   * Cancels the jobs of these providers (every provider when null): first the
+   * queue's, then the pending rows the queue does not own. Those are left from
+   * a session whose jobs did not resume, such as an offline one.
+   */
+  const cancelPending = async (providers: readonly ProviderId[] | null): Promise<void> => {
+    if (providers === null) await queue.cancel({ all: true })
+    else for (const provider of providers) await queue.cancel({ provider })
+    // Jobs the queue still owns are running; the queue stores how they end.
+    changed(
+      cancelPendingAnalyses(db, {
+        keep: queue.ownedIds(),
+        providers,
+        finishedAt: now().toISOString(),
+      }),
+    )
+  }
+
+  // A job never moves to another provider, so a new selection cancels the jobs of the others.
+  const unsubscribe = deps.providers.onSelectionChange((selected) => {
+    void cancelPending(PROVIDER_IDS.filter((id) => id !== selected)).catch((error: unknown) => {
+      log.error(
+        'analysis',
+        'Could not cancel the jobs of the previous provider',
+        isAppError(error) ? error.code : undefined,
+      )
+    })
   })
 
   /** The active provider, or the selected one while it is not connected. */
@@ -128,6 +157,10 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
       if (active.status.state !== 'ready') {
         throw new AppError('provider_not_connected', `${active.provider.id} is not ready`)
       }
+      // A switch while the provider was checked has already cancelled the jobs of this one.
+      if (deps.settings().selectedProvider !== active.provider.id) {
+        throw new AppError('provider_not_selected', `${active.provider.id} is no longer selected`)
+      }
       const ids = [...new Set(edictIds)]
       const gutachten = store.langgutachten(ids)
       const pending = pendingAnalysisEdicts(db, ids)
@@ -151,32 +184,41 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
         now().toISOString(),
       )
       if (queued.length > 0) {
-        emit('listings:changed', { edictIds: queued.map((job) => job.edictId) })
+        changed(queued.map((job) => job.edictId))
         queue.enqueue(queued)
       }
       return { queued: queued.length }
     },
 
     async cancel(target) {
-      if ((await queue.cancel(target)) > 0 || 'all' in target) return
+      if ('all' in target) return cancelPending(null)
+      // A job the queue owns ends through the queue, however often Cancel is pressed.
+      if (queue.owns(target.analysisId)) {
+        await queue.cancel(target)
+        return
+      }
       const row = findAnalysis(db, target.analysisId)
       if (row === null) throw new AppError('not_found', `No analysis ${target.analysisId}`)
       // Left pending by a previous session, before resumeQueued picked it up.
       if (row.status === 'queued' || row.status === 'running') {
         await jobs.markCancelled(row.id, now().toISOString())
-        report({
+        emit('analysis:progress', {
           analysisId: row.id,
           edictId: row.edictId,
           status: 'cancelled',
           step: null,
           queued: 0,
         })
+        changed([row.edictId])
       }
     },
 
     list: ({ edictId }) => listAnalyses(db, edictId),
     resumeQueued: () => queue.restore(),
-    shutdown: () => queue.shutdown(),
+    shutdown: () => {
+      unsubscribe()
+      return queue.shutdown()
+    },
     idle: () => queue.idle(),
   }
 }

@@ -1,10 +1,10 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AnalysisProgressSchema, DEFAULT_SETTINGS, type Settings } from '@shared/domain'
 import { AppError, type AppErrorCode } from '@shared/errors'
-import type { ProviderState } from '@shared/providers'
+import type { ProviderId, ProviderState } from '@shared/providers'
 import type { AiProvider } from '../../../src/main/ai/provider'
 import { listAnalyses, queueAnalyses } from '../../../src/main/db/analysis-store'
 import { openDatabase, type AppDatabase } from '../../../src/main/db/client'
@@ -25,8 +25,21 @@ const READY: Settings = {
   selectedProvider: 'openai-api',
 }
 
-function activeSource(provider: AiProvider, state: ProviderState = 'ready'): ActiveProviderSource {
+interface FakeSource extends ActiveProviderSource {
+  /** What the providers service does after the user picked another provider. */
+  select(selected: ProviderId | null): void
+}
+
+function activeSource(provider: AiProvider, state: ProviderState = 'ready'): FakeSource {
+  const listeners = new Set<(selected: ProviderId | null) => void>()
   return {
+    onSelectionChange: (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    select: (selected) => {
+      for (const listener of listeners) listener(selected)
+    },
     active: () =>
       Promise.resolve({
         provider,
@@ -49,7 +62,41 @@ function activeSource(provider: AiProvider, state: ProviderState = 'ready'): Act
 }
 
 function unavailable(code: AppErrorCode): ActiveProviderSource {
-  return { active: () => Promise.reject(new AppError(code, 'Not available')) }
+  return {
+    active: () => Promise.reject(new AppError(code, 'Not available')),
+    onSelectionChange: () => () => undefined,
+  }
+}
+
+/** Answers only once released, whatever its signal says; `calls` counts the requests. */
+function slowProvider() {
+  const base = fakeProvider('openai-api', [{ json: houseAnswer }])
+  let release = (): void => {}
+  const released = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const calls: number[] = []
+  const provider: AiProvider = {
+    ...base,
+    analyze: async (request, _signal, onProgress) => {
+      calls.push(calls.length + 1)
+      await released
+      return base.analyze(request, new AbortController().signal, onProgress)
+    },
+  }
+  return { provider, release, calls }
+}
+
+function job(edict: string, provider: ProviderId = 'openai-api') {
+  return {
+    edictId: edict,
+    provider,
+    model: 'gpt-test',
+    accountLabel: null,
+    promptVersion: 1,
+    schemaVersion: 1,
+    documentIds: [],
+  }
 }
 
 interface Emitted {
@@ -207,5 +254,71 @@ describe('analysis service', () => {
     await service.idle()
     expect(listAnalyses(db, first)[0]?.status).toBe('cancelled')
     await expect(service.cancel({ analysisId: 9999 })).rejects.toMatchObject({ code: 'not_found' })
+  })
+
+  it('leaves a running job to its run when Cancel is pressed twice', async () => {
+    const edict = await readyListing(8)
+    const slow = slowProvider()
+    const { service, statuses } = setup({ providers: activeSource(slow.provider) })
+    await service.start({ edictIds: [edict] })
+    await vi.waitFor(() => expect(slow.calls).toHaveLength(1))
+    const analysisId = listAnalyses(db, edict)[0]?.id ?? -1
+
+    await service.cancel({ analysisId })
+    await service.cancel({ analysisId })
+    expect(listAnalyses(db, edict)[0]?.status).toBe('running')
+    expect(statuses()).not.toContain('cancelled')
+    expect(await service.start({ edictIds: [edict] })).toEqual({ queued: 0 })
+
+    slow.release()
+    await service.idle()
+    const records = listAnalyses(db, edict)
+    expect(records).toHaveLength(1)
+    expect(records[0]?.status).not.toBe('running')
+  })
+
+  it('cancels every pending job at once, rows a previous session left included', async () => {
+    const running = await readyListing(9)
+    const waiting = [await readyListing(10), await readyListing(11)]
+    const leftover = await readyListing(12)
+    queueAnalyses(db, [job(leftover)], NOW)
+    const { service, events } = setup({
+      providers: activeSource(fakeProvider('openai-api', [{ hang: true }])),
+    })
+    await service.start({ edictIds: [running, ...waiting] })
+    await vi.waitFor(() => expect(listAnalyses(db, running)[0]?.status).toBe('running'))
+    const before = events.length
+
+    await service.cancel({ all: true })
+    await service.idle()
+
+    const statusOf = (edict: string) => listAnalyses(db, edict)[0]?.status
+    expect([running, ...waiting, leftover].map(statusOf)).toEqual([
+      'cancelled',
+      'cancelled',
+      'cancelled',
+      'cancelled',
+    ])
+    const changes = events.slice(before).filter((emitted) => emitted.event === 'listings:changed')
+    expect(changes).toHaveLength(3)
+    expect(changes).toContainEqual({ event: 'listings:changed', payload: { edictIds: waiting } })
+    expect(changes).toContainEqual({ event: 'listings:changed', payload: { edictIds: [leftover] } })
+  })
+
+  it('cancels the jobs of the previous provider once another one is selected', async () => {
+    const first = await readyListing(13)
+    const second = await readyListing(14)
+    const leftover = await readyListing(15)
+    queueAnalyses(db, [job(leftover, 'anthropic-api')], NOW)
+    const source = activeSource(fakeProvider('openai-api', [{ hang: true }]))
+    const { service } = setup({ providers: source })
+    await service.start({ edictIds: [first, second] })
+    await vi.waitFor(() => expect(listAnalyses(db, first)[0]?.status).toBe('running'))
+
+    source.select('anthropic-api')
+    await service.idle()
+
+    const statusOf = (edict: string) => listAnalyses(db, edict)[0]?.status
+    expect([first, second, leftover].map(statusOf)).toEqual(['cancelled', 'cancelled', 'queued'])
   })
 })

@@ -48,6 +48,8 @@ export interface FakeProvider extends AiProvider {
   /** The next detect() waits for this before it answers. */
   detectGate: Promise<void> | null
   detectCalls: number
+  /** The signal of the last detect(). */
+  detectSignal: AbortSignal | null
   disconnectCalls: number
   options: ModelOption[]
   signInSignal: AbortSignal | null
@@ -63,14 +65,16 @@ export function fakeProvider(id: ProviderId, state: ProviderState): FakeProvider
     detectWith: null,
     detectGate: null,
     detectCalls: 0,
+    detectSignal: null,
     disconnectCalls: 0,
     options: [
       { id: `${id}-large`, label: 'Large', supportsImages: true, isDefault: false },
       { id: `${id}-default`, label: 'Default', supportsImages: true, isDefault: true },
     ],
     signInSignal: null,
-    async detect() {
+    async detect(signal) {
       fake.detectCalls += 1
+      fake.detectSignal = signal ?? null
       const result = fake.detectWith ? fake.detectWith() : fake.detection
       const held = fake.detectGate
       fake.detectGate = null

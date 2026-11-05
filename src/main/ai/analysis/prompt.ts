@@ -2,7 +2,7 @@ import type { AnalysisContentPart } from '../provider'
 import type { AnalysisPage, EdictFacts, RenderedPage } from './types'
 
 /** Bump when the instructions change; every analysis stores the version it ran with. */
-export const PROMPT_VERSION = 1
+export const PROMPT_VERSION = 2
 
 // Fact list and risk keywords start from immoradar's pdf-ai-extractor prompt
 // and scoring lexicon.
@@ -115,7 +115,10 @@ export function buildUserText(
   ]
   const lists: ReadonlyArray<readonly [readonly number[], string]> = [
     [imagePages, 'Scanned pages sent as images after this text, in this order'],
-    [pages.unreadPages, 'Scanned pages without an image, which you cannot read'],
+    [
+      pages.unreadPages,
+      'Scanned pages without an image, which you cannot read beyond any text given for them above',
+    ],
     [pages.droppedPages, 'Pages left out because the report is longer than the size limit'],
   ]
   for (const [list, label] of lists) {

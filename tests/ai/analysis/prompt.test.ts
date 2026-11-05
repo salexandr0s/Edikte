@@ -33,7 +33,9 @@ describe('buildUserText', () => {
     expect(text).toContain('<document pages="14">\n<page pdf="1">\n')
     expect(text).toContain('<page pdf="5" printed="Seite 3">\n')
     expect(text).not.toContain('<page pdf="6"')
-    expect(text).toContain('Scanned pages without an image, which you cannot read: 6, 12.')
+    expect(text).toContain(
+      'Scanned pages without an image, which you cannot read beyond any text given for them above: 6, 12.',
+    )
   })
 
   it('lists image and dropped pages and marks missing edict values', () => {
