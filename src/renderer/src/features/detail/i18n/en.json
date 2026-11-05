@@ -1,1 +1,267 @@
-{}
+{
+  "detail": {
+    "loadFailed": "The auction could not be loaded.",
+    "notFoundTitle": "Auction not found",
+    "backToList": "Back to auctions",
+    "star": "Star",
+    "starFailed": "The star could not be saved.",
+    "openFailed": "The page could not be opened.",
+    "removed": "No longer listed on the site since {{date}}.",
+    "percent": "{{value}}%",
+    "facts": {
+      "auction": "Auction date",
+      "place": "Auction place",
+      "viewing": "Viewing",
+      "published": "Published",
+      "court": "Court",
+      "caseNumber": "Case number",
+      "propertyType": "Property type",
+      "landRegister": "Land register (Grundbuch)",
+      "kg": "KG {{value}}",
+      "ez": "EZ {{value}}",
+      "remarks": "Remarks"
+    },
+    "numbers": {
+      "title": "Key figures",
+      "vadium": "Deposit (Vadium)",
+      "meistbot": "Winning bid (Meistbot)",
+      "zubehoer": "Accessories (Zubehör)",
+      "area": "Area for €/m²",
+      "noArea": "Not known yet",
+      "noAreaHint": "Download the Gutachten or analyze it to find the area.",
+      "perSqm": {
+        "schaetzwert": "€/m² (Schätzwert)",
+        "geringstes_gebot": "€/m² (Geringstes Gebot)"
+      },
+      "perSqmLand": {
+        "schaetzwert": "€/m² of land (Schätzwert)",
+        "geringstes_gebot": "€/m² of land (Geringstes Gebot)"
+      },
+      "approximateReasons": "The price per m² is approximate:",
+      "plot": "Plot size"
+    },
+    "areas": {
+      "title": "Area values",
+      "intro": "Every area found for this auction. The price per m² uses the most trusted one.",
+      "objektgroesse": "Objektgröße as published",
+      "chosen": "Used for €/m²",
+      "differs": "Differs by {{percent}}",
+      "empty": "No area values yet."
+    },
+    "kurzgutachten": {
+      "title": "Short report (Kurzgutachten)",
+      "intro": "From the Kurzgutachten page on the site, read without AI.",
+      "bestandsverhaeltnisse": "Tenancy (Bestandsverhältnisse)",
+      "lasten": "Encumbrances (Lasten)",
+      "widmung": "Zoning (Widmung)",
+      "anschluesse": "Utilities (Anschlüsse)",
+      "baubewilligung": "Building permit (Baubewilligung)",
+      "stichtag": "Valuation date (Stichtag)",
+      "erstelltVon": "Prepared by"
+    },
+    "related": {
+      "title": "Other edicts of this case",
+      "published": "Published {{date}}",
+      "auction": "Auction {{date}}",
+      "open": "Open edict",
+      "openNamed": "Open edict: {{edict}}"
+    },
+    "labels": {
+      "title": "All details from the edict",
+      "show": "Show as published"
+    },
+    "notes": {
+      "title": "Notes",
+      "label": "Your notes on this auction",
+      "help": "Saved on this computer. The notes stay with the case when the auction gets a new date.",
+      "length": "{{used}} of {{max}} characters",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "unsaved": "Unsaved changes",
+      "saveFailed": "The notes could not be saved."
+    }
+  },
+  "analysis": {
+    "title": "AI analysis",
+    "intro": "The AI reads the Gutachten and lists the areas, the Verkehrswert, encumbrances, arrears, defects and risks, each with the page it comes from.",
+    "noGutachten": "This auction has no Gutachten, so there is nothing to analyze.",
+    "start": "Analyze with AI",
+    "again": "Analyze again",
+    "failed": "The analysis failed.",
+    "cancelled": "The analysis was cancelled.",
+    "noResult": "This run has no result.",
+    "queuedTitle": "Waiting in the queue",
+    "runningTitle": "Analysis running",
+    "inQueue_one": "{{count}} analysis in the queue",
+    "inQueue_other": "{{count}} analyses in the queue",
+    "progressLabel": "Analysis progress",
+    "step": {
+      "waiting": "Waiting for its turn",
+      "downloading": "Downloading the Gutachten",
+      "reading": "Reading the text",
+      "rendering": "Preparing scanned pages as images",
+      "asking": "Waiting for the AI model to answer",
+      "checking": "Checking quotes and numbers against the PDF",
+      "unknown": "In progress"
+    },
+    "cancel": "Cancel analysis",
+    "cancelFailed": "The analysis could not be cancelled.",
+    "summary": "Summary",
+    "confidence": "Confidence: {{level}}",
+    "confidenceHint": "How complete and readable the Gutachten was",
+    "risks": "Risks",
+    "noRisks": "The analysis found no risks.",
+    "severity": {
+      "high": "High risk",
+      "medium": "Medium risk",
+      "low": "Low risk"
+    },
+    "valuation": "Valuation",
+    "verkehrswert": "Market value (Verkehrswert)",
+    "valuationDate": "Valuation date",
+    "zubehoer": "Accessories (Zubehör)",
+    "areas": "Areas in the Gutachten",
+    "noAreas": "The analysis found no areas.",
+    "primaryArea": "Used for €/m²",
+    "property": {
+      "title": "Property",
+      "rooms": "Rooms",
+      "floor": "Floor",
+      "buildingYear": "Year built",
+      "condition": "Condition",
+      "heating": "Heating",
+      "hwb": "Heating demand (HWB)",
+      "hwbValue": "{{value}} kWh/m² per year",
+      "energyClass": "Energy class"
+    },
+    "inspection": {
+      "title": "Interior inspected",
+      "yes": "Yes, the appraiser saw the interior",
+      "no": "No, the appraiser did not see the interior",
+      "unknown": "Not stated"
+    },
+    "ownership": {
+      "title": "Ownership",
+      "share": "Share",
+      "wohnungseigentum": "Condominium (Wohnungseigentum)",
+      "units": "Units in the sale",
+      "parking": "Parking space included"
+    },
+    "tenancy": {
+      "title": "Occupancy and rent",
+      "status": "Status",
+      "statuses": {
+        "vacant": "Vacant",
+        "owner_occupied": "Lived in by the owner",
+        "rented": "Rented",
+        "unknown": "Unknown"
+      },
+      "mrg": "Tenancy law (MRG)",
+      "mrgScopes": {
+        "full": "Fully applies",
+        "partial": "Partly applies",
+        "none": "Does not apply",
+        "unknown": "Unknown"
+      },
+      "rent": "Monthly rent"
+    },
+    "findings": {
+      "encumbrances": "Encumbrances the buyer takes over",
+      "arrears": "Arrears",
+      "defects": "Defects",
+      "none": "None found"
+    },
+    "pages": {
+      "unread": "Pages the AI could not read: {{pages}}",
+      "dropped": "Pages left out because the text was too long: {{pages}}",
+      "hint": "Check these pages in the PDF yourself."
+    },
+    "checks": {
+      "title": "Checks against the edict",
+      "ok": "Plausible",
+      "warning": "Check",
+      "area_vs_objektgroesse": "Area in the Gutachten: {{analysis}}. Objektgröße on the edict: {{listing}}.",
+      "verkehrswert_vs_schaetzwert": "Verkehrswert in the Gutachten: {{analysis}}. Schätzwert on the edict: {{listing}}.",
+      "cellar_in_objektgroesse": "The Objektgröße on the edict ({{listing}}) seems to include the cellar ({{analysis}}), so the usable area is smaller than it suggests.",
+      "gap": "Difference from the edict: {{percent}}"
+    },
+    "run": {
+      "title": "Run details",
+      "provider": "Provider",
+      "model": "Model",
+      "finished": "Finished",
+      "tokens": "Tokens",
+      "tokenCounts": "{{input}} in, {{output}} out",
+      "cost": "Cost"
+    },
+    "history": {
+      "title": "Earlier runs",
+      "failed": "Earlier runs could not be loaded.",
+      "show": "Show",
+      "showRun": "Show the run from {{date}}",
+      "viewing": "You are looking at the run from {{date}}.",
+      "showLatest": "Show latest run"
+    },
+    "yes": "Yes",
+    "no": "No"
+  },
+  "documents": {
+    "title": "Documents",
+    "empty": "The edict lists no documents.",
+    "kind": {
+      "langgutachten": "Full report (Langgutachten)",
+      "kurzgutachten": "Short report (Kurzgutachten)",
+      "plan": "Plan",
+      "photo": "Photos",
+      "other": "Other document"
+    },
+    "downloaded": "Downloaded",
+    "notDownloaded": "Not downloaded",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "scanned_one": "{{count}} scanned page",
+    "scanned_other": "{{count}} scanned pages",
+    "download": "Download",
+    "open": "Open",
+    "downloadFailed": "The document could not be downloaded.",
+    "openFailed": "The document could not be opened.",
+    "phase": {
+      "download": "Downloading",
+      "extract": "Reading the text",
+      "estimate": "Looking for areas"
+    },
+    "bytes": "{{done}} of {{total}}",
+    "extractFailed": "The text of this PDF could not be read.",
+    "page": "p. {{page}}",
+    "pageTitle": "Open page {{page}} in the PDF"
+  },
+  "evidence": {
+    "prefix": "Evidence:",
+    "status": {
+      "verified": {
+        "label": "Quote found",
+        "hint": "The quote appears on the stated page of the PDF."
+      },
+      "quote_not_found": {
+        "label": "Quote not found",
+        "hint": "The quote does not appear on the stated page. Check the value in the PDF."
+      },
+      "number_mismatch": {
+        "label": "Number differs",
+        "hint": "The quote was found, but its number differs from the value shown here."
+      },
+      "scanned_page": {
+        "label": "Scanned page",
+        "hint": "The page is a scan without text, so the quote could not be checked."
+      },
+      "page_out_of_range": {
+        "label": "No such page",
+        "hint": "The PDF has no page with this number."
+      },
+      "no_quote": {
+        "label": "No quote",
+        "hint": "The AI gave no quote for this value, so it could not be checked."
+      }
+    }
+  }
+}
