@@ -13,6 +13,10 @@ const REFRESH_DELAY_MS = 100
 export interface ListingPageState {
   /** The latest answer; it stays while a newer query loads. */
   page: ListingPage | null
+  /** The number of the query `page` answers, counting from 1. */
+  pageRequest: number
+  /** How many queries have been sent so far. */
+  requestsSent: () => number
   /** Set when the latest query failed. */
   error: AppErrorCode | null
   loading: boolean
@@ -25,11 +29,12 @@ export interface ListingPageState {
  * response never replaces a newer one.
  */
 export function useListingPage(query: ListingQuery): ListingPageState {
-  const [page, setPage] = useState<ListingPage | null>(null)
+  const [answer, setAnswer] = useState<{ page: ListingPage; request: number } | null>(null)
   const [error, setError] = useState<AppErrorCode | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshes, setRefreshes] = useState(0)
   const previous = useRef<{ query: ListingQuery; refreshes: number } | null>(null)
+  const sent = useRef(0)
 
   useEffect(() => {
     const last = previous.current
@@ -41,10 +46,12 @@ export function useListingPage(query: ListingQuery): ListingPageState {
     let ignore = false
     const timer = window.setTimeout(() => {
       setLoading(true)
+      sent.current += 1
+      const request = sent.current
       invoke('listings:query', query).then(
         (result) => {
           if (ignore) return
-          setPage(result)
+          setAnswer({ page: result, request })
           setError(null)
           setLoading(false)
         },
@@ -64,5 +71,12 @@ export function useListingPage(query: ListingQuery): ListingPageState {
   const reload = () => setRefreshes((count) => count + 1)
   useBridgeEvent('listings:changed', reload)
 
-  return { page, error, loading, reload }
+  return {
+    page: answer?.page ?? null,
+    pageRequest: answer?.request ?? 0,
+    requestsSent: () => sent.current,
+    error,
+    loading,
+    reload,
+  }
 }

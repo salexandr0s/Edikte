@@ -39,7 +39,7 @@ export function ListingsScreen() {
   const panelId = useId()
 
   const listing = useListingPage(query)
-  const userState = useUserState(listing.page, query)
+  const userState = useUserState(listing, query)
   const tracker = useAnalysisTracker()
   const sync = useSync()
   const fill = useFillJob(query)

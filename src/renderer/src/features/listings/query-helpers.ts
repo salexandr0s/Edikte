@@ -204,21 +204,25 @@ export interface PendingUserState {
   id: number
   caseKey: string
   patch: UserStatePatch
-  /** Main has stored the change, so the next page contains it. */
-  saved: boolean
+  /**
+   * Set once main has stored the change: the number of list queries sent by
+   * then. Only a page from a later query is sure to contain the change.
+   */
+  savedAfterRequest: number | null
 }
 
 export type UserStateEvent =
   | { kind: 'sent'; id: number; caseKey: string; patch: UserStatePatch }
-  | { kind: 'saved' | 'failed'; id: number }
-  /** A refetched page arrived. */
-  | { kind: 'page' }
+  | { kind: 'saved'; id: number; requestsSent: number }
+  | { kind: 'failed'; id: number }
+  /** A refetched page arrived, the answer to list query number `request`. */
+  | { kind: 'page'; request: number }
 
 /**
  * Keeps star and hide changes until a refetch confirms them. A change stays
  * on top of every page that arrives while its request is in flight, and ends
- * with the first page after main stored it. A failed request takes back only
- * its own change.
+ * with the first page from a query sent after main stored it. A failed
+ * request takes back only its own change.
  */
 export function nextPendingUserState(
   changes: readonly PendingUserState[],
@@ -228,15 +232,19 @@ export function nextPendingUserState(
     case 'sent':
       return [
         ...changes,
-        { id: event.id, caseKey: event.caseKey, patch: event.patch, saved: false },
+        { id: event.id, caseKey: event.caseKey, patch: event.patch, savedAfterRequest: null },
       ]
     case 'saved':
-      return changes.map((change) => (change.id === event.id ? { ...change, saved: true } : change))
+      return changes.map((change) =>
+        change.id === event.id ? { ...change, savedAfterRequest: event.requestsSent } : change,
+      )
     case 'failed':
       return changes.filter((change) => change.id !== event.id)
     case 'page': {
-      const unsaved = changes.filter((change) => !change.saved)
-      return unsaved.length === changes.length ? changes : unsaved
+      const open = changes.filter(
+        (change) => change.savedAfterRequest === null || event.request <= change.savedAfterRequest,
+      )
+      return open.length === changes.length ? changes : open
     }
   }
 }

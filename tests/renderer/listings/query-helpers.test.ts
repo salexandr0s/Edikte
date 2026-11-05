@@ -140,12 +140,14 @@ describe('pending star and hide changes', () => {
       [],
     )
 
-  it('keeps a change over refetched pages until a page arrives after its save', () => {
-    const inFlight = replay([sent(1, { starred: true }), { kind: 'page' }])
+  it('keeps a change until the page of a query sent after its save arrives', () => {
+    const inFlight = replay([sent(1, { starred: true }), { kind: 'page', request: 1 }])
     expect(pendingPatches(inFlight).get('case-a')).toEqual({ starred: true })
-    const saved = nextPendingUserState(inFlight, { kind: 'saved', id: 1 })
-    expect(pendingPatches(saved).get('case-a')).toEqual({ starred: true })
-    expect(nextPendingUserState(saved, { kind: 'page' })).toEqual([])
+    // Query 2 was sent before the save, so its page may lack the change.
+    const saved = nextPendingUserState(inFlight, { kind: 'saved', id: 1, requestsSent: 2 })
+    const stale = nextPendingUserState(saved, { kind: 'page', request: 2 })
+    expect(pendingPatches(stale).get('case-a')).toEqual({ starred: true })
+    expect(nextPendingUserState(stale, { kind: 'page', request: 3 })).toEqual([])
   })
 
   it('takes back only the change whose request failed', () => {

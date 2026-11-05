@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { ListingPage, ListingQuery, ListingRow } from '@shared/domain'
 import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
+import type { ListingPageState } from './use-listing-page'
 import {
   applyUserStatePatches,
   nextPendingUserState,
@@ -27,12 +28,14 @@ export interface UserStateControls {
 
 /**
  * Star and hide. The row changes at once and keeps the change over refetched
- * pages until main has stored it and a page with the change has arrived.
+ * pages until main has stored it and the page of a later query has arrived.
+ * Each save asks for that query.
  */
 export function useUserState(
-  page: ListingPage | null,
+  listing: Pick<ListingPageState, 'page' | 'pageRequest' | 'requestsSent' | 'reload'>,
   query: Pick<ListingQuery, 'showHidden' | 'starredOnly'>,
 ): UserStateControls {
+  const { page, pageRequest } = listing
   const { t } = useTranslation()
   const toast = useToast()
   const lastId = useRef(0)
@@ -40,11 +43,12 @@ export function useUserState(
   let { changes } = tracked
   if (tracked.page !== page) {
     // A new page contains the saved changes; changes still in flight stay on top.
-    changes = nextPendingUserState(changes, { kind: 'page' })
+    const arrived = { kind: 'page', request: pageRequest } as const
+    changes = nextPendingUserState(changes, arrived)
     setTracked((current) =>
       current.page === page
         ? current
-        : { page, changes: nextPendingUserState(current.changes, { kind: 'page' }) },
+        : { page, changes: nextPendingUserState(current.changes, arrived) },
     )
   }
   const rows = page === null ? [] : applyUserStatePatches(page.rows, pendingPatches(changes), query)
@@ -62,7 +66,8 @@ export function useUserState(
     track({ kind: 'sent', id, caseKey: row.caseKey, patch })
     try {
       await invoke('userState:update', { caseKey: row.caseKey, ...patch })
-      track({ kind: 'saved', id })
+      track({ kind: 'saved', id, requestsSent: listing.requestsSent() })
+      listing.reload()
       return true
     } catch (error) {
       track({ kind: 'failed', id })
