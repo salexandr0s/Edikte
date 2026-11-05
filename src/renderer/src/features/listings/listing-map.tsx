@@ -116,6 +116,8 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
           {
             maxZoom: TILE_MAX_ZOOM,
             noWrap: true,
+            // basemap.at serves the tiles that touch Austria; any other would come back 404.
+            bounds: AUSTRIA_BOUNDS,
             updateWhenIdle: true,
             keepBuffer: 2,
           },
