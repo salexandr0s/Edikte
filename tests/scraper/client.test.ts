@@ -234,6 +234,18 @@ describe('EdikteClient', () => {
     await expect(next.then((response) => response.text())).resolves.toBe('pdf')
   })
 
+  it('times out a download that gets no answer once it leaves the queue', async () => {
+    const { client, fetchMock } = setup({ timeoutMs: 30_000 })
+    fetchMock.mockImplementationOnce(hangingFetch).mockResolvedValueOnce(page('next'))
+    const assertion = expect(client.limitedFetch(PAGE)).rejects.toMatchObject({ code: 'timeout' })
+    await vi.advanceTimersByTimeAsync(30_000)
+    await assertion
+    // The queue moves on after the backoff.
+    const next = client.limitedFetch(PAGE)
+    await vi.advanceTimersByTimeAsync(10_000)
+    await expect(next.then((response) => response.text())).resolves.toBe('next')
+  })
+
   it('frees the queue when a download is cancelled as its answer arrives', async () => {
     const { client, fetchMock } = setup()
     const controller = new AbortController()

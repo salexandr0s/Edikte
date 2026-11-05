@@ -175,6 +175,14 @@ describe('downloadDocument', () => {
     expect(await edictFiles()).toEqual([])
   })
 
+  it('does not count the wait for the first answer as idle time', async () => {
+    // As when the download waits in the client's queue behind another one.
+    const queued: typeof fetch = () =>
+      new Promise((resolve) => setTimeout(() => resolve(new Response(PDF)), 120))
+    const done = await downloadDocument(options(queued, { idleTimeoutMs: 50 }))
+    expect(done.bytes).toBe(PDF.byteLength)
+  })
+
   it('keeps a slow but steady download going until the overall limit', async () => {
     const steady = (): Response => {
       let chunks = 0

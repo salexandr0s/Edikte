@@ -90,7 +90,7 @@ export async function downloadDocument(options: DownloadOptions): Promise<Downlo
 
   try {
     signal.throwIfAborted()
-    const { response, url } = await fetchFollowingRedirects(startUrl, options, signal, idle.reset)
+    const { response, url } = await fetchFollowingRedirects(startUrl, options, signal, idle)
     await rejectFailedResponse(response)
     const bytesTotal = declaredLength(response)
     if (bytesTotal !== null && bytesTotal > maxBytes) {
@@ -128,8 +128,12 @@ export async function downloadDocument(options: DownloadOptions): Promise<Downlo
   }
 }
 
-/** A signal that aborts once `reset` has not been called for `ms`. */
-function idleTimer(ms: number): { signal: AbortSignal; reset: () => void; stop: () => void } {
+/**
+ * A signal that aborts once `reset` has not been called for `ms`. It starts
+ * unarmed: the first `reset` arms it, and `pause` disarms it while a request
+ * waits in the client's queue, which has its own header timeout.
+ */
+function idleTimer(ms: number): IdleTimer {
   const controller = new AbortController()
   let timer: NodeJS.Timeout | undefined
   let stopped = false
@@ -142,8 +146,14 @@ function idleTimer(ms: number): { signal: AbortSignal; reset: () => void; stop: 
     clearTimeout(timer)
     timer = setTimeout(() => controller.abort(), ms)
   }
-  reset()
-  return { signal: controller.signal, reset, stop }
+  return { signal: controller.signal, reset, pause: () => clearTimeout(timer), stop }
+}
+
+interface IdleTimer {
+  signal: AbortSignal
+  reset: () => void
+  pause: () => void
+  stop: () => void
 }
 
 function seconds(ms: number): number {
@@ -154,11 +164,12 @@ async function fetchFollowingRedirects(
   start: URL,
   options: DownloadOptions,
   signal: AbortSignal,
-  onResponse: () => void,
+  idle: Pick<IdleTimer, 'reset' | 'pause'>,
 ): Promise<{ response: Response; url: URL }> {
   const fetchImpl = options.fetch
   let url = start
   for (let hop = 0; ; hop += 1) {
+    idle.pause()
     const response = await fetchImpl(url.toString(), {
       method: 'GET',
       redirect: 'manual',
@@ -168,7 +179,7 @@ async function fetchFollowingRedirects(
         Accept: 'application/pdf,*/*;q=0.5',
       },
     })
-    onResponse()
+    idle.reset()
     if (!REDIRECT_STATUSES.has(response.status)) return { response, url }
     await response.body?.cancel()
     if (hop >= MAX_REDIRECTS) throw new AppError('network', 'Too many redirects')

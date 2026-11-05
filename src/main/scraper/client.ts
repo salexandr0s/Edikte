@@ -135,12 +135,25 @@ export class EdikteClient implements PageSource {
       throwIfCancelled(signal)
       this.#ensureNotPaused()
       await this.#waitForSlot(signal)
+      // The header timeout starts here, once the request has left the queue.
+      const answer = new AbortController()
+      const timer = setTimeout(() => answer.abort(), this.#settings.timeoutMs)
       let response: Response
       try {
-        response = await this.#fetch(input, init)
+        response = await this.#fetch(input, {
+          ...init,
+          signal: signal ? AbortSignal.any([signal, answer.signal]) : answer.signal,
+        })
       } catch (error) {
-        if (signal?.aborted !== true) this.#slowDown('network', null)
+        if (signal?.aborted === true) throw error
+        if (answer.signal.aborted) {
+          this.#slowDown('timeout', null)
+          throw new AppError('timeout', `No answer within ${this.#settings.timeoutMs / 1000} s`)
+        }
+        this.#slowDown('network', null)
         throw error
+      } finally {
+        clearTimeout(timer)
       }
       const throttled = throttleCode(response.status)
       if (throttled !== null) {
