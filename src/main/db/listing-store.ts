@@ -36,6 +36,7 @@ const listingColumns = {
   noticeType: edicts.noticeType,
   title: edicts.title,
   categoryLabel: edicts.categoryLabel,
+  categoryCodes: edicts.categoryCodes,
   propertyType: edicts.propertyType,
   street: edicts.street,
   plz: edicts.plz,

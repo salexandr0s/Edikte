@@ -20,7 +20,6 @@ import type { AnalysisStatus, PriceBasis, RiskLevel } from '@shared/enums'
 import { AppErrorCodeSchema, type AppErrorShape } from '@shared/errors'
 import { withPriceBasis } from '@shared/listing-query'
 import { approximationFromTitle } from '../scraper/object-title'
-import { categoryCodesFor } from '../scraper/site-text'
 import type { analyses, areaEstimates, documents, edicts } from './schema'
 
 // Pure mappers from table rows to the shared types. JSON columns are checked
@@ -128,6 +127,7 @@ export type ListingEdict = Pick<
   | 'noticeType'
   | 'title'
   | 'categoryLabel'
+  | 'categoryCodes'
   | 'propertyType'
   | 'street'
   | 'plz'
@@ -202,7 +202,7 @@ export function buildListingRow(
   const result = sources.finished?.result ?? null
   // The analysis read the report, so the facts it states win over the title.
   const ownership = result?.ownership ?? null
-  const fromTitle = approximationFromTitle(edict.title, categoryCodesFor(edict.categoryLabel))
+  const fromTitle = approximationFromTitle(edict.title, edict.categoryCodes)
   const row: ListingRow = {
     id: edict.id,
     caseKey: edict.caseKey,

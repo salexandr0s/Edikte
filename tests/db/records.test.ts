@@ -6,6 +6,7 @@ import {
   type AnalysisRow,
   type ListingSources,
 } from '../../src/main/db/records'
+import { categoryCodesFor } from '../../src/main/scraper/site-text'
 import { T0, analysisResult, edictId, edictRecord } from './listing-fixtures'
 
 function analysisRow(overrides: Partial<AnalysisRow> = {}): AnalysisRow {
@@ -114,7 +115,12 @@ describe('buildListingRow', () => {
     }
     const reasons = (title: string, categoryLabel = 'Eigentumswohnung') =>
       buildListingRow(
-        edictRecord(1, { objektgroesseSqm: 60, title, categoryLabel }),
+        edictRecord(1, {
+          objektgroesseSqm: 60,
+          title,
+          categoryLabel,
+          categoryCodes: categoryCodesFor(categoryLabel),
+        }),
         unanalysed,
         'schaetzwert',
       ).row.approximate
