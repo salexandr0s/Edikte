@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, type WriteStream } from 'node:fs'
 import { mkdir, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { Readable, Transform } from 'node:stream'
@@ -12,7 +12,12 @@ import { parseDownloadUrl } from './url-policy'
 // check, timeout, streamed size cap), writing to disk instead of memory.
 
 export const DEFAULT_MAX_DOCUMENT_BYTES = 60 * 1024 * 1024
-export const DEFAULT_DOWNLOAD_TIMEOUT_MS = 180_000
+/** A download fails when the site sends nothing for this long. */
+export const DEFAULT_IDLE_TIMEOUT_MS = 60_000
+/** Upper bound for a whole download, however steadily the bytes arrive. */
+export const DEFAULT_MAX_DURATION_MS = 30 * 60_000
+/** How long a failed download waits for its temporary file to close before removing it. */
+const CLOSE_WAIT_MS = 2_000
 const MAX_REDIRECTS = 5
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 const PROGRESS_STEP_BYTES = 256 * 1024
@@ -35,10 +40,13 @@ export interface DownloadOptions {
   documentsDir: string
   signal?: AbortSignal
   onProgress?: (progress: DownloadProgress) => void
-  /** Defaults to Node's global fetch; the app may pass a rate-limited one. */
-  fetch?: typeof fetch
+  /** The scraper client's rate-limited fetch, so downloads keep the site's pace. */
+  fetch: typeof fetch
   maxBytes?: number
-  timeoutMs?: number
+  /** Fails the download when no data arrives for this long. */
+  idleTimeoutMs?: number
+  /** Fails the download when it takes longer than this overall. */
+  maxDurationMs?: number
   userAgent?: string
 }
 
@@ -70,13 +78,19 @@ export async function downloadDocument(options: DownloadOptions): Promise<Downlo
   const folder = path.join(path.resolve(options.documentsDir), options.edictId)
   const target = path.join(folder, fileName)
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_DOCUMENT_BYTES
-  const timeoutMs = options.timeoutMs ?? DEFAULT_DOWNLOAD_TIMEOUT_MS
-  const timeout = AbortSignal.timeout(timeoutMs)
-  const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout
+  const idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS
+  const maxDurationMs = options.maxDurationMs ?? DEFAULT_MAX_DURATION_MS
+  const overall = AbortSignal.timeout(maxDurationMs)
+  const idle = idleTimer(idleTimeoutMs)
+  const signal = AbortSignal.any([
+    ...(options.signal ? [options.signal] : []),
+    overall,
+    idle.signal,
+  ])
 
   try {
     signal.throwIfAborted()
-    const { response, url } = await fetchFollowingRedirects(startUrl, options, signal)
+    const { response, url } = await fetchFollowingRedirects(startUrl, options, signal, idle.reset)
     await rejectFailedResponse(response)
     const bytesTotal = declaredLength(response)
     if (bytesTotal !== null && bytesTotal > maxBytes) {
@@ -90,6 +104,7 @@ export async function downloadDocument(options: DownloadOptions): Promise<Downlo
       maxBytes,
       bytesTotal,
       onProgress: options.onProgress,
+      onData: idle.reset,
     })
     return {
       localPath: `${options.edictId}/${fileName}`,
@@ -100,20 +115,48 @@ export async function downloadDocument(options: DownloadOptions): Promise<Downlo
     }
   } catch (error) {
     if (options.signal?.aborted) throw new AppError('cancelled', 'Download cancelled')
-    if (timeout.aborted) {
-      throw new AppError('timeout', `Download took longer than ${Math.round(timeoutMs / 1000)} s`)
+    if (idle.signal.aborted) {
+      throw new AppError('timeout', `The site sent no data for ${seconds(idleTimeoutMs)} s`)
+    }
+    if (overall.aborted) {
+      throw new AppError('timeout', `Download took longer than ${seconds(maxDurationMs)} s`)
     }
     if (error instanceof AppError) throw error
     throw new AppError('network', 'The document could not be downloaded', { cause: error })
+  } finally {
+    idle.stop()
   }
+}
+
+/** A signal that aborts once `reset` has not been called for `ms`. */
+function idleTimer(ms: number): { signal: AbortSignal; reset: () => void; stop: () => void } {
+  const controller = new AbortController()
+  let timer: NodeJS.Timeout | undefined
+  let stopped = false
+  const stop = (): void => {
+    stopped = true
+    clearTimeout(timer)
+  }
+  const reset = (): void => {
+    if (stopped) return
+    clearTimeout(timer)
+    timer = setTimeout(() => controller.abort(), ms)
+  }
+  reset()
+  return { signal: controller.signal, reset, stop }
+}
+
+function seconds(ms: number): number {
+  return Math.round(ms / 1000)
 }
 
 async function fetchFollowingRedirects(
   start: URL,
   options: DownloadOptions,
   signal: AbortSignal,
+  onResponse: () => void,
 ): Promise<{ response: Response; url: URL }> {
-  const fetchImpl = options.fetch ?? fetch
+  const fetchImpl = options.fetch
   let url = start
   for (let hop = 0; ; hop += 1) {
     const response = await fetchImpl(url.toString(), {
@@ -125,6 +168,7 @@ async function fetchFollowingRedirects(
         Accept: 'application/pdf,*/*;q=0.5',
       },
     })
+    onResponse()
     if (!REDIRECT_STATUSES.has(response.status)) return { response, url }
     await response.body?.cancel()
     if (hop >= MAX_REDIRECTS) throw new AppError('network', 'Too many redirects')
@@ -173,6 +217,8 @@ interface WriteContext {
   maxBytes: number
   bytesTotal: number | null
   onProgress: ((progress: DownloadProgress) => void) | undefined
+  /** Called for every chunk received. */
+  onData: () => void
 }
 
 async function writeBody(
@@ -190,6 +236,7 @@ async function writeBody(
 
   const meter = new Transform({
     transform(chunk: Uint8Array, _encoding, callback) {
+      context.onData()
       bytes += chunk.byteLength
       if (bytes > context.maxBytes) {
         callback(tooLarge(context.maxBytes))
@@ -206,16 +253,20 @@ async function writeBody(
       callback(null, chunk)
     },
   })
-  const file = createWriteStream(temp, { flags: 'wx', mode: 0o600, flush: true })
+  let file: WriteStream | undefined
 
   try {
+    file = createWriteStream(temp, { flags: 'wx', mode: 0o600, flush: true })
     await pipeline(Readable.fromWeb(response.body), meter, file, { signal: context.signal })
     if (!header.includes('%PDF-')) {
       throw new AppError('document_unreadable', 'The downloaded file is not a PDF')
     }
     await storage(() => rename(temp, context.target))
   } catch (error) {
-    await rm(temp, { force: true }).catch(() => undefined)
+    // The stream may still be opening the file: removing it before the handle
+    // closes could leave it behind. What stays anyway, retention removes.
+    if (file !== undefined) await closed(file)
+    await rm(temp, { force: true, maxRetries: 3, retryDelay: 100 }).catch(() => undefined)
     // pipeline tears every stream down with the first error, so the file
     // stream also sees size-cap and network errors. Only a file system error,
     // which carries a syscall, means the folder cannot be written.
@@ -224,6 +275,18 @@ async function writeBody(
   }
   context.onProgress?.({ bytesDone: bytes, bytesTotal: context.bytesTotal ?? bytes })
   return { bytes, sha256: hash.digest('hex') }
+}
+
+/** Waits until a file stream has closed its handle, for at most CLOSE_WAIT_MS. */
+async function closed(stream: WriteStream): Promise<void> {
+  if (stream.closed) return
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, CLOSE_WAIT_MS)
+    stream.once('close', () => {
+      clearTimeout(timer)
+      resolve()
+    })
+  })
 }
 
 async function storage<T>(operation: () => Promise<T>): Promise<T> {

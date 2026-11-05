@@ -1,10 +1,11 @@
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, rm, symlink, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   deleteDocumentFiles,
+  deleteStalePartFiles,
   selectExpiredDocuments,
   type RetentionCandidate,
 } from '../../src/main/documents/retention'
@@ -83,4 +84,30 @@ describe('deleteDocumentFiles', () => {
       expect(existsSync(path.join(base, 'outside', 'secret.pdf'))).toBe(true)
     },
   )
+})
+
+describe('deleteStalePartFiles', () => {
+  let root: string
+
+  beforeEach(async () => {
+    root = await mkdtemp(path.join(tmpdir(), 'edikte-parts-'))
+  })
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('deletes old temporary download files and keeps the rest', async () => {
+    const edictId = 'a'.repeat(32)
+    const folder = path.join(root, edictId)
+    await mkdir(folder)
+    const old = '.0123456789abcdef.part'
+    const fresh = '.fedcba9876543210.part'
+    for (const name of [old, fresh, 'g.pdf']) await writeFile(path.join(folder, name), '%PDF-')
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000)
+    await utimes(path.join(folder, old), twoHoursAgo, twoHoursAgo)
+    const deleted = await deleteStalePartFiles(root, { now: new Date(), maxAgeMs: 60 * 60 * 1000 })
+    expect(deleted).toEqual([`${edictId}/${old}`])
+    expect((await readdir(folder)).sort()).toEqual([fresh, 'g.pdf'].sort())
+  })
 })

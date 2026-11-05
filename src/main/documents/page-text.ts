@@ -34,7 +34,11 @@ const LABEL_ZONE = 0.12
 const SEITE_LABEL = /\bSeite\s+\d{1,4}(?:\s*(?:von|\/)\s*\d{1,4})?(?!\d)/i
 const DASH_LABEL = /^[-–—]\s*\d{1,4}\s*[-–—]$/
 
-/** Real characters a page needs, apart from repeated headers and footers, to count as text. */
+/**
+ * Real characters a page needs, apart from repeated headers and footers, to
+ * count as a text page. Pages below it are treated as scans or pictures and
+ * rendered for the analysis; their text is still stored and sent.
+ */
 export const MIN_TEXT_CHARS = 120
 /** A row on at least this share of pages (and at least 3) is a header or footer. */
 const REPEATED_ROW_SHARE = 0.2

@@ -5,10 +5,20 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { DocumentProgress } from '@shared/domain'
 import { AppError } from '@shared/errors'
 import type { ExtractedDocument } from '../../src/main/documents/extract'
-import { planFill, runFill, type FillCandidate } from '../../src/main/documents/fill'
-import type { DocumentStore, PipelineDeps } from '../../src/main/documents/pipeline'
+import {
+  planFill,
+  runFill,
+  type FillCandidate,
+  type FillDocument,
+} from '../../src/main/documents/fill'
+import {
+  processDocument,
+  type DocumentStore,
+  type PipelineDeps,
+} from '../../src/main/documents/pipeline'
 
 const ID = '0123456789abcdef0123456789abcdef'
+const noFetch: typeof fetch = () => Promise.reject(new Error('Nothing should be downloaded'))
 
 function candidate(id: number, stored: boolean, statedSizeKb: number | null = 100): FillCandidate {
   return {
@@ -31,6 +41,20 @@ function store(overrides: Partial<DocumentStore> = {}): DocumentStore {
     recordExtractError: () => undefined,
     replaceEstimates: () => undefined,
     ...overrides,
+  }
+}
+
+/** The fill step over the plain pipeline, without the document service's shared runs. */
+function viaPipeline(candidates: readonly FillCandidate[], deps: PipelineDeps): FillDocument {
+  return async ({ documentId }, signal, onStep) => {
+    const found = candidates.find((item) => item.document?.id === documentId)
+    if (found === undefined || found.document === null) throw new Error(`No document ${documentId}`)
+    const result = await processDocument(
+      { ...found.document, edictId: found.edictId, propertyType: found.propertyType },
+      deps,
+      { signal, onStep },
+    )
+    return { estimated: result.estimate !== null }
   }
 }
 
@@ -70,6 +94,7 @@ describe('runFill', () => {
   it('records a failing document and continues with the next', async () => {
     const deps: PipelineDeps = {
       documentsDir,
+      fetch: noFetch,
       store: store(),
       extract: (file) =>
         file.endsWith('2.pdf')
@@ -77,7 +102,7 @@ describe('runFill', () => {
           : Promise.resolve(AREA_PAGE),
     }
     const progress: DocumentProgress[] = []
-    const outcome = await runFill(queue, deps, {
+    const outcome = await runFill(queue, viaPipeline(queue, deps), {
       signal: new AbortController().signal,
       onProgress: (event) => progress.push(event),
     })
@@ -93,6 +118,7 @@ describe('runFill', () => {
   it('stops the run when the documents folder cannot be written', async () => {
     const deps: PipelineDeps = {
       documentsDir,
+      fetch: noFetch,
       store: store({
         recordPages: () => {
           throw new AppError('storage_unavailable', 'Disk full')
@@ -100,7 +126,9 @@ describe('runFill', () => {
       }),
       extract: () => Promise.resolve(AREA_PAGE),
     }
-    const outcome = await runFill(queue, deps, { signal: new AbortController().signal })
+    const outcome = await runFill(queue, viaPipeline(queue, deps), {
+      signal: new AbortController().signal,
+    })
     expect(outcome).toEqual({
       status: 'failed',
       processed: 0,
@@ -109,11 +137,41 @@ describe('runFill', () => {
     })
   })
 
+  it('stops the run when the site answers 429', async () => {
+    let requests = 0
+    const deps: PipelineDeps = {
+      documentsDir,
+      fetch: () => {
+        requests += 1
+        return Promise.resolve(new Response('', { status: 429 }))
+      },
+      store: store(),
+      extract: () => Promise.resolve(AREA_PAGE),
+    }
+    const pending = [4, 5].map((id): FillCandidate => {
+      const base = candidate(id, false)
+      if (base.document === null) return base
+      const url = `https://edikte.justiz.gv.at/edikte/ex/exedi3.nsf/0/abc/$file/${id}.pdf`
+      return { ...base, document: { ...base.document, url } }
+    })
+    const outcome = await runFill(pending, viaPipeline(pending, deps), {
+      signal: new AbortController().signal,
+    })
+    expect(outcome).toEqual({
+      status: 'failed',
+      processed: 0,
+      estimated: 0,
+      failures: [{ documentId: 4, code: 'rate_limited' }],
+    })
+    expect(requests).toBe(1)
+  })
+
   it('starts no further document after cancel', async () => {
     const controller = new AbortController()
     const extracted: string[] = []
     const deps: PipelineDeps = {
       documentsDir,
+      fetch: noFetch,
       store: store(),
       extract: (file) => {
         extracted.push(file)
@@ -121,7 +179,7 @@ describe('runFill', () => {
         return Promise.resolve(AREA_PAGE)
       },
     }
-    const outcome = await runFill(queue, deps, { signal: controller.signal })
+    const outcome = await runFill(queue, viaPipeline(queue, deps), { signal: controller.signal })
     expect(outcome.status).toBe('cancelled')
     expect(extracted).toHaveLength(1)
   })

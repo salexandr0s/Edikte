@@ -1,7 +1,8 @@
 import type { DocumentProgress, FillPlan } from '@shared/domain'
 import type { PropertyType } from '@shared/enums'
 import { AppError, isAppError, type AppErrorCode } from '@shared/errors'
-import { processDocument, type PipelineDeps, type PipelineDocument } from './pipeline'
+import type { DownloadProgress } from './download'
+import type { PipelineDocument, PipelineStep } from './pipeline'
 
 // "Fill missing areas": for listings without any area, download the
 // Langgutachten, read it and run the local m² estimate, one document at a time.
@@ -34,14 +35,32 @@ export interface FillOutcome {
   failures: { documentId: number; code: AppErrorCode }[]
 }
 
+/** Errors after which every later document would fail as well. */
+const STOPPING_CODES: ReadonlySet<AppErrorCode> = new Set([
+  'storage_unavailable',
+  'rate_limited',
+  'site_unavailable',
+])
+
+/**
+ * Downloads, reads and estimates one listing's Langgutachten. The document
+ * service passes its shared runs, so a fill never fetches a file that a single
+ * download or an analysis is already fetching.
+ */
+export type FillDocument = (
+  target: { documentId: number; edictId: string },
+  signal: AbortSignal,
+  onStep: (step: PipelineStep, bytes: DownloadProgress | null) => void,
+) => Promise<{ estimated: boolean }>
+
 /**
  * Runs the fill sequentially. A failing document is recorded and skipped;
- * cancellation stops before the next step, and an unwritable documents folder
- * stops the whole run.
+ * cancellation stops before the next step. An unwritable documents folder and
+ * a site that answers 429 or is unavailable stop the whole run.
  */
 export async function runFill(
   candidates: readonly FillCandidate[],
-  deps: PipelineDeps,
+  fillDocument: FillDocument,
   options: { signal: AbortSignal; onProgress?: (progress: DocumentProgress) => void },
 ): Promise<FillOutcome> {
   const queue = candidates.filter((candidate) => candidate.document !== null)
@@ -51,7 +70,7 @@ export async function runFill(
   const emit = (
     phase: DocumentProgress['phase'],
     target: { documentId: number; edictId: string } | null,
-    bytes: { bytesDone: number; bytesTotal: number | null } | null = null,
+    bytes: DownloadProgress | null = null,
   ): void => {
     options.onProgress?.({
       job: 'fill',
@@ -69,18 +88,16 @@ export async function runFill(
     if (options.signal.aborted || candidate.document === null) break
     const target = { documentId: candidate.document.id, edictId: candidate.edictId }
     try {
-      const result = await processDocument(
-        { ...candidate.document, edictId: candidate.edictId, propertyType: candidate.propertyType },
-        deps,
-        { signal: options.signal, onStep: (step, bytes) => emit(step, target, bytes) },
+      const result = await fillDocument(target, options.signal, (step, bytes) =>
+        emit(step, target, bytes),
       )
       outcome.processed += 1
-      if (result.estimate !== null) outcome.estimated += 1
+      if (result.estimated) outcome.estimated += 1
     } catch (error) {
       const code: AppErrorCode = isAppError(error) ? error.code : 'internal'
       if (code === 'cancelled' || options.signal.aborted) break
       outcome.failures.push({ documentId: target.documentId, code })
-      if (code === 'storage_unavailable') {
+      if (STOPPING_CODES.has(code)) {
         outcome.status = 'failed'
         emit('failed', target)
         return outcome
@@ -104,7 +121,7 @@ export interface FillRunner {
 
 /** One fill at a time, cancellable, reporting through `onProgress`. */
 export function createFillRunner(
-  deps: PipelineDeps,
+  fillDocument: FillDocument,
   onProgress: (progress: DocumentProgress) => void,
   onFinished?: (outcome: FillOutcome) => void,
 ): FillRunner {
@@ -116,7 +133,7 @@ export function createFillRunner(
       const plan = planFill(candidates)
       const own = new AbortController()
       controller = own
-      current = runFill(candidates, deps, { signal: own.signal, onProgress })
+      current = runFill(candidates, fillDocument, { signal: own.signal, onProgress })
         .then((outcome) => onFinished?.(outcome))
         .finally(() => {
           if (controller === own) controller = null

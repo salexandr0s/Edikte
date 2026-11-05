@@ -50,8 +50,8 @@ export interface PipelineDeps {
   store: DocumentStore
   /** Reads the pages of a file; in the app, extractInUtilityProcess. */
   extract: (absolutePath: string, signal: AbortSignal) => Promise<ExtractedDocument>
-  /** Defaults to Node's global fetch; pass the scraper's rate-limited fetch to share its pace. */
-  fetch?: typeof fetch
+  /** The scraper client's rate-limited fetch, so downloads keep the site's pace. */
+  fetch: typeof fetch
   userAgent?: string
   maxBytes?: number
   now?: () => Date

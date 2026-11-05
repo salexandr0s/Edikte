@@ -27,6 +27,8 @@ type Method = 'same-line-total' | 'same-line' | 'block-total' | 'next-line'
 interface Candidate extends LocalAreaEstimate {
   rank: number
   mixed: boolean
+  /** A total for the whole building rather than for one unit. */
+  building: boolean
 }
 
 const MAX_QUOTE = 200
@@ -45,6 +47,14 @@ const COMPARABLES =
 const AREA_KEYWORD =
   /wohnnutzfl(?:ä|ae)che|wohnfl(?:ä|ae)che|nutzfl(?:ä|ae)che|grundst(?:ü|ue)cksfl(?:ä|ae)che|grundfl(?:ä|ae)che/gi
 const TOTAL = /gesamt|summe/i
+// Labels of a total for the whole house or complex rather than one flat or shop:
+// "Gesamtnutzfläche der Liegenschaft", "Nutzfläche aller Wohnungen".
+const BUILDING =
+  /liegenschaft|geb(?:ä|ae)ude|\b(?:des|ganzen|gesamten)\s+(?:wohn)?haus(?:es)?\b|wohn(?:haus)?anlage|\b(?:der|gesamten)\s+anlage\b|\balle[rn]?\s+(?:\p{L}*objekte|\p{L}*einheiten|wohnungen|tops)\b/iu
+// Rows of several units, as in a table of all flats: "Top 1", "Top 2".
+const UNIT_NUMBER = /\btop\s*(\d+)/gi
+/** Types whose area is one unit of a building, so the building's totals do not apply. */
+const UNIT_TYPES: ReadonlySet<PropertyType> = new Set(['apartment', 'commercial'])
 // Areas that a price per m² must not include; their presence lowers confidence.
 const ACCESSORY = /keller|loggia|balkon|terrasse|garten|garage|stellplatz|abstellraum|dachboden/i
 const NUMBERED_HEADING = /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u
@@ -67,8 +77,10 @@ export function estimateArea(
   propertyType: PropertyType,
 ): LocalAreaEstimate | null {
   const kinds = usableAreaKinds(propertyType)
+  // A flat or a shop takes its own value or none, never the building's total.
+  const unit = UNIT_TYPES.has(propertyType)
   const candidates = findAreaCandidates(pages)
-    .filter((candidate) => kinds.includes(candidate.kind))
+    .filter((candidate) => kinds.includes(candidate.kind) && !(unit && candidate.building))
     .sort(
       (a, b) => a.rank - b.rank || kinds.indexOf(a.kind) - kinds.indexOf(b.kind) || a.page - b.page,
     )
@@ -112,6 +124,7 @@ export function findAreaCandidates(pages: readonly EstimatePage[]): Candidate[] 
           confidence: 'low',
           rank: METHOD_RANK[found.method] + (found.mixed ? 2 : 0),
           mixed: found.mixed,
+          building: found.building,
         })
       }
     })
@@ -125,6 +138,7 @@ interface Found {
   method: Method
   /** The value includes or sits next to cellar, balcony or similar areas. */
   mixed: boolean
+  building: boolean
 }
 
 function sameLineCandidate(line: string, keywordAt: number, keywordLength: number): Found | null {
@@ -150,6 +164,7 @@ function sameLineCandidate(line: string, keywordAt: number, keywordLength: numbe
     quote: quoteFrom(line, start, end),
     method: total ? 'same-line-total' : 'same-line',
     mixed: ACCESSORY.test(line.slice(start, end)),
+    building: total && BUILDING.test(line),
   }
 }
 
@@ -175,6 +190,10 @@ function blockCandidate(lines: readonly string[], keywordLine: number): Found | 
         quote: quote.length <= MAX_QUOTE ? quote : quoteFrom(line, 0, line.length),
         method: 'block-total',
         mixed: block.some((row) => ACCESSORY.test(row)),
+        building:
+          BUILDING.test(lines[keywordLine] ?? '') ||
+          BUILDING.test(line) ||
+          unitNumbers(block).size > 1,
       }
     }
   }
@@ -189,7 +208,14 @@ function blockCandidate(lines: readonly string[], keywordLine: number): Found | 
     quote: quoteFrom(line, 0, line.length),
     method: 'next-line',
     mixed: ACCESSORY.test(line),
+    building: false,
   }
+}
+
+function unitNumbers(rows: readonly string[]): Set<string> {
+  return new Set(
+    rows.flatMap((row) => [...row.matchAll(UNIT_NUMBER)].map((match) => match[1] ?? '')),
+  )
 }
 
 function hasKeyword(line: string): boolean {

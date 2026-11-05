@@ -55,3 +55,22 @@ describe('estimateArea', () => {
     expect(estimateArea([plot], 'land')).toMatchObject({ kind: 'grundflaeche', sqm: 942 })
   })
 })
+
+describe('estimateArea for one unit of a building', () => {
+  const liegenschaft = 'Gesamtnutzfläche der Liegenschaft: 1.234,56 m²'
+
+  it('takes the unit value over the total of the building', () => {
+    const pages = [{ pageNumber: 3, text: `${liegenschaft}\nNutzfläche Top 12: 65,76 m²` }]
+    expect(estimateArea(pages, 'apartment')).toMatchObject({ sqm: 65.76 })
+    expect(estimateArea([{ pageNumber: 3, text: liegenschaft }], 'commercial')).toBeNull()
+    expect(estimateArea([{ pageNumber: 3, text: liegenschaft }], 'house')).toMatchObject({
+      sqm: 1234.56,
+    })
+  })
+
+  it('skips the sum of a table that lists several units', () => {
+    const text = ['Nutzflächen', 'Top 1 65,76 m²', 'Top 2 70,10 m²', 'Summe 135,86 m²'].join('\n')
+    expect(estimateArea([{ pageNumber: 4, text }], 'apartment')).toBeNull()
+    expect(estimateArea([{ pageNumber: 4, text }], 'house')).toMatchObject({ sqm: 135.86 })
+  })
+})

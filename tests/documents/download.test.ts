@@ -158,7 +158,7 @@ describe('downloadDocument', () => {
     expect(await edictFiles()).toEqual([])
   })
 
-  it('gives up after the timeout', async () => {
+  it('gives up when the site stops sending data', async () => {
     const { fetch } = fakeFetch(
       () =>
         new Response(
@@ -169,10 +169,32 @@ describe('downloadDocument', () => {
           }),
         ),
     )
-    await expect(downloadDocument(options(fetch, { timeoutMs: 50 }))).rejects.toMatchObject({
+    await expect(downloadDocument(options(fetch, { idleTimeoutMs: 50 }))).rejects.toMatchObject({
       code: 'timeout',
     })
     expect(await edictFiles()).toEqual([])
+  })
+
+  it('keeps a slow but steady download going until the overall limit', async () => {
+    const steady = (): Response => {
+      let chunks = 0
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          async pull(stream) {
+            await new Promise((resolve) => setTimeout(resolve, 20))
+            chunks += 1
+            if (chunks > 8) stream.close()
+            else stream.enqueue(chunks === 1 ? PDF : new Uint8Array(1024))
+          },
+        }),
+      )
+    }
+    const done = await downloadDocument(options(fakeFetch(steady).fetch, { idleTimeoutMs: 500 }))
+    expect(done.bytes).toBe(PDF.byteLength + 7 * 1024)
+    await expect(
+      downloadDocument(options(fakeFetch(steady).fetch, { idleTimeoutMs: 500, maxDurationMs: 60 })),
+    ).rejects.toMatchObject({ code: 'timeout', message: 'Download took longer than 0 s' })
+    expect(await edictFiles()).toEqual([path.basename(done.absolutePath)])
   })
 
   it('rejects a response that is not a PDF', async () => {

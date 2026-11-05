@@ -26,13 +26,19 @@ import {
   type PipelineDeps,
   type PipelineStep,
 } from '../../documents/pipeline'
-import { deleteDocumentFiles, selectExpiredDocuments } from '../../documents/retention'
+import {
+  deleteDocumentFiles,
+  deleteStalePartFiles,
+  selectExpiredDocuments,
+} from '../../documents/retention'
 import type { EmitEvent } from '../../ipc/events'
 import { log } from '../../log'
+import { SharedRuns } from './shared-runs'
 
 // Downloads, "Fill missing areas", the PDF window and retention behind the
 // documents:* channels. Every download runs processDocument: the file, its
-// text from the utility process, then the local m² estimate.
+// text from the utility process, then the local m² estimate. Single downloads,
+// fills and analysis jobs asking for one document share one run of it.
 
 /** What openPdfWindow takes. */
 export interface OpenPdfRequest {
@@ -80,17 +86,35 @@ export interface DocumentService {
   cancelFill(): void
   /** Deletes the files of cases closed for longer than the retention setting. */
   runRetention(): Promise<RetentionSummary>
-  /** Downloads and reads a document unless that is done; analysis jobs call it. */
+  /**
+   * Downloads and reads a document unless that is done; analysis jobs call it.
+   * Fails with `cancelled` once `signal` aborts; the download goes on while
+   * another caller still waits for it.
+   */
   prepare(documentId: number, signal: AbortSignal, onStep?: PrepareStep): Promise<StoredDocument>
+  /** For app quit: cancels the fill and every download. Later requests fail with `cancelled`. */
+  shutdown(): void
   /** Settles when no download or fill is running. */
   idle(): Promise<void>
 }
 
+interface PreparedDocument {
+  document: StoredDocument
+  /** Whether this run stored a local m² estimate. */
+  estimated: boolean
+}
+
+interface PrepareEvent {
+  step: PipelineStep
+  bytes: DownloadProgress | null
+}
+
+/** A single download has no cancel button: its own timeout or app quit ends a stuck one. */
+const NO_CANCEL = new AbortController().signal
+
 export function createDocumentService(deps: DocumentServiceDeps): DocumentService {
   const { store, emit, documentsDir } = deps
   const now = deps.now ?? (() => new Date())
-  /** Downloads in progress by document ID; a second request joins the first. */
-  const preparing = new Map<number, Promise<StoredDocument>>()
 
   const changed = (documentId: number): void => {
     const edictId = store.edictIdOf(documentId)
@@ -122,11 +146,6 @@ export function createDocumentService(deps: DocumentServiceDeps): DocumentServic
     userAgent: deps.userAgent,
     now,
   }
-  const fillRunner = createFillRunner(
-    pipeline,
-    (progress) => emit('documents:progress', progress),
-    logFillOutcome,
-  )
 
   const requireDocument = (documentId: number): StoredDocument => {
     const stored = store.find(documentId)
@@ -140,26 +159,41 @@ export function createDocumentService(deps: DocumentServiceDeps): DocumentServic
     row.extractedAt !== null &&
     (await resolveDocumentFile(documentsDir, row.localPath)) !== null
 
-  const prepare = (
+  /** One run per document, whoever asks for it. */
+  const runs = new SharedRuns<number, PreparedDocument, PrepareEvent>(
+    async (documentId, signal, onStep) => {
+      const stored = requireDocument(documentId)
+      if (await isReady(stored)) return { document: stored, estimated: false }
+      const result = await processDocument(toPipelineDocument(stored), pipeline, {
+        signal,
+        onStep: (step, bytes) => onStep({ step, bytes }),
+      })
+      return { document: requireDocument(documentId), estimated: result.estimate !== null }
+    },
+  )
+  const join = (
     documentId: number,
     signal: AbortSignal,
     onStep?: PrepareStep,
-  ): Promise<StoredDocument> => {
-    const joined = preparing.get(documentId)
-    if (joined !== undefined) return joined
-    const run = (async () => {
-      const stored = requireDocument(documentId)
-      if (await isReady(stored)) return stored
-      await processDocument(toPipelineDocument(stored), pipeline, { signal, onStep })
-      return requireDocument(documentId)
-    })()
-    preparing.set(documentId, run)
-    const forget = (): void => {
-      preparing.delete(documentId)
-    }
-    run.then(forget, forget)
-    return run
-  }
+  ): Promise<PreparedDocument> =>
+    runs.join(
+      documentId,
+      signal,
+      onStep === undefined ? undefined : (event) => onStep(event.step, event.bytes),
+    )
+  const prepare = async (
+    documentId: number,
+    signal: AbortSignal,
+    onStep?: PrepareStep,
+  ): Promise<StoredDocument> => (await join(documentId, signal, onStep)).document
+
+  // The fill goes through `runs` as well: it never fetches a file twice, and
+  // cancelling it leaves downloads that others wait for running.
+  const fillRunner = createFillRunner(
+    (target, signal, onStep) => join(target.documentId, signal, onStep),
+    (progress) => emit('documents:progress', progress),
+    logFillOutcome,
+  )
 
   const download = async (documentId: number): Promise<DocumentInfo> => {
     const stored = requireDocument(documentId)
@@ -181,10 +215,7 @@ export function createDocumentService(deps: DocumentServiceDeps): DocumentServic
       })
     }
     try {
-      // A single download has no cancel button; its own timeout ends a stuck one.
-      const ready = await prepare(documentId, new AbortController().signal, (step, bytes) =>
-        report(step, 0, bytes),
-      )
+      const ready = await prepare(documentId, NO_CANCEL, (step, bytes) => report(step, 0, bytes))
       report('done', 1)
       return ready.info
     } catch (error) {
@@ -241,13 +272,18 @@ export function createDocumentService(deps: DocumentServiceDeps): DocumentServic
     },
     cancelFill: () => fillRunner.cancel(),
     async runRetention() {
+      // Leftovers of downloads cut off by a crash; no download runs that long.
+      const staleParts = await deleteStalePartFiles(documentsDir, { now: now() })
+      if (staleParts.length > 0) {
+        log.info('documents', `Deleted ${staleParts.length} unfinished downloads`)
+      }
       const expired = selectExpiredDocuments(store.retentionCandidates(), {
         retentionDays: deps.retentionDays(),
         now: now(),
       })
-      // A file being downloaded or read right now waits for the next run.
+      // A file being downloaded or read right now, by a fill too, waits for the next run.
       const targets = expired.flatMap(({ documentId, localPath }) =>
-        localPath === null || preparing.has(documentId) ? [] : [{ documentId, localPath }],
+        localPath === null || runs.has(documentId) ? [] : [{ documentId, localPath }],
       )
       if (targets.length === 0) return { deleted: 0, missing: 0, refused: 0 }
       const outcome = await deleteDocumentFiles(
@@ -266,9 +302,14 @@ export function createDocumentService(deps: DocumentServiceDeps): DocumentServic
       }
     },
     prepare,
+    shutdown() {
+      fillRunner.cancel()
+      runs.stop()
+    },
     async idle() {
-      await Promise.allSettled([...preparing.values()])
+      // The fill runs its documents through `runs`, so it goes first.
       await fillRunner.idle()
+      await runs.idle()
     },
   }
 }

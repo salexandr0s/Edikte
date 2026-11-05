@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DocumentProgressSchema,
   ListingQuerySchema,
@@ -38,6 +38,25 @@ const hangingFetch: typeof fetch = (_input, init) =>
   new Promise<Response>((_resolve, reject) => {
     init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
   })
+
+/** Answers every request once released; a request fails once it is aborted. */
+function gatedFetch() {
+  let release = (): void => {}
+  const opened = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const signals: AbortSignal[] = []
+  const fetch: typeof globalThis.fetch = (_input, init) =>
+    new Promise<Response>((resolve, reject) => {
+      const signal = init?.signal ?? null
+      if (signal !== null) {
+        signals.push(signal)
+        signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+      }
+      void opened.then(() => resolve(new Response('%PDF-1.4 stand-in')))
+    })
+  return { fetch, release, signals }
+}
 
 interface Emitted {
   event: string
@@ -182,6 +201,90 @@ describe('document service', () => {
     expect(documentIds.map((id) => store.find(id)?.info.downloaded)).toEqual([false, true, true])
     expect(store.pageTexts(documentIds[0] ?? -1)).toEqual([])
     expect(events).toContainEqual({ event: 'listings:changed', payload: { edictIds: [closed] } })
+  })
+})
+
+describe('shared downloads', () => {
+  it('lets one caller cancel while the download goes on for the others', async () => {
+    const edict = edictId(11)
+    insertEdict(db, edict)
+    const documentId = insertGutachten(db, edict)
+    const gated = gatedFetch()
+    const { service, progress } = setup([], { fetch: gated.fetch })
+    const job = new AbortController()
+    const jobSteps: string[] = []
+
+    const prepared = service.prepare(documentId, job.signal, (step) => jobSteps.push(step))
+    await vi.waitFor(() => expect(gated.signals).toHaveLength(1))
+    const download = service.download({ documentId })
+    // A caller that joins gets the current step first: the download has joined.
+    await vi.waitFor(() => expect(progress()).toHaveLength(1))
+    job.abort()
+    await expect(prepared).rejects.toMatchObject({ code: 'cancelled' })
+    gated.release()
+
+    await expect(download).resolves.toMatchObject({ downloaded: true, pageCount: 2 })
+    expect(gated.signals).toHaveLength(1)
+    expect(jobSteps).toEqual(['download'])
+    const phases = progress().map((event) => event.phase)
+    expect(phases).toContain('extract')
+    expect(phases).not.toContain('cancelled')
+    expect(phases.at(-1)).toBe('done')
+  })
+
+  it('stops waiting at once on cancel, and stops the download once nobody waits', async () => {
+    const shared = edictId(12)
+    const alone = edictId(13)
+    for (const id of [shared, alone]) insertEdict(db, id)
+    const sharedId = insertGutachten(db, shared)
+    const aloneId = insertGutachten(db, alone)
+    const gated = gatedFetch()
+    const { service, progress } = setup([], { fetch: gated.fetch })
+
+    const single = service.download({ documentId: sharedId })
+    await vi.waitFor(() => expect(gated.signals).toHaveLength(1))
+    const job = new AbortController()
+    const joined = service.prepare(sharedId, job.signal)
+    job.abort()
+    await expect(joined).rejects.toMatchObject({ code: 'cancelled' })
+    expect(gated.signals[0]?.aborted).toBe(false)
+
+    const lone = new AbortController()
+    const prepared = service.prepare(aloneId, lone.signal)
+    await vi.waitFor(() => expect(gated.signals).toHaveLength(2))
+    lone.abort()
+    await expect(prepared).rejects.toMatchObject({ code: 'cancelled' })
+    expect(gated.signals[1]?.aborted).toBe(true)
+
+    service.shutdown()
+    await expect(single).rejects.toMatchObject({ code: 'cancelled' })
+    await service.idle()
+    expect(progress().at(-1)).toMatchObject({ job: 'single', phase: 'cancelled' })
+    await expect(service.download({ documentId: aloneId })).rejects.toMatchObject({
+      code: 'cancelled',
+    })
+  })
+
+  it('downloads a document once for a fill and a single download, and a cancelled fill leaves the download running', async () => {
+    const edict = edictId(14)
+    insertEdict(db, edict)
+    const documentId = insertGutachten(db, edict)
+    const gated = gatedFetch()
+    const { service, progress } = setup([listingRow(edict, null)], { fetch: gated.fetch })
+
+    await service.fill(QUERY)
+    await vi.waitFor(() => expect(gated.signals).toHaveLength(1))
+    const single = service.download({ documentId })
+    const joined = () => progress().filter((event) => event.job === 'single')
+    await vi.waitFor(() => expect(joined()).toHaveLength(1))
+    service.cancelFill()
+    gated.release()
+
+    await expect(single).resolves.toMatchObject({ downloaded: true })
+    await service.idle()
+    expect(gated.signals).toHaveLength(1)
+    const fill = progress().filter((event) => event.job === 'fill')
+    expect(fill.at(-1)).toMatchObject({ phase: 'cancelled' })
   })
 })
 

@@ -66,6 +66,9 @@ export async function renderPdfPages(options: RasterOptions): Promise<RasterResu
   }
   const collector = new RasterCollector(job)
   const pageUrl = rasterPageUrl(options.location)
+  // No partition of its own: the default session's guards (installSessionGuards)
+  // cancel its network requests and deny permissions, and installAppGuards
+  // denies pop-ups and navigation in every web contents, this one included.
   const window = new BrowserWindow({
     show: false,
     width: 800,

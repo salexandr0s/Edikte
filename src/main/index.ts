@@ -231,8 +231,11 @@ function fail(error: unknown): void {
 async function stopServices(db: AppDatabase, running: Services | null): Promise<void> {
   if (running !== null) {
     running.providers.dispose()
-    running.documents.cancelFill()
-    const stopped = Promise.allSettled([running.sync.dispose(), running.analysis.shutdown()])
+    const stopping = Promise.allSettled([running.sync.dispose(), running.analysis.shutdown()])
+    // In the same tick, after analysis.shutdown() has begun: a job whose download
+    // stops here keeps its row queued for the next start instead of failing.
+    running.documents.shutdown()
+    const stopped = stopping
       .then(() => running.documents.idle())
       .catch((error: unknown) => log.error('app', 'Services did not stop cleanly', error))
     const limit = new Promise<void>((resolve) => setTimeout(resolve, SHUTDOWN_LIMIT_MS))

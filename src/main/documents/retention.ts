@@ -1,6 +1,7 @@
-import { lstat, realpath, rm, rmdir } from 'node:fs/promises'
+import { lstat, readdir, realpath, rm, rmdir } from 'node:fs/promises'
 import path from 'node:path'
 import { isInside, splitLocalPath } from './document-protocol'
+import { EDICT_ID_PATTERN } from './file-names'
 
 // Downloaded Gutachten name the owners, so files are deleted once a case has
 // been closed for longer than the retention setting.
@@ -96,4 +97,48 @@ export async function deleteDocumentFiles(
     await rmdir(folder).catch(() => undefined)
   }
   return outcome
+}
+
+/** Temporary download files, as download.ts names them. */
+const PART_FILE = /^\.[0-9a-f]{16}\.part$/
+/** Far longer than a download may run, so an older .part file was left behind. */
+export const STALE_PART_AGE_MS = 6 * 60 * 60 * 1000
+
+/**
+ * Deletes the temporary files of downloads that a crash or a failed clean-up
+ * left in the edict folders, once they are older than any download may run.
+ * Returns their paths relative to the documents folder.
+ */
+export async function deleteStalePartFiles(
+  documentsDir: string,
+  options: { now: Date; maxAgeMs?: number },
+): Promise<string[]> {
+  const cutoff = options.now.getTime() - (options.maxAgeMs ?? STALE_PART_AGE_MS)
+  let root: string
+  try {
+    root = await realpath(documentsDir)
+  } catch {
+    return []
+  }
+  const deleted: string[] = []
+  for (const folder of await readdir(root, { withFileTypes: true }).catch(() => [])) {
+    // Symlinked folders are skipped: isDirectory() is false for a link.
+    if (!folder.isDirectory() || !EDICT_ID_PATTERN.test(folder.name)) continue
+    const dir = path.join(root, folder.name)
+    let removed = false
+    for (const entry of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
+      if (!entry.isFile() || !PART_FILE.test(entry.name)) continue
+      const file = path.join(dir, entry.name)
+      try {
+        if ((await lstat(file)).mtimeMs > cutoff) continue
+        await rm(file)
+        deleted.push(`${folder.name}/${entry.name}`)
+        removed = true
+      } catch {
+        // Gone already or locked; the next run tries again.
+      }
+    }
+    if (removed) await rmdir(dir).catch(() => undefined)
+  }
+  return deleted
 }
