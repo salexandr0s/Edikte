@@ -2,26 +2,34 @@ import { readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ProviderError, type AiProvider } from '../provider'
 import type { ResolvedCli } from './binary'
-import { safeDetail } from './cli-output'
+import { describeExit, safeDetail } from './cli-output'
 import { createCliProvider, type CliAccount } from './cli-provider'
-import { CliRuntime, type CliProviderOptions } from './cli-runtime'
+import { CliRuntime, versionKey, type CliProviderOptions } from './cli-runtime'
 import {
   CODEX_MODELS,
   CODEX_REQUIRED_FLAGS,
+  CODEX_SHELL_FEATURES,
   CodexEventParser,
   buildCodexExecArgs,
   buildCodexPrompt,
+  codexDisableArgs,
+  codexFeaturesToDisable,
+  codexShellToolOff,
   isCodexModel,
   parseCodexAnswer,
+  parseCodexFeatures,
   parseCodexLoginStatus,
 } from './codex-protocol'
 
 /**
  * Codex through the user's own `codex` binary and its sign-in. Codex reports
- * no account name, so the account check can only tell sign-in methods apart.
+ * no account name, so the account check can only tell sign-in methods apart:
+ * a switch to another ChatGPT account goes unnoticed.
  */
 export function createCodexCliProvider(options: CliProviderOptions): AiProvider {
   const runtime = new CliRuntime('codex-cli', options)
+  /** The `--disable` names per installed version. */
+  const disabledFeatures = new Map<string, string[]>()
 
   const readAccount = async (cli: ResolvedCli, signal?: AbortSignal): Promise<CliAccount> => {
     const run = await runtime.invoke(cli, ['login', 'status'], {
@@ -31,9 +39,48 @@ export function createCodexCliProvider(options: CliProviderOptions): AiProvider 
     return parseCodexLoginStatus(run.exitCode, run.stdout, run.stderr)
   }
 
+  /**
+   * The features to switch off, read with `codex features list` once per
+   * version. A string says why the version cannot be used: a run without the
+   * list, without the shell features in it, or with a shell_tool that the
+   * flags leave on would keep shell access.
+   */
+  const readFeatures = async (
+    cli: ResolvedCli,
+    version: string,
+    signal?: AbortSignal,
+  ): Promise<string[] | string> => {
+    const key = versionKey(cli, version)
+    const cached = disabledFeatures.get(key)
+    if (cached) return cached
+    const run = await runtime.invoke(cli, ['features', 'list'], {
+      timeoutMs: runtime.limits.probeTimeoutMs,
+      signal,
+    })
+    if (run.exitCode !== 0) return `codex features list ${describeExit(run.exitCode)}`
+    const names = codexFeaturesToDisable(parseCodexFeatures(run.stdout))
+    if (!names) return `codex features list lacks ${CODEX_SHELL_FEATURES.join(' or ')}`
+    // The same list again with the flags, to see that they take.
+    const check = await runtime.invoke(cli, [...codexDisableArgs(names), 'features', 'list'], {
+      timeoutMs: runtime.limits.probeTimeoutMs,
+      signal,
+    })
+    if (check.exitCode !== 0) {
+      return `codex features list with --disable ${describeExit(check.exitCode)}`
+    }
+    if (!codexShellToolOff(parseCodexFeatures(check.stdout))) {
+      return 'codex --disable shell_tool has no effect'
+    }
+    disabledFeatures.set(key, names)
+    return names
+  }
+
   return createCliProvider<CliAccount>(runtime, {
-    helpArgs: ['exec', '--help'],
-    requiredFlags: CODEX_REQUIRED_FLAGS,
+    helpChecks: [{ args: ['exec', '--help'], flags: CODEX_REQUIRED_FLAGS }],
+    checkVersion: async (cli, version, signal) => {
+      const features = await readFeatures(cli, version, signal)
+      return typeof features === 'string' ? features : null
+    },
     loginArgs: ['login'],
     models: CODEX_MODELS,
     readAccount,
@@ -47,8 +94,16 @@ export function createCodexCliProvider(options: CliProviderOptions): AiProvider 
       }
     },
     // The schema, the images and the answer file stay in the run's private folder.
-    analyze: ({ cli, request, signal, onProgress }) =>
-      runtime.withTempDir(async (dir) => {
+    analyze: async ({ cli, version, request, signal, onProgress }) => {
+      const features = await readFeatures(cli, version, signal)
+      if (typeof features === 'string') {
+        throw new ProviderError(
+          'codex-cli',
+          'cli_update_required',
+          `Codex CLI ${version}: ${features}`,
+        )
+      }
+      return runtime.withTempDir(async (dir) => {
         const { prompt, images } = buildCodexPrompt(request.system, request.content)
         const schemaPath = join(dir, 'output-schema.json')
         const answerPath = join(dir, 'answer.json')
@@ -65,6 +120,7 @@ export function createCodexCliProvider(options: CliProviderOptions): AiProvider 
             imageFiles: images.map((image) => image.fileName),
           },
           request.model,
+          features,
         )
         const run = await runtime.invoke(
           cli,
@@ -89,7 +145,8 @@ export function createCodexCliProvider(options: CliProviderOptions): AiProvider 
           accountLabel: null,
           raw: events.raw,
         }
-      }),
+      })
+    },
   })
 }
 

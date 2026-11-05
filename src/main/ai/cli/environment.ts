@@ -19,8 +19,8 @@ export interface CliEnvironmentInput {
   homeDir: string
   /** The run's private temp folder, used as TMPDIR (and TEMP on Windows). */
   tempDir: string
-  /** Folder of the binary, first on PATH so npm's `#!/usr/bin/env node` scripts find node. */
-  binaryDir: string | null
+  /** Folders put first on PATH: the binary's, and node's for a Node script, so its children find node. */
+  programDirs: readonly string[]
 }
 
 /**
@@ -37,7 +37,7 @@ export function buildCliEnvironment(input: CliEnvironmentInput): Record<string, 
   const user = read('USER')
   if (user) env.USER = user
   env.PATH = joinPathList(
-    [input.binaryDir, ...(read('PATH') ?? '').split(windows ? ';' : ':')],
+    [...input.programDirs, ...(read('PATH') ?? '').split(windows ? ';' : ':')],
     windows,
   )
   env.TMPDIR = input.tempDir

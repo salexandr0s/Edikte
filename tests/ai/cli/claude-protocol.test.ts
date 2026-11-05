@@ -269,6 +269,16 @@ describe('ClaudeStreamParser', () => {
       code: 'provider_incomplete',
     },
     {
+      name: 'stop reason model_context_window_exceeded',
+      line: result({ stop_reason: 'model_context_window_exceeded' }),
+      code: 'document_too_large',
+    },
+    {
+      name: 'a prompt that is too long',
+      line: result({ is_error: true, api_error_status: 400, result: 'Prompt is too long' }),
+      code: 'document_too_large',
+    },
+    {
       name: 'a Bash tool call',
       line: assistant({ message: { content: [{ type: 'tool_use', name: 'Bash', input: {} }] } }),
       code: 'provider_invalid_output',

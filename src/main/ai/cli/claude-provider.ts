@@ -44,8 +44,12 @@ export function createClaudeCliProvider(options: CliProviderOptions): AiProvider
   }
 
   return createCliProvider<ClaudeAuth>(runtime, {
-    helpArgs: ['--help'],
-    requiredFlags: CLAUDE_REQUIRED_FLAGS,
+    helpChecks: [
+      { args: ['--help'], flags: CLAUDE_REQUIRED_FLAGS },
+      // A release that changes the account check or the sign-in needs "update required" too.
+      { args: ['auth', 'status', '--help'], flags: ['--json'] },
+      { args: ['auth', 'login', '--help'], flags: ['--claudeai'] },
+    ],
     loginArgs: [...CLAUDE_ISOLATION_ARGS, 'auth', 'login', '--claudeai'],
     models: CLAUDE_MODELS,
     readAccount,

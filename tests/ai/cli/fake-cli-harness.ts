@@ -10,6 +10,8 @@ import { defaultSpawn, type SpawnFunction } from '../../../src/main/ai/cli/proce
 import { ProviderError } from '../../../src/main/ai/provider'
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url))
+/** The Node script that plays the CLI. */
+export const FAKE_CLI_SCRIPT = join(FIXTURES, 'fake-cli.mjs')
 
 export function readFixture(name: string): string {
   return readFileSync(join(FIXTURES, name), 'utf8')
@@ -51,14 +53,22 @@ export interface FakeScenario {
   version: string
   /** Printed for --help (claude) and exec --help (codex). */
   help: string
+  /** Help by the arguments before --help, such as "auth status"; any other help prints `help`. */
+  subcommandHelp?: Record<string, string>
+  /** Printed for codex features list, with the names given to --disable off. */
+  features?: string
+  featuresExitCode?: number
+  /** Names that --disable leaves on, as Codex 0.154.0 does with unified_exec. */
+  stuckFeatures?: string[]
   /** Answers to auth status (claude) or login status (codex) in order; the last one repeats. */
   auth: FakeAnswer[]
   loginExitCode?: number
+  loginStderr?: string
   run?: FakeRun
 }
 
 const CallSchema = z.object({
-  kind: z.enum(['version', 'help', 'auth', 'login', 'print', 'exec']),
+  kind: z.enum(['version', 'help', 'auth', 'features', 'login', 'print', 'exec']),
   args: z.array(z.string()),
   stdin: z.string().optional(),
   schema: z.string().nullable().optional(),
@@ -115,8 +125,7 @@ export async function createFakeCli(scenario: FakeScenario): Promise<FakeCli> {
   await mkdir(home)
   await mkdir(tempRoot)
   const binary = join(home, 'fake-cli')
-  const script = join(FIXTURES, 'fake-cli.mjs')
-  await writeFile(binary, `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`, {
+  await writeFile(binary, `#!/bin/sh\nexec "${process.execPath}" "${FAKE_CLI_SCRIPT}" "$@"\n`, {
     mode: 0o755,
   })
   await writeFile(join(home, 'fake-cli.json'), JSON.stringify(scenario))

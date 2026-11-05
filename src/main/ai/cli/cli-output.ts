@@ -65,3 +65,18 @@ export function lastLine(text: string): string | null {
 export function describeExit(exitCode: number | null): string {
   return exitCode === null ? 'was stopped by a signal' : `exited with code ${exitCode}`
 }
+
+/**
+ * The last line a failed sign-in printed, for the status detail. Links and
+ * long tokens are cut out: the output may carry the sign-in URL with its
+ * state, a device code or a file path with the user name.
+ */
+export function signInFailureReason(stdout: string, stderr: string): string | null {
+  const line = lastLine(stderr) ?? lastLine(stdout)
+  if (!line) return null
+  const reason = safeDetail(
+    line.replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, '[link]').replace(/[\w~+/=.-]{24,}/g, '[…]'),
+    160,
+  )
+  return reason === '' ? null : reason
+}

@@ -13,6 +13,10 @@ interface LookupSetup {
   files?: Record<string, string>
   /** Results by command line, e.g. "/bin/zsh -l -c whence -p claude". */
   commands?: Record<string, LookupCommandResult>
+  /** Symlink targets by path. */
+  links?: Record<string, string>
+  /** First line by path; files without one read as binaries. */
+  heads?: Record<string, string>
 }
 
 function lookup(setup: LookupSetup) {
@@ -32,6 +36,13 @@ function lookup(setup: LookupSetup) {
         ? Promise.reject(new Error(`No file ${path}`))
         : Promise.resolve(text)
     },
+    realPath: (path) => Promise.resolve(setup.links?.[path] ?? path),
+    readHead: (path) => {
+      const head = setup.heads?.[path]
+      return head === undefined
+        ? Promise.resolve(Buffer.from([0xcf, 0xfa]))
+        : Promise.resolve(Buffer.from(head))
+    },
     runCommand,
   }
   return { deps, runCommand }
@@ -48,12 +59,71 @@ describe('findCliBinary on macOS and Linux', () => {
         source: 'override',
         command: '/Users/example/bin/claude-2',
         prefixArgs: [],
+        pathDirs: ['/Users/example/bin'],
       },
       detail: null,
     })
     await expect(findCliBinary('claude', '/Users/example/bin/missing', deps)).resolves.toEqual({
       cli: null,
       detail: 'The chosen file is not a program that can be started',
+    })
+  })
+
+  it('runs an `env node` script with the node a login shell finds', async () => {
+    const link = '/Users/example/.npm-global/bin/codex'
+    const script = '/Users/example/.npm-global/lib/node_modules/@openai/codex/bin/codex.js'
+    const node = '/Users/example/.nvm/versions/node/v22.0.0/bin/node'
+    const { deps } = lookup({
+      executables: [link, script, '/bin/zsh', node],
+      links: { [link]: script },
+      heads: { [script]: '#!/usr/bin/env node\n// Unified entry point for the Codex CLI.\n' },
+      commands: { '/bin/zsh -l -c whence -p node': { exitCode: 0, stdout: `${node}\n` } },
+    })
+    await expect(findCliBinary('codex', link, deps)).resolves.toEqual({
+      cli: {
+        path: link,
+        source: 'override',
+        command: node,
+        prefixArgs: [script],
+        pathDirs: [
+          '/Users/example/.nvm/versions/node/v22.0.0/bin',
+          '/Users/example/.npm-global/bin',
+        ],
+      },
+      detail: null,
+    })
+  })
+
+  it('takes node from the npm prefix and keeps the options of an `env -S node` line', async () => {
+    const link = '/Users/example/.local/bin/codex'
+    const prefix = '/Users/example/.nvm/versions/node/v22.0.0'
+    const script = `${prefix}/lib/node_modules/@openai/codex/bin/codex.js`
+    const { deps, runCommand } = lookup({
+      executables: [link, `${prefix}/bin/node`],
+      links: { [link]: script },
+      heads: { [script]: '#!/usr/bin/env -S node --no-warnings\r\n' },
+    })
+    await expect(findCliBinary('codex', null, deps)).resolves.toMatchObject({
+      cli: {
+        source: 'known_location',
+        command: `${prefix}/bin/node`,
+        prefixArgs: ['--no-warnings', script],
+      },
+    })
+    expect(runCommand).not.toHaveBeenCalled()
+  })
+
+  it('says so when a Node script has no node to run it', async () => {
+    const link = '/opt/homebrew/bin/codex'
+    const script = '/opt/homebrew/lib/node_modules/@openai/codex/bin/codex.js'
+    const { deps } = lookup({
+      executables: [link],
+      links: { [link]: script },
+      heads: { [script]: '#!/usr/bin/env node\n' },
+    })
+    await expect(findCliBinary('codex', null, deps)).resolves.toEqual({
+      cli: null,
+      detail: 'The CLI is a Node.js script, and no node program was found to run it',
     })
   })
 
@@ -204,7 +274,13 @@ describe('findCliBinary on Windows', () => {
       },
     })
     await expect(findCliBinary('claude', null, deps)).resolves.toEqual({
-      cli: { path: `${NPM}\\claude.cmd`, source: 'path', command: node, prefixArgs: [entry] },
+      cli: {
+        path: `${NPM}\\claude.cmd`,
+        source: 'path',
+        command: node,
+        prefixArgs: [entry],
+        pathDirs: ['C:\\Program Files\\nodejs', NPM],
+      },
       detail: null,
     })
     expect(runCommand).toHaveBeenCalledWith(

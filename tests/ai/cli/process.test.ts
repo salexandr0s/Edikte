@@ -1,5 +1,5 @@
 import type { ChildProcess } from 'node:child_process'
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises'
+import { chmod, mkdtemp, readdir, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -131,13 +131,39 @@ describe.skipIf(process.platform === 'win32')('runCli', { timeout: 20_000 }, () 
     const env = { SystemRoot: 'C:\\Windows', PATH: '/usr/bin:/bin' }
     const run = runCli(options(HANG, { platform: 'win32', spawn, timeoutMs: 300, env }))
     expect((await rejection(run)).code).toBe('timeout')
-    const [cli, taskkill] = spawned
+    const [cli, ...killers] = spawned
     expect(cli?.detached).toBe(false)
-    expect(taskkill).toMatchObject({
-      command: 'C:\\Windows\\System32\\taskkill.exe',
-      args: ['/T', '/F', '/PID', String(cli?.pid)],
-    })
+    // taskkill /T at both steps, so a codex.exe that codex.js started stops as well.
+    expect(killers.length).toBeGreaterThanOrEqual(2)
+    for (const taskkill of killers) {
+      expect(taskkill).toMatchObject({
+        command: 'C:\\Windows\\System32\\taskkill.exe',
+        args: ['/T', '/F', '/PID', String(cli?.pid)],
+      })
+    }
     expect(isRunning(cli?.pid)).toBe(false)
+  })
+
+  it('on Windows, kills the CLI at once when taskkill fails', async () => {
+    let taskkills = 0
+    let cliPid: number | undefined
+    const spawn: SpawnFunction = (command, args, spawnOptions) => {
+      if (command.endsWith('taskkill.exe')) {
+        taskkills += 1
+        return defaultSpawn(NODE, ['-e', 'process.exit(1)'], { stdio: 'ignore' })
+      }
+      const child = defaultSpawn(command, args, spawnOptions)
+      cliPid = child.pid
+      return child
+    }
+    const env = { SystemRoot: 'C:\\Windows', PATH: '/usr/bin:/bin' }
+    // A grace period longer than the test timeout: only the fallback can end the run in time.
+    const run = runCli(
+      options(HANG, { platform: 'win32', spawn, timeoutMs: 300, killGraceMs: 30_000, env }),
+    )
+    expect((await rejection(run)).code).toBe('timeout')
+    expect(taskkills).toBe(1)
+    expect(isRunning(cliPid)).toBe(false)
   })
 
   it('gives each run a private temp folder and deletes it afterwards, also after an error', async () => {
@@ -150,4 +176,25 @@ describe.skipIf(process.platform === 'win32')('runCli', { timeout: 20_000 }, () 
     await expect(withTempDir(dir, () => Promise.reject(new Error('boom')))).rejects.toThrow('boom')
     await expect(readdir(dir)).resolves.toEqual([])
   })
+
+  it.skipIf(process.getuid?.() === 0)(
+    'keeps the outcome when the folder cannot be deleted, and logs only the error code',
+    async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const root = join(dir, 'locked')
+      try {
+        // Without write permission on the parent, the run folder cannot be removed.
+        const outcome = withTempDir(root, () => chmod(root, 0o500).then(() => 'answer'))
+        await expect(outcome).resolves.toBe('answer')
+        expect(warn).toHaveBeenCalledTimes(1)
+        const call: unknown[] = warn.mock.calls[0] ?? []
+        expect(String(call[0])).toContain('Could not delete a run folder')
+        expect(String(call[0])).not.toContain(root)
+        expect(String(call[1])).toMatch(/^E[A-Z]+$/)
+      } finally {
+        await chmod(root, 0o700)
+        warn.mockRestore()
+      }
+    },
+  )
 })

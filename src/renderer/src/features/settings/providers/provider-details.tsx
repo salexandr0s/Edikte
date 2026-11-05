@@ -48,7 +48,9 @@ export function ProviderDetails({ status, compact = false }: ProviderDetailsProp
       })
     }
   }
-  if (!compact && status.state === 'error' && status.detail !== null) {
+  // The detail names the failure, or the missing flags of a CLI that needs an update.
+  const showDetail = status.state === 'error' || status.state === 'update_required'
+  if (!compact && showDetail && status.detail !== null) {
     details.push({
       term: t('common.details'),
       wide: true,

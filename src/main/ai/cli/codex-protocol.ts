@@ -28,6 +28,7 @@ export const CODEX_REQUIRED_FLAGS: readonly string[] = [
   '--ephemeral',
   '--ignore-user-config',
   '--ignore-rules',
+  '--disable',
   '-C',
   '-m',
   '-i',
@@ -75,9 +76,14 @@ export interface CodexExecPaths {
 /**
  * The plan's flags. `-i <FILE>...` takes several values, so the images come
  * right after --json and before another flag: placed last, `-i` would swallow
- * the final `-` (prompt from stdin) as one more image.
+ * the final `-` (prompt from stdin) as one more image. `disabledFeatures`
+ * comes from `codexFeaturesToDisable`.
  */
-export function buildCodexExecArgs(paths: CodexExecPaths, model: string): string[] {
+export function buildCodexExecArgs(
+  paths: CodexExecPaths,
+  model: string,
+  disabledFeatures: readonly string[],
+): string[] {
   return [
     'exec',
     '--json',
@@ -92,11 +98,99 @@ export function buildCodexExecArgs(paths: CodexExecPaths, model: string): string
     '--ephemeral',
     '--ignore-user-config',
     '--ignore-rules',
+    ...codexDisableArgs(disabledFeatures),
     '-C',
     paths.workDir,
     ...(model === 'default' ? [] : ['-m', model]),
     '-',
   ]
+}
+
+// ── features ───────────────────────────────────────────────────────────────
+
+/**
+ * `codex exec` asks for no approval, and its read-only sandbox may still read
+ * the whole disk. The recorded runs also show user skills and agent roles
+ * loading despite `--ignore-user-config`. So every run switches off, by name,
+ * the features that give the model a tool or the run a side effect.
+ */
+const CODEX_TOOL_FEATURE_NAMES: ReadonlySet<string> = new Set([
+  'apps',
+  'hooks',
+  'image_generation',
+  'view_image',
+  'memories',
+  'goals',
+  'workspace_dependencies',
+  'in_app_browser',
+  'in_app_chat',
+  'shell_snapshot',
+])
+
+/** Name parts of tool features, so that a tool added in a later release is caught as well. */
+const CODEX_TOOL_FEATURE_PATTERN =
+  /_tool$|^tool_|exec|browser|computer_use|plugin|skill|mcp|automation|code_mode|worktree|multi_agent|web_search/
+
+/** The shell features: without both in the list, the run cannot be kept from the shell. */
+export const CODEX_SHELL_FEATURES: readonly string[] = ['shell_tool', 'unified_exec']
+
+export interface CodexFeature {
+  name: string
+  /** "stable", "experimental", "under development", "deprecated" or "removed". */
+  stage: string
+  /**
+   * The state the list shows. It includes the user's config.toml, which
+   * `codex exec --ignore-user-config` does not load.
+   */
+  enabled: boolean
+}
+
+/** `codex features list` prints one feature per line: name, stage and true or false. */
+export function parseCodexFeatures(output: string): CodexFeature[] {
+  const features: CodexFeature[] = []
+  for (const line of output.split(/\r?\n/)) {
+    const words = line.trim().split(/\s+/)
+    const name = words[0] ?? ''
+    const enabled = words.at(-1)
+    if (words.length < 3 || !/^[a-z][a-z0-9_]{0,79}$/.test(name)) continue
+    if (enabled !== 'true' && enabled !== 'false') continue
+    features.push({ name, stage: words.slice(1, -1).join(' '), enabled: enabled === 'true' })
+  }
+  return features
+}
+
+/**
+ * The names for `--disable`: every tool feature, on or off in the list, since
+ * the run's state can differ from the list and disabling one that is off does
+ * no harm. Plumbing features stay as they are, since switching one off could
+ * break the run. Removed features are skipped; their behaviour is fixed.
+ * Null when the list lacks shell_tool or unified_exec.
+ */
+export function codexFeaturesToDisable(features: readonly CodexFeature[]): string[] | null {
+  const present = features.filter((feature) => feature.stage !== 'removed')
+  const names = new Set(present.map((feature) => feature.name))
+  if (!CODEX_SHELL_FEATURES.every((name) => names.has(name))) return null
+  return [...names].filter(
+    (name) =>
+      CODEX_SHELL_FEATURES.includes(name) ||
+      CODEX_TOOL_FEATURE_NAMES.has(name) ||
+      // A skip_… feature turns something off when on, so it stays as it is.
+      (CODEX_TOOL_FEATURE_PATTERN.test(name) && !name.startsWith('skip_')),
+  )
+}
+
+export function codexDisableArgs(names: readonly string[]): string[] {
+  return names.flatMap((name) => ['--disable', name])
+}
+
+/**
+ * Read from `codex --disable … features list`: whether shell_tool is off.
+ * Codex 0.154.0 keeps unified_exec on whatever the flags say, so shell_tool,
+ * which switches off Codex's shell tools of either kind, is the one checked.
+ * CodexEventParser still stops a run at its first command.
+ */
+export function codexShellToolOff(features: readonly CodexFeature[]): boolean {
+  return features.some((feature) => feature.name === 'shell_tool' && !feature.enabled)
 }
 
 // ── login status ───────────────────────────────────────────────────────────
@@ -141,9 +235,9 @@ export function codexErrorCode(message: string): AppErrorCode {
   ) {
     return 'provider_auth'
   }
-  if (/context window|context length|too long|max(?:imum)? output tokens/i.test(message)) {
-    return 'provider_incomplete'
-  }
+  if (/max(?:imum)? output tokens/i.test(message)) return 'provider_incomplete'
+  // The document does not fit the model, so the same input would fail again.
+  if (/context window|context length|too long/i.test(message)) return 'document_too_large'
   return 'cli_failed'
 }
 

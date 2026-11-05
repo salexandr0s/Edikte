@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, realpath } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { posix, win32 } from 'node:path'
 import type { CliProviderId } from '@shared/providers'
@@ -6,6 +6,7 @@ import { ProviderError, type ProviderDetection } from '../provider'
 import {
   findCliBinary,
   isExecutableFile,
+  readFileHead,
   type BinaryLookupResult,
   type LookupCommandResult,
   type ResolvedCli,
@@ -42,11 +43,15 @@ export interface InvokeSettings {
   timeoutMs: number
   signal?: AbortSignal
   input?: Buffer
-  keepStdinOpen?: boolean
   onLine?: (line: string) => void
 }
 
 type DetectionFields = Partial<ProviderDetection> & Pick<ProviderDetection, 'state'>
+
+/** Cache key for what is read once per installed version of a CLI. */
+export function versionKey(cli: ResolvedCli, version: string, ...parts: readonly string[]): string {
+  return [cli.command, ...cli.prefixArgs, version, ...parts].join('\0')
+}
 
 /** What the Claude and Codex providers share: lookup, runs, version and flag checks, one job at a time. */
 export class CliRuntime {
@@ -60,6 +65,8 @@ export class CliRuntime {
   private readonly spawn: SpawnFunction
   private readonly isExecutable: (path: string) => Promise<boolean>
   private readonly helpCache = new Map<string, string[]>()
+  /** The CLI found per chosen path; '' stands for the search. */
+  private readonly lookups = new Map<string, ResolvedCli>()
   private job: AbortController | null = null
 
   constructor(
@@ -96,21 +103,41 @@ export class CliRuntime {
     }
   }
 
-  async resolve(): Promise<BinaryLookupResult> {
+  /**
+   * Finds the CLI. A found CLI is kept per chosen path and used again while
+   * its files can still be started: a lookup through a login shell can take
+   * seconds, and detect, sign-in and analysis each need the CLI. A cancel
+   * stops a running login-shell lookup.
+   */
+  async resolve(signal?: AbortSignal): Promise<BinaryLookupResult> {
     const override = (await this.options.getOverridePath())?.trim() || null
-    return findCliBinary(this.provider === 'claude-cli' ? 'claude' : 'codex', override, {
-      platform: this.platform,
-      env: this.env,
-      homeDir: this.homeDir,
-      timeoutMs: this.limits.lookupTimeoutMs,
-      isExecutableFile: this.isExecutable,
-      readTextFile: (path) => readFile(path, 'utf8'),
-      runCommand: (command, args, env, timeoutMs) => this.runLookup(command, args, env, timeoutMs),
-    })
+    const key = override ?? ''
+    const cached = this.lookups.get(key)
+    if (cached && (await this.canStart(cached))) return { cli: cached, detail: null }
+    this.lookups.delete(key)
+    const result = await findCliBinary(
+      this.provider === 'claude-cli' ? 'claude' : 'codex',
+      override,
+      {
+        platform: this.platform,
+        env: this.env,
+        homeDir: this.homeDir,
+        timeoutMs: this.limits.lookupTimeoutMs,
+        isExecutableFile: this.isExecutable,
+        readTextFile: (path) => readFile(path, 'utf8'),
+        realPath: (path) => realpath(path),
+        readHead: readFileHead,
+        runCommand: (command, args, env, timeoutMs) =>
+          this.runLookup(command, args, env, timeoutMs, signal),
+        signal,
+      },
+    )
+    if (result.cli) this.lookups.set(key, result.cli)
+    return result
   }
 
-  async requireCli(): Promise<ResolvedCli> {
-    const { cli, detail } = await this.resolve()
+  async requireCli(signal?: AbortSignal): Promise<ResolvedCli> {
+    const { cli, detail } = await this.resolve(signal)
     if (!cli) {
       throw new ProviderError(this.provider, 'cli_not_found', detail ?? `${this.label} not found`)
     }
@@ -124,7 +151,6 @@ export class CliRuntime {
     settings: InvokeSettings,
     workDir?: string,
   ): Promise<CliRunResult> {
-    const path = this.platform === 'win32' ? win32 : posix
     const run = (dir: string): Promise<CliRunResult> =>
       runCli({
         provider: this.provider,
@@ -136,10 +162,9 @@ export class CliRuntime {
           platform: this.platform,
           homeDir: this.homeDir,
           tempDir: dir,
-          binaryDir: path.dirname(cli.path),
+          programDirs: cli.pathDirs,
         }),
         input: settings.input ?? null,
-        keepStdinOpen: settings.keepStdinOpen ?? false,
         onLine: settings.onLine,
         timeoutMs: settings.timeoutMs,
         signal: settings.signal,
@@ -184,7 +209,7 @@ export class CliRuntime {
     required: readonly string[],
     signal?: AbortSignal,
   ): Promise<string[]> {
-    const key = [cli.command, ...cli.prefixArgs, version].join('\0')
+    const key = versionKey(cli, version, ...helpArgs)
     const cached = this.helpCache.get(key)
     if (cached) return cached
     const run = await this.invoke(cli, helpArgs, { timeoutMs: this.limits.probeTimeoutMs, signal })
@@ -221,11 +246,22 @@ export class CliRuntime {
     this.job?.abort()
   }
 
+  /** The found file, the program to spawn and the script it runs all still exist. */
+  private async canStart(cli: ResolvedCli): Promise<boolean> {
+    const path = this.platform === 'win32' ? win32 : posix
+    const files = [cli.path, cli.command, ...cli.prefixArgs.filter((arg) => path.isAbsolute(arg))]
+    for (const file of new Set(files)) {
+      if (!(await this.isExecutable(file))) return false
+    }
+    return true
+  }
+
   private runLookup(
     command: string,
     args: readonly string[],
     env: Record<string, string>,
     timeoutMs: number,
+    signal: AbortSignal | undefined,
   ): Promise<LookupCommandResult> {
     return this.withTempDir(async (dir) => {
       const result = await runCli({
@@ -235,6 +271,7 @@ export class CliRuntime {
         cwd: dir,
         env,
         timeoutMs,
+        signal,
         maxStdinBytes: 0,
         maxStdoutBytes: 64 * 1024,
         maxStderrBytes: this.limits.maxStderrBytes,

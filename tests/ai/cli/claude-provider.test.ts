@@ -87,6 +87,10 @@ async function setup(scenario: Partial<FakeScenario> = {}): Promise<FakeCli> {
   fake = await createFakeCli({
     version: '2.1.226 (Claude Code)',
     help: readFixture('claude-help.txt'),
+    subcommandHelp: {
+      'auth status': readFixture('claude-auth-status-help.txt'),
+      'auth login': readFixture('claude-auth-login-help.txt'),
+    },
     auth: [status(SUBSCRIPTION)],
     ...scenario,
   })
@@ -107,7 +111,8 @@ describe.skipIf(process.platform === 'win32')('Claude CLI provider', { timeout: 
       detail: null,
       checkedAt: '2026-11-04T09:00:00.000Z',
     })
-    expect(cli.spawns).toHaveLength(3)
+    // --version, --help, auth status --help, auth login --help and auth status.
+    expect(cli.spawns).toHaveLength(5)
     for (const { options } of cli.spawns) {
       expect(Object.keys(options.env ?? {}).sort()).toEqual(POSIX_ENV_KEYS)
       expect(options.env?.PATH).toBe(`${cli.home}:/usr/bin:/bin`)
@@ -129,7 +134,8 @@ describe.skipIf(process.platform === 'win32')('Claude CLI provider', { timeout: 
     })
     expect((await rejection(provider.analyze(REQUEST, signal()))).code).toBe('cli_update_required')
     const kinds = (await cli.calls()).map((call) => call.kind)
-    expect(kinds.filter((kind) => kind === 'help')).toHaveLength(1)
+    // Three help texts, read once for the version.
+    expect(kinds.filter((kind) => kind === 'help')).toHaveLength(3)
     expect(kinds).not.toContain('auth')
     expect(kinds).not.toContain('print')
   })
@@ -270,9 +276,31 @@ describe.skipIf(process.platform === 'win32')('Claude CLI provider', { timeout: 
     expect(login?.args).toEqual([...CLAUDE_ISOLATION_ARGS, 'auth', 'login', '--claudeai'])
   })
 
-  it('reports a failed sign-in', async () => {
-    const cli = await setup({ auth: [SIGNED_OUT], loginExitCode: 1 })
+  it('reports a failed sign-in with a short reason and without the sign-in link', async () => {
+    const cli = await setup({
+      auth: [SIGNED_OUT],
+      loginExitCode: 1,
+      loginStderr:
+        'Error: no browser opened https://claude.ai/oauth/authorize?state=abcdefghijklmnopqrstuvwxyz123456\n',
+    })
     const provider = createClaudeCliProvider(cli.options())
-    expect((await rejection(provider.connect?.(signal()))).code).toBe('provider_auth')
+    const error = await rejection(provider.connect?.(signal()))
+    expect(error.code).toBe('provider_auth')
+    expect(error.message).toContain('sign-in exited with code 1: Error: no browser opened [link]')
+    expect(error.message).not.toContain('state=')
+  })
+
+  it('reports a CLI whose sign-in lacks --claudeai as update required', async () => {
+    const loginHelp = readFixture('claude-auth-login-help.txt')
+    const cli = await setup({
+      subcommandHelp: {
+        'auth status': readFixture('claude-auth-status-help.txt'),
+        'auth login': withoutFlag(loginHelp, '--claudeai'),
+      },
+    })
+    await expect(createClaudeCliProvider(cli.options()).detect()).resolves.toMatchObject({
+      state: 'update_required',
+      detail: 'Missing flags: --claudeai',
+    })
   })
 })

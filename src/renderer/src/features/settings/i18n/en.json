@@ -90,7 +90,7 @@
     },
     "cli": {
       "notInstalled": "Not found. Install the CLI, then choose “Check again”, or choose its program file.",
-      "updateRequired": "This version is too old for Edikte. Update the CLI, then choose “Check again”.",
+      "updateRequired": "This version lacks options Edikte needs. Update the CLI, then choose “Check again”.",
       "signIn": "Sign in",
       "signInHint": "Starts the CLI's own sign-in in your browser.",
       "chooseFile": "Choose file…",

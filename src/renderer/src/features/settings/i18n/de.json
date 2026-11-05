@@ -90,7 +90,7 @@
     },
     "cli": {
       "notInstalled": "Nicht gefunden. Installieren Sie die CLI und wählen Sie dann „Erneut prüfen“, oder wählen Sie die Programmdatei aus.",
-      "updateRequired": "Diese Version ist für Edikte zu alt. Aktualisieren Sie die CLI und wählen Sie dann „Erneut prüfen“.",
+      "updateRequired": "Dieser Version fehlen Optionen, die Edikte braucht. Aktualisieren Sie die CLI und wählen Sie dann „Erneut prüfen“.",
       "signIn": "Anmelden",
       "signInHint": "Startet die Anmeldung der CLI in Ihrem Browser.",
       "chooseFile": "Datei auswählen …",

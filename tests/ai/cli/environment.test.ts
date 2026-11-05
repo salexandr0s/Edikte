@@ -24,7 +24,7 @@ describe('buildCliEnvironment', () => {
       platform: 'darwin',
       homeDir: '/Users/example',
       tempDir: '/tmp/edikte-cli-1',
-      binaryDir: '/Users/example/.local/bin',
+      programDirs: ['/Users/example/.local/bin'],
     })
     expect(env).toEqual({
       ...FIXED,
@@ -51,7 +51,7 @@ describe('buildCliEnvironment', () => {
       platform: 'win32',
       homeDir: 'C:\\Users\\example',
       tempDir: temp,
-      binaryDir: 'C:\\Program Files\\nodejs',
+      programDirs: ['C:\\Program Files\\nodejs'],
     })
     expect(env).toEqual({
       ...FIXED,

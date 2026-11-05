@@ -8,6 +8,26 @@ const home = process.env.HOME ?? ''
 const scenario = JSON.parse(readFileSync(join(home, 'fake-cli.json'), 'utf8'))
 const args = process.argv.slice(2)
 
+// `codex --disable <name> … features list` prints the list with those names
+// off, except the ones in scenario.stuckFeatures.
+const disabled = []
+let command = args
+while (command[0] === '--disable') {
+  disabled.push(command[1])
+  command = command.slice(2)
+}
+
+function withDisabled(list) {
+  const stuck = new Set(scenario.stuckFeatures ?? [])
+  return list
+    .split('\n')
+    .map((line) => {
+      const name = line.trim().split(/\s+/)[0]
+      return disabled.includes(name) && !stuck.has(name) ? line.replace(/true(\s*)$/, 'false$1') : line
+    })
+    .join('\n')
+}
+
 function record(kind, extra = {}) {
   appendFileSync(join(home, 'calls.jsonl'), `${JSON.stringify({ kind, args, ...extra })}\n`)
 }
@@ -73,14 +93,19 @@ if (args.includes('--version')) {
   finish(`${scenario.version}\n`, '', 0)
 } else if (args.includes('--help')) {
   record('help')
-  finish(scenario.help, '', 0)
+  // `auth status --help` prints subcommandHelp['auth status']; any other help prints scenario.help.
+  const command = args.slice(0, args.indexOf('--help')).join(' ')
+  finish(scenario.subcommandHelp?.[command] ?? scenario.help, '', 0)
 } else if (isAuthStatus) {
   record('auth')
   const answer = nextAuth()
   finish(answer.stdout ?? '', answer.stderr ?? '', answer.exitCode ?? 0)
+} else if (command[0] === 'features' && command[1] === 'list') {
+  record('features')
+  finish(withDisabled(scenario.features ?? ''), '', scenario.featuresExitCode ?? 0)
 } else if (isLogin) {
   record('login')
-  finish('', '', scenario.loginExitCode ?? 0)
+  finish('', scenario.loginStderr ?? '', scenario.loginExitCode ?? 0)
 } else {
   await analysis()
 }

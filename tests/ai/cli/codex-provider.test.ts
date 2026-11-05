@@ -1,7 +1,11 @@
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { CODEX_FRAMING } from '../../../src/main/ai/cli/codex-protocol'
+import {
+  CODEX_FRAMING,
+  codexFeaturesToDisable,
+  parseCodexFeatures,
+} from '../../../src/main/ai/cli/codex-protocol'
 import { createCodexCliProvider } from '../../../src/main/ai/cli/codex-provider'
 import type { AnalysisRequest } from '../../../src/main/ai/provider'
 import {
@@ -21,6 +25,9 @@ const SIGNED_IN: FakeAnswer = { stderr: 'Logged in using ChatGPT\n' }
 const API_KEY: FakeAnswer = { stderr: 'Logged in using an API key - sk-proj-***ABCD\n' }
 const SIGNED_OUT: FakeAnswer = { stderr: 'Not logged in\n', exitCode: 1 }
 const HELP = readFixture('codex-exec-help.txt')
+const FEATURES = readFixture('codex-features-list-0.154.0.txt')
+/** The exact list is pinned in codex-protocol.test.ts. */
+const DISABLED = codexFeaturesToDisable(parseCodexFeatures(FEATURES)) ?? []
 const SUCCESS = fixtureLines('codex-run-success-synthetic.jsonl')
 
 const REQUEST: AnalysisRequest = {
@@ -53,6 +60,8 @@ async function setup(scenario: Partial<FakeScenario> = {}): Promise<FakeCli> {
   fake = await createFakeCli({
     version: 'codex-cli 0.154.0',
     help: HELP,
+    features: FEATURES,
+    stuckFeatures: ['unified_exec'],
     auth: [SIGNED_IN],
     ...scenario,
   })
@@ -76,6 +85,24 @@ describe.skipIf(process.platform === 'win32')('Codex CLI provider', { timeout: 2
       scenario: { help: withoutFlag(HELP, '--ignore-rules') },
       expected: { state: 'update_required', detail: 'Missing flags: --ignore-rules' },
     },
+    {
+      name: 'a CLI whose feature list fails',
+      scenario: { featuresExitCode: 2 },
+      expected: { state: 'update_required', detail: 'codex features list exited with code 2' },
+    },
+    {
+      name: 'a CLI that does not list the shell features',
+      scenario: { features: FEATURES.replace(/^shell_tool .*$/m, '') },
+      expected: {
+        state: 'update_required',
+        detail: 'codex features list lacks shell_tool or unified_exec',
+      },
+    },
+    {
+      name: 'a CLI that keeps shell_tool on despite --disable',
+      scenario: { stuckFeatures: ['shell_tool', 'unified_exec'] },
+      expected: { state: 'update_required', detail: 'codex --disable shell_tool has no effect' },
+    },
   ])('detects $name', async ({ scenario, expected }) => {
     const cli = await setup(scenario)
     await expect(createCodexCliProvider(cli.options()).detect()).resolves.toMatchObject(expected)
@@ -92,6 +119,8 @@ describe.skipIf(process.platform === 'win32')('Codex CLI provider', { timeout: 2
       accountLabel: null,
     })
     const calls = await cli.calls()
+    // Read and checked once per version, by the version check; the run uses the kept list.
+    expect(calls.filter((call) => call.kind === 'features')).toHaveLength(2)
     const exec = calls.find((call) => call.kind === 'exec')
     const dir = exec?.args[exec.args.indexOf('-C') + 1] ?? ''
     expect(dir.startsWith(join(cli.tempRoot, 'edikte-cli-'))).toBe(true)
@@ -112,6 +141,7 @@ describe.skipIf(process.platform === 'win32')('Codex CLI provider', { timeout: 2
       '--ephemeral',
       '--ignore-user-config',
       '--ignore-rules',
+      ...DISABLED.flatMap((name) => ['--disable', name]),
       '-C',
       dir,
       '-m',

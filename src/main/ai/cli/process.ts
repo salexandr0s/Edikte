@@ -2,6 +2,7 @@ import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from 'node:c
 import { chmod, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join, win32 } from 'node:path'
 import type { CliProviderId } from '@shared/providers'
+import { log } from '../../log'
 import { ProviderError } from '../provider'
 
 export type SpawnFunction = (
@@ -38,7 +39,8 @@ export const DEFAULT_CLI_LIMITS: Readonly<CliLimits> = {
   maxProbeOutputBytes: 256 * 1024,
   analysisTimeoutMs: 5 * 60_000,
   probeTimeoutMs: 20_000,
-  signInTimeoutMs: 10 * 60_000,
+  // A CLI that cannot open the browser waits for nobody, so the spinner stops after this.
+  signInTimeoutMs: 5 * 60_000,
   lookupTimeoutMs: 5_000,
   killGraceMs: 2_000,
 }
@@ -53,10 +55,8 @@ export interface CliRunOptions {
   args: readonly string[]
   cwd: string
   env: Record<string, string>
-  /** Written to stdin, which is then closed. */
+  /** Written to stdin, which is then closed. Without input, stdin is closed at once. */
   input?: Buffer | null
-  /** Leaves stdin open while the process runs (a sign-in may wait for a pasted code). */
-  keepStdinOpen?: boolean
   /** Line mode: called for each stdout line. A thrown ProviderError stops the process. */
   onLine?: (line: string) => void
   timeoutMs: number
@@ -86,7 +86,10 @@ export async function withTempDir<T>(root: string, fn: (dir: string) => Promise<
     await chmod(dir, 0o700)
     return await fn(dir)
   } finally {
-    await rm(dir, { recursive: true, force: true, maxRetries: 3 })
+    // A folder that cannot be deleted must not replace the run's own outcome.
+    await rm(dir, { recursive: true, force: true, maxRetries: 3 }).catch((error: unknown) => {
+      log.warn('cli', 'Could not delete a run folder', errorCode(error) || 'no error code')
+    })
   }
 }
 
@@ -299,7 +302,7 @@ export function runCli(options: CliRunOptions): Promise<CliRunResult> {
       // EPIPE when the CLI exits before reading all input; its exit status reports why.
     })
     if (input) child.stdin?.end(input)
-    else if (!options.keepStdinOpen) child.stdin?.end()
+    else child.stdin?.end()
 
     later(options.timeoutMs, () => {
       fail(
@@ -322,22 +325,7 @@ function signalTree(
   const pid = child.pid
   if (pid === undefined) return
   if (options.platform === 'win32') {
-    if (signal === 'SIGKILL') {
-      child.kill('SIGKILL')
-      return
-    }
-    // Windows has no SIGTERM; taskkill stops the whole tree at once.
-    const systemRoot = options.env.SystemRoot ?? 'C:\\Windows'
-    try {
-      const killer = options.spawn(
-        win32.join(systemRoot, 'System32', 'taskkill.exe'),
-        ['/T', '/F', '/PID', String(pid)],
-        { stdio: 'ignore', windowsHide: true, shell: false },
-      )
-      killer.on('error', () => child.kill())
-    } catch {
-      child.kill()
-    }
+    killTreeOnWindows(pid, child, signal === 'SIGKILL', options)
     return
   }
   try {
@@ -351,11 +339,51 @@ function signalTree(
   }
 }
 
+/**
+ * Windows has no SIGTERM, so both steps run `taskkill /T /F`: killing node.exe
+ * alone would leave a codex.exe that codex.js started. The CLI itself is
+ * killed directly when taskkill cannot start or fails, and after the last step.
+ */
+function killTreeOnWindows(
+  pid: number,
+  child: ChildProcess,
+  lastStep: boolean,
+  options: Pick<CliRunOptions, 'spawn' | 'env'>,
+): void {
+  const killChild = (): void => {
+    try {
+      child.kill('SIGKILL')
+    } catch {
+      // Already gone.
+    }
+  }
+  const systemRoot = options.env.SystemRoot ?? 'C:\\Windows'
+  try {
+    const killer = options.spawn(
+      win32.join(systemRoot, 'System32', 'taskkill.exe'),
+      ['/T', '/F', '/PID', String(pid)],
+      { stdio: 'ignore', windowsHide: true, shell: false },
+    )
+    killer.on('error', killChild)
+    killer.on('exit', (code) => {
+      if (code !== 0 || lastStep) killChild()
+    })
+  } catch {
+    killChild()
+  }
+}
+
+function errorCode(error: unknown): string {
+  return typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof error.code === 'string'
+    ? error.code
+    : ''
+}
+
 function spawnFailure(provider: CliProviderId, error: unknown): ProviderError {
-  const code =
-    typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
-      ? error.code
-      : ''
+  const code = errorCode(error)
   const label = cliLabel(provider)
   if (code === 'ENOENT' || code === 'EACCES' || code === 'ENOTDIR') {
     return new ProviderError(provider, 'cli_not_found', `${label} could not be started (${code})`)

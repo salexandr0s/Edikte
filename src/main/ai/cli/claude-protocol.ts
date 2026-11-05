@@ -227,8 +227,10 @@ export function claudeStopReasonCode(reason: string): AppErrorCode | null {
   switch (reason) {
     case 'refusal':
       return 'provider_refused'
-    case 'max_tokens':
     case 'model_context_window_exceeded':
+      // The document does not fit the model, so the same input would fail again.
+      return 'document_too_large'
+    case 'max_tokens':
     case 'pause_turn':
     case 'tool_deferred':
     case 'error':
@@ -293,9 +295,14 @@ const UsageSchema = z.object({
   cache_read_input_tokens: z.number().int().nonnegative().optional(),
 })
 
+/** The result text of a prompt that does not fit the context window. */
+const PROMPT_TOO_LONG = /prompt is too long|context window|context length/i
+
 const ResultSchema = z.object({
   subtype: z.string(),
   is_error: z.boolean(),
+  /** The answer text, or an error message such as "Prompt is too long". */
+  result: z.string().nullish().catch(null),
   stop_reason: z.string().nullish().catch(null),
   api_error_status: z.number().nullish().catch(null),
   structured_output: z.unknown().optional(),
@@ -467,7 +474,9 @@ export class ClaudeStreamParser {
     if (result.is_error) {
       throw new ProviderError(
         'claude-cli',
-        claudeApiStatusCode(status),
+        PROMPT_TOO_LONG.test(result.result ?? '')
+          ? 'document_too_large'
+          : claudeApiStatusCode(status),
         `The CLI reported an error${status === null ? '' : ` (HTTP ${status})`}`,
       )
     }
