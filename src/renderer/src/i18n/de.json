@@ -185,7 +185,7 @@
       "provider": "Anbieter",
       "model": "Modell",
       "defaultModel": "Standard des Anbieters",
-      "download": "Vorher laden",
+      "download": "Vorab herunterladen",
       "tokens": "Umfang",
       "tokenCounts": "Etwa {{input}} Tokens Eingabe, {{output}} Tokens Ausgabe",
       "cost": "Kosten",

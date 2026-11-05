@@ -1,7 +1,7 @@
 {
   "firstRun": {
     "title": "Edikte einrichten",
-    "welcome": "Edikte zeigt gerichtliche Versteigerungen von Immobilien aus edikte.justiz.gv.at und kann die Gutachten mit einem KI-Anbieter auswerten, bei dem Sie angemeldet sind. Legen Sie zu Beginn ein paar Einstellungen fest; Sie können alle später in den Einstellungen ändern.",
+    "welcome": "Edikte zeigt gerichtliche Versteigerungen von Immobilien aus edikte.justiz.gv.at und kann die Gutachten mit einem KI-Anbieter auswerten, bei dem Sie angemeldet sind. Legen Sie zu Beginn ein paar Einstellungen fest. Alle lassen sich später in den Einstellungen ändern.",
     "steps": "Schritte der Einrichtung",
     "stepOf": "Schritt {{current}} von {{total}}",
     "stepDone": "{{step}}, erledigt",
