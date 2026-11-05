@@ -5,7 +5,7 @@ import type {
   RasterFailure,
   RasterJob,
   RasterPageResult,
-} from '../../main/documents/raster-channels'
+} from '@shared/raster-channels'
 
 // Hidden window that renders scanned Gutachten pages to JPEG with pdf.js.
 // pdf.js runs its parser on this page's thread through its main-thread worker

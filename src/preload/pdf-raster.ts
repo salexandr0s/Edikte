@@ -4,7 +4,7 @@ import {
   type PdfRasterApi,
   type RasterDone,
   type RasterPageResult,
-} from '../main/documents/raster-channels'
+} from '@shared/raster-channels'
 
 // Preload of the hidden window that renders scanned Gutachten pages with
 // pdf.js (src/renderer/pdf-raster/). It forwards three calls and nothing else;

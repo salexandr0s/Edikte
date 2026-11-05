@@ -2,7 +2,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { AppError } from '@shared/errors'
-import { RASTER_CHANNELS, type RasterJob } from './raster-channels'
+import { RASTER_CHANNELS, type RasterJob } from '@shared/raster-channels'
 import {
   chooseRasterPages,
   DEFAULT_JPEG_QUALITY,

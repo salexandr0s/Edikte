@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { AppError } from '@shared/errors'
 import type { AnalysisContentPart } from '../ai/provider'
-import type { RasterJob } from './raster-channels'
+import type { RasterJob } from '@shared/raster-channels'
 
 // Validation of what the raster window sends back. Electron-free, so it can be
 // tested in Node; raster.ts wires it to the window.
