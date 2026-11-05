@@ -407,7 +407,7 @@ export function fakeDocuments(rows: readonly ListingRow[]): DocumentInfo[] {
     return [{ ...doc, ...downloadedPages(doc), downloaded: true, downloadedAt }]
   })
   const [first, , house] = rows
-  if (first !== undefined) documents.push(fakeDocument(first, 101, 'photo', 'Fotos', 2150))
+  if (first !== undefined) documents.push(fakeDocument(first, 101, 'photo', 'Foto', 2150))
   if (house !== undefined) documents.push(fakeDocument(house, 102, 'plan', 'Plan', 840))
   return documents
 }
@@ -436,7 +436,7 @@ function fakeDocument(
     id,
     edictId: row.id,
     kind,
-    title: `${label} (pdf) (${kb} KB)`,
+    title: label,
     fileName,
     url: `${EDIKTE_ORIGIN}${EX_DB_PATH}/0/${row.id}/$file/${fileName}`,
     statedSizeKb: kb,

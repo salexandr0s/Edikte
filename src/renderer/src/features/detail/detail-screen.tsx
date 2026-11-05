@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '../../components/ui/button'
 import { EmptyState } from '../../components/ui/empty-state'
 import { ChevronLeftIcon } from '../../components/ui/icons'
-import { Spinner } from '../../components/ui/spinner'
 import { useApp } from '../../lib/app-context'
 import { AnalysisCard } from './analysis/analysis-card'
 import { AreaCandidatesCard } from './area-candidates-card'
@@ -36,13 +35,7 @@ export function DetailScreen({ id }: { id: string }) {
           {t('common.back')}
         </Button>
         {state.status === 'loading' ? (
-          <p
-            role="status"
-            className="flex items-center justify-center gap-2 py-16 text-sm text-fg-muted"
-          >
-            <Spinner />
-            {t('common.loading')}
-          </p>
+          <DetailSkeleton label={t('common.loading')} />
         ) : state.code === 'not_found' ? (
           <EmptyState
             title={t('detail.notFoundTitle')}
@@ -80,6 +73,27 @@ export function DetailScreen({ id }: { id: string }) {
             <EdictLabelsCard labels={detail.rawLabels} />
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+const BLOCK = 'rounded-md bg-bg-muted'
+
+/** The page's outline while the listing loads, so nothing jumps when it arrives. */
+function DetailSkeleton({ label }: { label: string }) {
+  return (
+    <div role="status" className="flex flex-col gap-6 motion-safe:animate-pulse">
+      <span className="sr-only">{label}</span>
+      <div aria-hidden="true" className="flex flex-col gap-3">
+        <div className={`${BLOCK} h-5 w-40`} />
+        <div className={`${BLOCK} h-8 w-2/3`} />
+        <div className={`${BLOCK} h-4 w-1/2`} />
+      </div>
+      <div aria-hidden="true" className="h-40 rounded-lg border border-border" />
+      <div aria-hidden="true" className="grid gap-6 xl:grid-cols-5">
+        <div className="h-64 rounded-lg border border-border xl:col-span-3" />
+        <div className="h-64 rounded-lg border border-border xl:col-span-2" />
       </div>
     </div>
   )

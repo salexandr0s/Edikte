@@ -26,6 +26,10 @@
       "vadium": "Vadium",
       "meistbot": "Meistbot",
       "zubehoer": "Zubehör",
+      "zubehoerValue": {
+        "none": "Kein Zubehör",
+        "notDetermined": "Nicht festgestellt"
+      },
       "area": "Fläche für €/m²",
       "noArea": "Noch nicht bekannt",
       "noAreaHint": "Laden Sie das Gutachten herunter oder analysieren Sie es, um die Fläche zu finden.",

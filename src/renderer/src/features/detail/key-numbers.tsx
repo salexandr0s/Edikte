@@ -6,6 +6,7 @@ import { PriceBasisSchema } from '@shared/enums'
 import { Badge } from '../../components/ui/badge'
 import { Card } from '../../components/ui/card'
 import { useFormat } from '../../lib/format'
+import { knownZubehoer } from './detail-helpers'
 import { Fact } from './fact-list'
 import { PageLink } from './page-link'
 
@@ -18,6 +19,7 @@ export function KeyNumbers({ detail }: { detail: ListingDetail }) {
   const { area } = detail
   const approximate = detail.approximate.length > 0
   const perLand = area?.kind === 'grundflaeche'
+  const zubehoer = detail.zubehoer === null ? null : knownZubehoer(detail.zubehoer)
   const showMeistbot = detail.meistbotEur !== null || detail.status === 'sold'
 
   return (
@@ -84,9 +86,15 @@ export function KeyNumbers({ detail }: { detail: ListingDetail }) {
 
         {detail.zubehoer !== null && (
           <dl>
-            <Fact label={t('detail.numbers.zubehoer')} lang="de">
-              {detail.zubehoer}
-            </Fact>
+            {zubehoer === null ? (
+              <Fact label={t('detail.numbers.zubehoer')} lang="de">
+                {detail.zubehoer}
+              </Fact>
+            ) : (
+              <Fact label={t('detail.numbers.zubehoer')}>
+                {t(`detail.numbers.zubehoerValue.${zubehoer}`)}
+              </Fact>
+            )}
           </dl>
         )}
       </div>

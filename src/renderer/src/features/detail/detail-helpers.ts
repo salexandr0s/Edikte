@@ -170,3 +170,26 @@ export function nextDocumentProgress(
   if (event.documentId === null || !ownDocumentIds.has(event.documentId)) return current
   return new Map(current).set(event.documentId, event)
 }
+
+/** Zubehör values the site uses word for word, which the UI can translate. */
+export type KnownZubehoer = 'none' | 'notDetermined'
+
+const KNOWN_ZUBEHOER: Readonly<Record<string, KnownZubehoer>> = {
+  'kein zubehör': 'none',
+  'nicht festgestellt': 'notDetermined',
+}
+
+/** The translation key for a stock Zubehör value; other text stays as published. */
+export function knownZubehoer(value: string): KnownZubehoer | null {
+  return KNOWN_ZUBEHOER[value.trim().replace(/\.$/, '').toLowerCase()] ?? null
+}
+
+/**
+ * Whether a document's title on the site says more than its kind, as "Grundriss"
+ * does for a plan. Titles such as "Langgutachten" or "Foto" only repeat it.
+ */
+export function titleAddsToKind(title: string, kindName: string): boolean {
+  // Singular and plural count as the same word: "Foto" and "Fotos".
+  const normalize = (text: string) => text.trim().toLowerCase().replace(/s$/, '')
+  return normalize(title) !== normalize(kindName)
+}

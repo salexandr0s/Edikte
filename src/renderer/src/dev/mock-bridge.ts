@@ -503,7 +503,7 @@ function fakeDetail(state: MockState, row: ListingRow, n: number): ListingDetail
     ...row,
     vadiumEur: row.schaetzwertEur === null ? null : Math.round(row.schaetzwertEur / 10),
     meistbotEur: row.status === 'sold' ? 301_000 : null,
-    zubehoer: null,
+    zubehoer: 'kein Zubehör',
     objektgroesseRaw: row.area?.source === 'listing' ? `${row.area.sqm} m²` : null,
     grundbuch: '01234 Beispielort',
     ez: String(100 + n),

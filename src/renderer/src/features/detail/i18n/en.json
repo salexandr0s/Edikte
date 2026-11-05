@@ -26,6 +26,10 @@
       "vadium": "Deposit (Vadium)",
       "meistbot": "Winning bid (Meistbot)",
       "zubehoer": "Accessories (Zubehör)",
+      "zubehoerValue": {
+        "none": "None (kein Zubehör)",
+        "notDetermined": "Not determined (nicht festgestellt)"
+      },
       "area": "Area for €/m²",
       "noArea": "Not known yet",
       "noAreaHint": "Download the Gutachten or analyze it to find the area.",

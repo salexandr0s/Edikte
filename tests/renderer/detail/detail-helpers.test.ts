@@ -6,9 +6,11 @@ import {
   analysisView,
   areaMismatch,
   checkedSource,
+  knownZubehoer,
   nextDocumentProgress,
   pageRanges,
   risksBySeverity,
+  titleAddsToKind,
 } from '../../../src/renderer/src/features/detail/detail-helpers'
 
 const EDICT = 'a'.repeat(32)
@@ -157,5 +159,20 @@ describe('nextDocumentProgress', () => {
 describe('pageRanges', () => {
   it('joins consecutive pages into ranges', () => {
     expect(pageRanges([12, 3, 5, 6, 7, 5])).toBe('3, 5–7, 12')
+  })
+})
+
+describe('site text in the detail screen', () => {
+  it('translates stock Zubehör values and keeps other text as published', () => {
+    expect(knownZubehoer('kein Zubehör')).toBe('none')
+    expect(knownZubehoer(' Nicht festgestellt. ')).toBe('notDetermined')
+    expect(knownZubehoer('Einbauküche: Zeitwert 0,00 EUR')).toBeNull()
+  })
+
+  it('shows a document title only when it says more than the kind', () => {
+    expect(titleAddsToKind('Langgutachten', 'Langgutachten')).toBe(false)
+    expect(titleAddsToKind('Foto', 'Fotos')).toBe(false)
+    expect(titleAddsToKind('Grundriss', 'Plan')).toBe(true)
+    expect(titleAddsToKind('Anhang zum Langgutachten', 'Langgutachten')).toBe(true)
   })
 })

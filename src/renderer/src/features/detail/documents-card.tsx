@@ -11,7 +11,12 @@ import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
 import { useFormat } from '../../lib/format'
 import { useBridgeEvent } from '../../lib/use-bridge-event'
-import { joinPresent, nextDocumentProgress, type ActiveDocumentProgress } from './detail-helpers'
+import {
+  joinPresent,
+  nextDocumentProgress,
+  titleAddsToKind,
+  type ActiveDocumentProgress,
+} from './detail-helpers'
 import { useOpenDocument } from './use-detail-actions'
 
 type ProgressMap = ReadonlyMap<number, ActiveDocumentProgress>
@@ -113,9 +118,11 @@ function DocumentRow({ doc, progress, onDownloaded }: DocumentRowProps) {
           <p id={kindId} className="text-sm font-medium">
             {t(`documents.kind.${doc.kind}`)}
           </p>
-          <p lang="de" className="text-xs wrap-break-word text-fg-muted">
-            {doc.title}
-          </p>
+          {titleAddsToKind(doc.title, t(`documents.kind.${doc.kind}`, { lng: 'de' })) && (
+            <p lang="de" className="text-xs wrap-break-word text-fg-muted">
+              {doc.title}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">
             <Badge size="sm" variant={doc.downloaded ? 'success' : 'default'}>
               {doc.downloaded ? t('documents.downloaded') : t('documents.notDownloaded')}
