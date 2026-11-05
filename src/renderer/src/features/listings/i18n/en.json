@@ -256,6 +256,8 @@
     "approximateShort": "Approximate position",
     "atLocation_one": "{{count}} auction at this address",
     "atLocation_other": "{{count}} auctions at this address",
+    "closeTogether_one": "{{count}} auction here",
+    "closeTogether_other": "{{count}} auctions close together",
     "attribution": "Map: basemap.at (CC BY 4.0). Addresses: OpenStreetMap contributors (ODbL)."
   }
 }

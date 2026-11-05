@@ -121,6 +121,12 @@
   font-weight: var(--font-weight-medium);
 }
 
+/* Several places in one pin: the count takes the accent, as the pin zooms in where it can. */
+.edk-pin--cluster .edk-pin__count {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-subtle-fg);
+}
+
 .edk-pin:hover .edk-pin__label,
 .edk-pin:focus-visible .edk-pin__label {
   border-color: var(--color-accent);

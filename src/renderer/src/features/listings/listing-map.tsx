@@ -14,14 +14,15 @@ import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
 import { PinCard } from './map-card'
 import { Attribution, MapStatus, ScaleBar, TilesFailedNotice, ZoomButtons } from './map-controls'
-import { groupPins, pinsSignature, type Pin } from './map-pins'
+import { clusterPins, groupPins, pinsSignature, type Pin, type Place } from './map-pins'
 import 'leaflet/dist/leaflet.css'
 import './listing-map.css'
 
-// The map view: one pin per address, grouped where several auctions share
-// one, and a card for the chosen pin. Leaflet draws the tiles and the pins;
-// the controls over the map are the app's own. Tiles come from main (the app
-// scheme); in a browser against the mock bridge they come from basemap.at.
+// The map view: one pin per address, one for several that would overlap at
+// the zoom, and a card for the chosen pin. Leaflet draws the tiles and the
+// pins; the controls over the map are the app's own. Tiles come from main
+// (the app scheme); in a browser against the mock bridge they come from
+// basemap.at.
 
 type LatLngTuple = [number, number]
 type BoundsTuple = [LatLngTuple, LatLngTuple]
@@ -79,10 +80,20 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
   const [failed, setFailed] = useState(false)
   const [tilesFailed, setTilesFailed] = useState(false)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  /** The zoom the pins are grouped for; Leaflet reports each change. */
+  const [zoom, setZoom] = useState<number | null>(null)
 
-  const pins = useMemo(() => groupPins(rows), [rows])
+  const places = useMemo(() => groupPins(rows), [rows])
+  // What the zoom shows: places whose labels would overlap become one pin.
+  const pins = useMemo(
+    () =>
+      map === null || zoom === null
+        ? []
+        : clusterPins(places, (place) => map.project([place.lat, place.lng], zoom)),
+    [map, zoom, places],
+  )
   const selected = pins.find((pin) => pin.key === selectedKey) ?? null
-  const withoutLocation = rows.length - pins.reduce((sum, pin) => sum + pin.rows.length, 0)
+  const withoutLocation = rows.length - places.reduce((sum, place) => sum + place.rows.length, 0)
   const homeBounds = settings.syncBundeslaender.every((land) => land === 'wien')
     ? VIENNA_BOUNDS
     : AUSTRIA_BOUNDS
@@ -140,6 +151,8 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
           if (!fitting.current) touched.current = true
         })
         instance.on('click', () => setSelectedKey(null))
+        instance.on('zoomend', () => setZoom(instance.getZoom()))
+        setZoom(instance.getZoom())
         setMap(instance)
       })
       .catch(() => {
@@ -148,6 +161,7 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
     return () => {
       cancelled = true
       setMap(null)
+      setZoom(null)
       fittedPins.current = null
       pannedFor.current = null
       byKey.clear()
@@ -157,9 +171,9 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
     }
   }, [homeBounds])
 
-  /** Shows every pin, or the home region when there is none. */
+  /** Shows every place, or the home region when there is none. */
   const fit = useCallback(
-    (target: Pin[]) => {
+    (target: Place[]) => {
       const L = leaflet.current
       if (map === null || L === null) return
       map.stop()
@@ -171,7 +185,7 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
         if (target.length === 0) {
           map.fitBounds(homeBounds, { padding: FIT_PADDING, animate: false })
         } else {
-          const bounds = L.latLngBounds(target.map((pin): LatLngTuple => [pin.lat, pin.lng]))
+          const bounds = L.latLngBounds(target.map((place): LatLngTuple => [place.lat, place.lng]))
           map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM, animate: false })
         }
       } finally {
@@ -183,11 +197,26 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
     [map, homeBounds],
   )
 
-  // The pins follow the rows; the view follows the pins until the user moves it.
+  // The pins follow the rows and the zoom; the view follows the places until the user moves it.
   useEffect(() => {
     const L = leaflet.current
     const group = markers.current
     if (map === null || L === null || group === null) return
+    /** Zooms in on a pin's places when that tells them apart; false when it would not. */
+    const zoomApart = (pin: Pin): boolean => {
+      const bounds = L.latLngBounds(pin.places.map((place): LatLngTuple => [place.lat, place.lng]))
+      const target = Math.min(map.getBoundsZoom(bounds, false, L.point(FIT_PADDING)), TILE_MAX_ZOOM)
+      if (target <= map.getZoom()) return false
+      const apart = clusterPins(pin.places, (place) => map.project([place.lat, place.lng], target))
+      if (apart.length === 1) return false
+      map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: TILE_MAX_ZOOM })
+      return true
+    }
+    // The pins are rebuilt; one that had the focus hands it back, or on to the map.
+    const focused =
+      [...markerByKey.current].find(
+        ([, marker]) => marker.getElement() === document.activeElement,
+      )?.[0] ?? null
     group.clearLayers()
     markerByKey.current.clear()
     for (const pin of pins) {
@@ -212,7 +241,11 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
       }
       const marker = L.marker([pin.lat, pin.lng], {
         icon: L.divIcon({
-          className: cx('edk-pin', pin.approximate && 'edk-pin--approximate'),
+          className: cx(
+            'edk-pin',
+            pin.approximate && 'edk-pin--approximate',
+            pin.places.length > 1 && 'edk-pin--cluster',
+          ),
           html: label,
           iconSize: [0, 0],
         }),
@@ -221,14 +254,21 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
         // The map's own click clears the choice; a pin's click must not reach it.
         bubblingMouseEvents: false,
       })
-      marker.on('click', () => setSelectedKey(pin.key))
+      marker.on('click', () => {
+        if (pin.places.length > 1 && zoomApart(pin)) return
+        setSelectedKey(pin.key)
+      })
       group.addLayer(marker)
       marker.getElement()?.setAttribute('aria-label', name)
       markerByKey.current.set(pin.key, marker)
     }
-    const signature = pinsSignature(pins)
-    if (signature !== fittedPins.current && !touched.current) fit(pins)
-  }, [map, pins, fit, format, t])
+    if (focused !== null) {
+      const next = markerByKey.current.get(focused)?.getElement() ?? map.getContainer()
+      next.focus()
+    }
+    const signature = pinsSignature(places)
+    if (signature !== fittedPins.current && !touched.current) fit(places)
+  }, [map, pins, places, fit, format, t])
 
   // The chosen pin is marked, and panned into the open when an overlay covers it.
   useEffect(() => {
@@ -261,7 +301,7 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         if (touched.current) map.invalidateSize({ pan: false })
-        else fit(pins)
+        else fit(places)
       })
     })
     observer.observe(container)
@@ -269,7 +309,7 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
       cancelAnimationFrame(frame)
       observer.disconnect()
     }
-  }, [map, fit, pins])
+  }, [map, fit, places])
 
   return (
     <div
@@ -321,7 +361,7 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
             variant="outline"
             size="sm"
             className="edk-map-overlay top-3 right-3 shadow-md"
-            onClick={() => fit(pins)}
+            onClick={() => fit(places)}
           >
             <FitIcon className="text-fg-muted" />
             {t('map.showAll')}

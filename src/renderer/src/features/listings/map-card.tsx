@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { priceForBasis } from '@shared/area'
 import type { ListingRow } from '@shared/domain'
@@ -17,20 +18,19 @@ interface PinCardProps {
   className?: string
 }
 
-/** The auctions at the chosen pin, each a button to its page. */
+/**
+ * The auctions at the chosen pin, each a button to its page. A pin that
+ * stands for several places close together names the address on each row.
+ */
 export function PinCard({ pin, onOpen, onClose, className }: PinCardProps) {
   const { t } = useTranslation()
   const first = pin.rows[0]
   if (first === undefined) return null
-  const districtName = first.bezirk === null ? null : bezirkName(first.bezirk)
-  const district =
-    first.bezirk !== null && districtName !== null
-      ? t('bezirk.full', { number: first.bezirk, name: districtName })
-      : null
-  const address = addressLine(first, district) ?? t('common.notStated')
+  const cluster = pin.places.length > 1
+  const heading = cluster ? t('map.closeTogether', { count: pin.rows.length }) : address(first, t)
   return (
     <section
-      aria-label={address}
+      aria-label={heading}
       className={cx(
         'flex min-h-0 origin-top-left flex-col overflow-hidden rounded-lg border border-border bg-surface-elevated shadow-lg animate-pop-in',
         className,
@@ -38,17 +38,23 @@ export function PinCard({ pin, onOpen, onClose, className }: PinCardProps) {
     >
       <header className="flex items-start gap-2 border-b border-border py-3 pr-2 pl-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p lang="de" title={address} className="line-clamp-2 text-sm font-semibold hyphens-auto">
-            {address}
+          <p
+            lang={cluster ? undefined : 'de'}
+            title={heading}
+            className="line-clamp-2 text-sm font-semibold hyphens-auto"
+          >
+            {heading}
           </p>
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">
-            <span>{t('map.atLocation', { count: pin.rows.length })}</span>
-            {pin.approximate && (
-              <Badge size="sm" variant="outline" title={t('map.approximate')}>
-                {t('map.approximateShort')}
-              </Badge>
-            )}
-          </p>
+          {(!cluster || pin.approximate) && (
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">
+              {!cluster && <span>{t('map.atLocation', { count: pin.rows.length })}</span>}
+              {pin.approximate && (
+                <Badge size="sm" variant="outline" title={t('map.approximate')}>
+                  {t('map.approximateShort')}
+                </Badge>
+              )}
+            </p>
+          )}
         </div>
         <Button
           variant="ghost"
@@ -62,15 +68,31 @@ export function PinCard({ pin, onOpen, onClose, className }: PinCardProps) {
       </header>
       <ul className="min-h-0 overflow-y-auto">
         {pin.rows.map((row) => (
-          <PinCardRow key={row.id} row={row} onOpen={() => onOpen(row)} />
+          <PinCardRow key={row.id} row={row} withAddress={cluster} onOpen={() => onOpen(row)} />
         ))}
       </ul>
     </section>
   )
 }
 
+/** Street and town, or the district when the town is not known. */
+function address(row: ListingRow, t: TFunction): string {
+  const name = row.bezirk === null ? null : bezirkName(row.bezirk)
+  const district =
+    row.bezirk !== null && name !== null ? t('bezirk.full', { number: row.bezirk, name }) : null
+  return addressLine(row, district) ?? t('common.notStated')
+}
+
 /** Title with its badges, type and date, then the price and what is known about the area. */
-function PinCardRow({ row, onOpen }: { row: ListingRow; onOpen: () => void }) {
+function PinCardRow({
+  row,
+  withAddress,
+  onOpen,
+}: {
+  row: ListingRow
+  withAddress: boolean
+  onOpen: () => void
+}) {
   const { t } = useTranslation()
   const format = useFormat()
   const price = priceForBasis(row.priceBasis, row)
@@ -111,6 +133,11 @@ function PinCardRow({ row, onOpen }: { row: ListingRow; onOpen: () => void }) {
               </Badge>
             )}
           </span>
+          {withAddress && (
+            <span lang="de" title={address(row, t)} className="truncate text-xs text-fg-muted">
+              {address(row, t)}
+            </span>
+          )}
           <span className="text-xs text-fg-muted">
             {t(`propertyType.${row.propertyType}`)}
             {row.auctionAt !== null && ` · ${format.localDateTime(row.auctionAt)}`}

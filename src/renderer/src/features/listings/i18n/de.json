@@ -256,6 +256,8 @@
     "approximateShort": "Ungefähre Position",
     "atLocation_one": "{{count}} Versteigerung an dieser Adresse",
     "atLocation_other": "{{count}} Versteigerungen an dieser Adresse",
+    "closeTogether_one": "{{count}} Versteigerung hier",
+    "closeTogether_other": "{{count}} Versteigerungen nahe beieinander",
     "attribution": "Karte: basemap.at (CC BY 4.0). Adressen: OpenStreetMap-Mitwirkende (ODbL)."
   }
 }
