@@ -63,6 +63,15 @@ protocol.registerSchemesAsPrivileged([DOCUMENT_SCHEME_PRIVILEGES, TILE_SCHEME_PR
 const devServerUrl = app.isPackaged ? null : (process.env.ELECTRON_RENDERER_URL ?? null)
 const rendererIndexFile = path.join(import.meta.dirname, '../renderer/index.html')
 const preloadFile = path.join(import.meta.dirname, '../preload/index.cjs')
+// Packaged apps carry the icon in the bundle. In development Electron's own
+// binary runs, so the Dock and the window take it from build/.
+const devIcon = app.isPackaged
+  ? undefined
+  : path.join(
+      import.meta.dirname,
+      '../../build',
+      process.platform === 'win32' ? 'icon.ico' : 'icon.png',
+    )
 const trust = createRendererTrust({ devServerUrl, rendererIndexFile })
 const SHUTDOWN_LIMIT_MS = 5000
 
@@ -98,6 +107,7 @@ if (!app.requestSingleInstanceLock()) {
 
 function start(): void {
   installSessionGuards(session.defaultSession, trust)
+  if (devIcon !== undefined) app.dock?.setIcon(devIcon)
   const paths = resolveAppPaths(app.getPath('userData'))
   const db = openDatabase(paths.database)
   database = db
@@ -215,6 +225,7 @@ function createMainWindow(): BrowserWindow {
     minHeight: 600,
     show: false,
     title: 'Edikte',
+    icon: devIcon,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0A0A0B' : '#FFFFFF',
     webPreferences: {
       preload: preloadFile,

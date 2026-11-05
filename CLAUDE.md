@@ -6,15 +6,16 @@ Rules here override the workspace `~/GitHub/CLAUDE.md` where they conflict.
 
 ## Commands
 
-| Command                                | What it does                                                                   |
-| -------------------------------------- | ------------------------------------------------------------------------------ |
-| `npm run dev`                          | App with hot reload                                                            |
-| `npm run dev:renderer`                 | Renderer only, in a browser, against the mock bridge (made-up data)            |
-| `npm run typecheck`                    | Node project (main, preload, shared, tests) and web project (renderer, shared) |
-| `npm run lint`, `npm run format:check` | ESLint and Prettier                                                            |
-| `npm test`                             | Vitest unit tests (`tests/**/*.test.ts`)                                       |
-| `npm run test:e2e`                     | Builds, then runs the Playwright Electron smoke test                           |
-| `npm run db:generate`                  | Writes a migration after a change to `src/main/db/schema.ts`                   |
+| Command                                | What it does                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------------- |
+| `npm run dev`                          | App with hot reload                                                                    |
+| `npm run dev:renderer`                 | Renderer only, in a browser, against the mock bridge (made-up data)                    |
+| `npm run typecheck`                    | Node project (main, preload, shared, tests) and web project (renderer, shared)         |
+| `npm run lint`, `npm run format:check` | ESLint and Prettier                                                                    |
+| `npm test`                             | Vitest unit tests (`tests/**/*.test.ts`)                                               |
+| `npm run test:e2e`                     | Builds, then runs the Playwright Electron smoke test                                   |
+| `npm run db:generate`                  | Writes a migration after a change to `src/main/db/schema.ts`                           |
+| `npm run icons`                        | Renders `build/icon.icns`, `build/icon.ico` and `build/icon.png` from `build/icon.svg` |
 
 Before a commit: typecheck, lint, unit tests and `format:check`. Run `test:e2e` as well when main, preload, the build config or the app shell change.
 
