@@ -12,6 +12,7 @@ import type {
   PropertyType,
 } from '@shared/enums'
 import type { ProviderId } from '@shared/providers'
+import type { ChangeLogEntry } from '../scraper/detail'
 
 // Only type imports from @shared: drizzle-kit loads this file without the alias.
 // Site dates are Vienna local time ("YYYY-MM-DD" or "YYYY-MM-DDTHH:mm"),
@@ -59,6 +60,13 @@ export const edicts = sqliteTable(
     remarks: text('remarks'),
     publishedAt: text('published_at'),
     changedAt: text('changed_at'),
+    /** The page carries the "Berichtigte Fassung" banner. */
+    corrected: integer('corrected', { mode: 'boolean' }).notNull().default(false),
+    /** Entries of the page's change log, oldest first. */
+    changeLog: text('change_log', { mode: 'json' })
+      .$type<ChangeLogEntry[]>()
+      .notNull()
+      .default(jsonArray),
     /** Every label/value pair on the page, as published. */
     rawLabels: text('raw_labels', { mode: 'json' }).$type<Record<string, string>>().notNull(),
     kurzgutachten: text('kurzgutachten', { mode: 'json' }).$type<KurzgutachtenFacts>(),
@@ -161,7 +169,12 @@ export const analyses = sqliteTable(
       .notNull()
       .references(() => edicts.id, { onDelete: 'cascade' }),
     provider: text('provider').$type<ProviderId>().notNull(),
+    /** Model the provider reported; equals requestedModel until the run reports one. */
     model: text('model').notNull(),
+    /** Model chosen in Settings when the job was queued, such as "default" or "opus". */
+    requestedModel: text('requested_model'),
+    /** Account the run used, as the provider reported it. */
+    accountLabel: text('account_label'),
     promptVersion: integer('prompt_version').notNull(),
     schemaVersion: integer('schema_version').notNull(),
     status: text('status').$type<AnalysisStatus>().notNull(),

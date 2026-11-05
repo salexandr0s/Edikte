@@ -73,6 +73,8 @@ export function buildEdictRecord(input: EdictRecordInput): EdictRecord {
     // Corrected notices show only the date of the last change.
     publishedAt: fields.publishedAt ?? fields.changedAt,
     changedAt: fields.changedAt,
+    corrected: detail.corrected,
+    changeLog: detail.changeLog,
     rawLabels: detail.rawLabels,
     kurzgutachten: input.kurzgutachten ?? null,
     kurzgutachtenUrl: detail.kurzgutachtenUrl,
