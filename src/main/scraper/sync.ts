@@ -1,6 +1,6 @@
 import type { KurzgutachtenFacts, SyncRunSummary, SyncStatus } from '@shared/domain'
 import type { Bundesland, NoticeType } from '@shared/enums'
-import { AppError, isAppError } from '@shared/errors'
+import { AppError, isAppError, type AppErrorCode } from '@shared/errors'
 import type { PageSource } from './client'
 import { parseDetailPage, type DocumentLink, type ParsedDetail } from './detail'
 import { buildEdictRecord, type EdictRecord } from './edict-record'
@@ -62,6 +62,8 @@ export interface EdictWrite {
 /** Result of a run, applied by the store in one transaction. Runs that are not ok carry no writes. */
 export interface SyncCommit {
   summary: SyncRunSummary
+  /** Code of the error that ended a failed run; null for other runs. */
+  failureCode: AppErrorCode | null
   errors: string[]
   /** New and changed edicts: insert or update, keeping firstSeenAt of an existing row. */
   upserts: EdictWrite[]
@@ -165,6 +167,7 @@ export async function runSync(options: SyncOptions): Promise<SyncRunSummary> {
   }
 
   let result: RunResult | null = null
+  let failureCode: AppErrorCode | null = null
   try {
     result = await executeRun({
       source,
@@ -182,6 +185,7 @@ export async function runSync(options: SyncOptions): Promise<SyncRunSummary> {
     const failure = toAppError(error)
     summary.status = failure.code === 'cancelled' ? 'cancelled' : 'failed'
     summary.note = failure.code === 'cancelled' ? null : `${failure.code}: ${failure.message}`
+    if (failure.code !== 'cancelled') failureCode = failure.code
   }
 
   const finishedAt = now().toISOString()
@@ -196,6 +200,7 @@ export async function runSync(options: SyncOptions): Promise<SyncRunSummary> {
   summary.removed = writes?.removedIds.length ?? 0
   await store.commitRun({
     summary: { ...summary },
+    failureCode,
     errors: errors.slice(0, MAX_ERRORS),
     upserts: writes?.upserts ?? [],
     seenIds: writes?.seenIds ?? [],

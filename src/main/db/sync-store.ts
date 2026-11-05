@@ -1,6 +1,7 @@
-import { and, desc, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm'
+import { desc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import type { SyncRunSummary } from '@shared/domain'
 import type { Bundesland } from '@shared/enums'
+import type { AppErrorCode } from '@shared/errors'
 import type {
   EdictWrite,
   KnownEdict,
@@ -16,6 +17,7 @@ import { documents, edicts, syncRuns } from './schema'
 const ID_CHUNK = 500
 
 type Transaction = Parameters<Parameters<AppDatabase['transaction']>[0]>[0]
+type SyncRunStatus = (typeof syncRuns.$inferSelect)['status']
 
 const summaryColumns = {
   id: syncRuns.id,
@@ -87,21 +89,45 @@ export function lastFinishedRun(db: AppDatabase): SyncRunSummary | null {
   )
 }
 
-/**
- * When the newest run covering `scope` finished, among runs that got an answer
- * from the site (ok, degraded or failed). Cancelled runs do not count.
- */
-export function lastSettledRunFinishedAt(
-  db: AppDatabase,
-  scope: readonly Bundesland[],
-): string | null {
+/** Failures that come from an answer of the site, so retrying soon would not help. */
+const SITE_ANSWER_CODES: ReadonlySet<AppErrorCode> = new Set<AppErrorCode>([
+  'site_unavailable',
+  'rate_limited',
+  'site_changed',
+])
+
+/** Finish times of the newest runs covering a scope, which decide when auto sync is due. */
+export interface SyncSchedule {
+  /** The newest run that got an answer from the site: ok, degraded, or failed with a site error. */
+  settledAt: string | null
+  /** The newest run that ended without one: cancelled, or failed before the site answered. */
+  unsettledAt: string | null
+}
+
+export function loadSyncSchedule(db: AppDatabase, scope: readonly Bundesland[]): SyncSchedule {
   const runs = db
-    .select({ scope: syncRuns.scope, finishedAt: syncRuns.finishedAt })
+    .select({
+      scope: syncRuns.scope,
+      status: syncRuns.status,
+      failureCode: syncRuns.failureCode,
+      finishedAt: syncRuns.finishedAt,
+    })
     .from(syncRuns)
-    .where(and(isNotNull(syncRuns.finishedAt), ne(syncRuns.status, 'cancelled')))
+    .where(isNotNull(syncRuns.finishedAt))
     .orderBy(desc(syncRuns.id))
     .all()
-  return runs.find((run) => covers(run.scope, scope))?.finishedAt ?? null
+    .filter((run) => covers(run.scope, scope))
+  return {
+    settledAt: runs.find(isSettled)?.finishedAt ?? null,
+    unsettledAt: runs.find((run) => !isSettled(run))?.finishedAt ?? null,
+  }
+}
+
+function isSettled(run: { status: SyncRunStatus; failureCode: AppErrorCode | null }): boolean {
+  if (run.status === 'failed') {
+    return run.failureCode !== null && SITE_ANSWER_CODES.has(run.failureCode)
+  }
+  return run.status === 'ok' || run.status === 'degraded'
 }
 
 /**
@@ -110,13 +136,19 @@ export function lastSettledRunFinishedAt(
  */
 export function closeOpenRuns(
   db: AppDatabase,
-  close: { status: 'failed' | 'cancelled'; note: string; finishedAt: string | null },
+  close: {
+    status: 'failed' | 'cancelled'
+    note: string
+    finishedAt: string | null
+    failureCode?: AppErrorCode
+  },
 ): void {
   db.update(syncRuns)
     .set({
       status: close.status,
       note: close.note,
       finishedAt: close.finishedAt ?? sql`${syncRuns.startedAt}`,
+      failureCode: close.failureCode ?? null,
     })
     .where(eq(syncRuns.status, 'running'))
     .run()
@@ -130,7 +162,10 @@ function insertRun(db: AppDatabase, run: SyncRunStart): number {
     .get().id
 }
 
-/** Writes a finished run in one transaction; runs that are not ok carry no edict writes. */
+/**
+ * Writes a finished run in one transaction; runs that are not ok carry no edict
+ * writes. A failed run without a failure code counts as not settled.
+ */
 function applyCommit(db: AppDatabase, commit: SyncCommit): void {
   const { summary, at } = commit
   db.transaction((tx) => {
@@ -145,6 +180,7 @@ function applyCommit(db: AppDatabase, commit: SyncCommit): void {
         requests: summary.requests,
         note: summary.note,
         errors: commit.errors,
+        failureCode: summary.status === 'failed' ? commit.failureCode : null,
       })
       .where(eq(syncRuns.id, summary.id))
       .run()

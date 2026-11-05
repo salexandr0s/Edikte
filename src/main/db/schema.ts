@@ -11,6 +11,7 @@ import type {
   NoticeType,
   PropertyType,
 } from '@shared/enums'
+import type { AppErrorCode } from '@shared/errors'
 import type { ProviderId } from '@shared/providers'
 import type { ChangeLogEntry } from '../scraper/detail'
 
@@ -245,6 +246,8 @@ export const syncRuns = sqliteTable('sync_runs', {
   requests: integer('requests').notNull().default(0),
   note: text('note'),
   errors: text('errors', { mode: 'json' }).$type<string[]>().notNull().default(jsonArray),
+  /** Code of the error that ended a failed run; null for other runs and older rows. */
+  failureCode: text('failure_code').$type<AppErrorCode>(),
 })
 
 /** A single row (id 1) holding the Settings JSON. Secrets live in the encrypted store instead. */

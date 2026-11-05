@@ -1,6 +1,13 @@
 import path from 'node:path'
-import { app, BrowserWindow, dialog, nativeTheme, session, type OpenDialogOptions } from 'electron'
-import type { Settings } from '@shared/domain'
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  nativeTheme,
+  powerMonitor,
+  session,
+  type OpenDialogOptions,
+} from 'electron'
 import { openDatabase, type AppDatabase } from './db/client'
 import { createDocumentStore } from './db/document-store'
 import { queryListings } from './db/listing-store'
@@ -94,8 +101,21 @@ function start(): void {
   const emit = createEventEmitter(() => mainWindow)
   // One client for every request to the site, so all of them share one rate limit.
   const client = new EdikteClient({ appVersion: app.getVersion() })
-  const settings = createSettingsService(db, (before, after) => settingsChanged(before, after))
-  const sync = createSyncService({ db, source: client, emit, readSettings: () => settings.read() })
+  // Main's reaction to saved settings: a new scope reloads the list, and auto sync may now be due.
+  const settings = createSettingsService(db, (before, after) =>
+    sync.onSettingsChanged(before, after),
+  )
+  const sync = createSyncService({
+    db,
+    source: client,
+    emit,
+    readSettings: () => settings.read(),
+    offline,
+    onResume: (listener) => {
+      powerMonitor.on('resume', listener)
+      return () => powerMonitor.off('resume', listener)
+    },
+  })
   const providers = createProviderService({
     db,
     emit,
@@ -153,18 +173,10 @@ function start(): void {
     void analysis
       .resumeQueued()
       .catch((error: unknown) => log.error('analysis', 'Queued jobs did not resume', error))
-    if (settings.read().firstRunCompletedAt !== null) sync.startIfDue()
   }
-
-  /** Main's reactions to settings the renderer saved. */
-  function settingsChanged(before: Settings, after: Settings): void {
-    if (offline || after.firstRunCompletedAt === null) return
-    const firstRunDone = before.firstRunCompletedAt === null
-    const scopeChanged = before.syncBundeslaender.join() !== after.syncBundeslaender.join()
-    const autoSyncOn = !before.autoSync && after.autoSync
-    // startIfDue checks auto sync itself; a new scope has no finished run yet, so it is due.
-    if (firstRunDone || scopeChanged || autoSyncOn) sync.startIfDue()
-  }
+  // Starts a run when one is due, or sets the timer for the next check. It
+  // does nothing offline or before the first-run screen is done.
+  sync.startIfDue()
 }
 
 function createMainWindow(): BrowserWindow {

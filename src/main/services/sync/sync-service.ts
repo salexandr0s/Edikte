@@ -1,18 +1,20 @@
 import type { Settings, SyncRunSummary, SyncStatus } from '@shared/domain'
+import type { Bundesland } from '@shared/enums'
 import { AppError } from '@shared/errors'
 import type { AppDatabase } from '../../db/client'
 import {
   closeOpenRuns,
   createSyncStore,
   lastFinishedRun,
-  lastSettledRunFinishedAt,
+  loadSyncSchedule,
 } from '../../db/sync-store'
 import type { EmitEvent } from '../../ipc/events'
 import { log } from '../../log'
 import type { PageSource } from '../../scraper/client'
 import { runSync } from '../../scraper/sync'
 
-const HOUR_MS = 60 * 60 * 1000
+const MINUTE_MS = 60 * 1000
+const HOUR_MS = 60 * MINUTE_MS
 
 /**
  * An automatic sync starts when the last run over the scope that got an
@@ -20,16 +22,25 @@ const HOUR_MS = 60 * 60 * 1000
  * (once a day) is decided by `runSync`.
  */
 export const AUTO_SYNC_INTERVAL_MS = 6 * HOUR_MS
+/** Auto sync tries again this long after a run that was cancelled or never reached the site. */
+export const AUTO_SYNC_RETRY_MS = 20 * MINUTE_MS
 
 const INTERRUPTED_NOTE = 'The app closed during this sync'
 const STORAGE_FAILED_NOTE = 'The sync result could not be saved'
+
+/** The settings the sync service reads. */
+export type SyncSettings = Pick<Settings, 'syncBundeslaender' | 'autoSync' | 'firstRunCompletedAt'>
 
 export interface SyncServiceDeps {
   db: AppDatabase
   /** The app's shared client, so every request shares one rate limit. */
   source: PageSource
   emit: EmitEvent
-  readSettings: () => Pick<Settings, 'syncBundeslaender' | 'autoSync'>
+  readSettings: () => SyncSettings
+  /** No automatic runs, as with EDIKTE_OFFLINE. Runs the user starts still work. */
+  offline?: boolean
+  /** Subscribes to the computer waking from sleep; returns a function that unsubscribes. */
+  onResume?: (listener: () => void) => () => void
   now?: () => Date
 }
 
@@ -39,9 +50,15 @@ export interface SyncService {
   start(options: { full: boolean }): SyncStatus
   /** Asks the active run to stop; it ends as cancelled and writes nothing. */
   cancel(): void
-  /** Starts an incremental run when auto sync is on and one is due. */
+  /**
+   * Starts an incremental run when auto sync may run and one is due, and
+   * otherwise sets a timer for the next check. Returns whether a run started.
+   * Auto sync waits for the first-run screen and never runs offline.
+   */
   startIfDue(): boolean
-  /** Cancels an active run and resolves once it has stopped writing. */
+  /** Reloads the list when the scope changed and checks whether a run is due. */
+  onSettingsChanged(before: SyncSettings, after: SyncSettings): void
+  /** Stops the timer, cancels an active run and resolves once it has stopped writing. */
   dispose(): Promise<void>
 }
 
@@ -56,17 +73,16 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
   let controller: AbortController | null = null
   let active: Promise<void> | null = null
   let disposed = false
+  let timer: ReturnType<typeof setTimeout> | null = null
+  /** Earliest next automatic run (ms); set when a result could not be stored at all. */
+  let retryNotBefore = 0
 
   const publish = (status: SyncStatus): void => {
     current = status
     if (!disposed) emit('sync:progress', status)
   }
 
-  const execute = async (
-    scope: Settings['syncBundeslaender'],
-    full: boolean,
-    signal: AbortSignal,
-  ) => {
+  const execute = async (scope: Bundesland[], full: boolean, signal: AbortSignal) => {
     try {
       const summary = await runSync({
         source,
@@ -81,12 +97,14 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
     } catch (error) {
       // runSync handles site errors itself; what reaches here is a storage error.
       log.error('sync', 'The sync could not be stored', error)
+      retryNotBefore = now().getTime() + AUTO_SYNC_RETRY_MS
       let lastFinished = current.lastFinished
       try {
         closeOpenRuns(db, {
           status: 'failed',
           note: STORAGE_FAILED_NOTE,
           finishedAt: now().toISOString(),
+          failureCode: 'storage_unavailable',
         })
         lastFinished = lastFinishedRun(db)
       } catch (cleanupError) {
@@ -106,9 +124,52 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
     active = execute(scope, full, abort.signal).finally(() => {
       controller = null
       active = null
+      // The next due time moved, and the settings may have changed during the run.
+      if (!disposed) checkSchedule()
     })
     return current
   }
+
+  /** When the next automatic run is due (ms), or null while auto sync must not run. */
+  const nextDueAt = (): number | null => {
+    if (deps.offline === true) return null
+    const settings = deps.readSettings()
+    if (!settings.autoSync || settings.firstRunCompletedAt === null) return null
+    const { settledAt, unsettledAt } = loadSyncSchedule(db, settings.syncBundeslaender)
+    return Math.max(
+      timeAfter(settledAt, AUTO_SYNC_INTERVAL_MS),
+      timeAfter(unsettledAt, AUTO_SYNC_RETRY_MS),
+      retryNotBefore,
+    )
+  }
+
+  const startIfDue = (): boolean => {
+    if (timer !== null) clearTimeout(timer)
+    timer = null
+    // An active run checks again when it ends.
+    if (disposed || controller !== null) return false
+    const dueAt = nextDueAt()
+    if (dueAt === null) return false
+    const wait = dueAt - now().getTime()
+    if (wait <= 0) {
+      start({ full: false })
+      return true
+    }
+    // Timers stall while the computer sleeps; the resume listener checks again.
+    timer = setTimeout(checkSchedule, Math.min(wait, AUTO_SYNC_INTERVAL_MS))
+    return false
+  }
+
+  /** startIfDue for timers and events, where an error has no caller to go to. */
+  const checkSchedule = (): void => {
+    try {
+      startIfDue()
+    } catch (error) {
+      log.error('sync', 'Could not check whether a sync is due', error)
+    }
+  }
+
+  const unsubscribeResume = deps.onResume?.(checkSchedule)
 
   return {
     status: () => current,
@@ -118,19 +179,20 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
       controller.abort()
       publish({ ...current, state: 'cancelling' })
     },
-    startIfDue: () => {
-      if (disposed || controller !== null) return false
-      const settings = deps.readSettings()
-      if (!settings.autoSync) return false
-      const finishedAt = lastSettledRunFinishedAt(db, settings.syncBundeslaender)
-      if (finishedAt !== null && now().getTime() - Date.parse(finishedAt) < AUTO_SYNC_INTERVAL_MS) {
-        return false
+    startIfDue,
+    onSettingsChanged: (before, after) => {
+      if (disposed) return
+      // The list query filters by scope, so the renderer has to load it again.
+      if (!sameScope(before.syncBundeslaender, after.syncBundeslaender)) {
+        emit('listings:changed', { edictIds: null })
       }
-      start({ full: false })
-      return true
+      checkSchedule()
     },
     dispose: async () => {
       disposed = true
+      if (timer !== null) clearTimeout(timer)
+      timer = null
+      unsubscribeResume?.()
       controller?.abort()
       if (active !== null) await active
     },
@@ -139,4 +201,15 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
 
 function idle(lastFinished: SyncRunSummary | null): SyncStatus {
   return { state: 'idle', phase: null, done: 0, total: 0, current: null, lastFinished }
+}
+
+/** `at` plus `ms` in ms since the epoch; 0 (due) when there is no valid time. */
+function timeAfter(at: string | null, ms: number): number {
+  const time = at === null ? Number.NaN : Date.parse(at)
+  return Number.isFinite(time) ? time + ms : 0
+}
+
+function sameScope(a: readonly Bundesland[], b: readonly Bundesland[]): boolean {
+  const other = new Set(b)
+  return new Set(a).size === other.size && a.every((bundesland) => other.has(bundesland))
 }

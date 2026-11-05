@@ -349,6 +349,7 @@ describe('runSync', () => {
     const summary = await sync()
     expect(summary).toMatchObject({ status: 'failed', changed: 0 })
     expect(summary.note).toContain('site_unavailable')
+    expect(store.commits.at(-1)?.failureCode).toBe('site_unavailable')
     expect(store.edicts.size).toBe(0)
   })
 
@@ -384,6 +385,7 @@ describe('runSync', () => {
     }
     const summary = await sync({ signal: controller.signal })
     expect(summary).toMatchObject({ status: 'cancelled', changed: 0, note: null })
+    expect(store.commits.at(-1)?.failureCode).toBeNull()
     expect(store.edicts.size).toBe(0)
     expect(store.runs[0]?.status).toBe('cancelled')
     expect(statuses.at(-1)).toMatchObject({ state: 'idle', lastFinished: { status: 'cancelled' } })

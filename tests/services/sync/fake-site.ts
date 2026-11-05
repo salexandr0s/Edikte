@@ -58,6 +58,8 @@ export class FakeSite implements PageSource {
   pages: SitePage[] = []
   /** Requests whose URL matches wait until `release()` or until their run is cancelled. */
   hold: ((url: string) => boolean) | null = null
+  /** Every request fails with this error, such as `network` for a site out of reach. */
+  failWith: AppError | null = null
   readonly #waiting: Array<() => void> = []
 
   get waiting(): number {
@@ -67,6 +69,7 @@ export class FakeSite implements PageSource {
   async getText(url: string, signal?: AbortSignal): Promise<string> {
     this.requestCount += 1
     if (signal?.aborted === true) throw cancelledError()
+    if (this.failWith !== null) throw this.failWith
     if (this.hold?.(url) === true) await this.#waitForRelease(signal)
     return this.#answer(url)
   }

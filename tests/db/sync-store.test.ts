@@ -1,13 +1,14 @@
 import { asc } from 'drizzle-orm'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SyncRunSummary } from '@shared/domain'
+import type { AppErrorCode } from '@shared/errors'
 import { openDatabase, type AppDatabase } from '../../src/main/db/client'
 import { documents, edicts } from '../../src/main/db/schema'
 import {
   closeOpenRuns,
   createSyncStore,
   lastFinishedRun,
-  lastSettledRunFinishedAt,
+  loadSyncSchedule,
 } from '../../src/main/db/sync-store'
 import type { DocumentLink } from '../../src/main/scraper/detail'
 import type { SyncCommit } from '../../src/main/scraper/sync'
@@ -46,6 +47,7 @@ function commit(
   status: SyncRunSummary['status'] = 'ok',
 ): SyncCommit {
   return {
+    failureCode: null,
     summary: {
       ...run,
       status,
@@ -152,7 +154,37 @@ describe('sync store', () => {
 
     closeOpenRuns(database, { status: 'cancelled', note: 'Closed', finishedAt: null })
     expect(lastFinishedRun(database)).toMatchObject({ status: 'cancelled', finishedAt: T2 })
-    expect(lastSettledRunFinishedAt(database, ['wien'])).toBe(T1)
-    expect(lastSettledRunFinishedAt(database, ['wien', 'ooe'])).toBeNull()
+    expect(loadSyncSchedule(database, ['wien'])).toEqual({ settledAt: T1, unsettledAt: T2 })
+    expect(loadSyncSchedule(database, ['wien', 'ooe'])).toEqual({
+      settledAt: null,
+      unsettledAt: null,
+    })
+  })
+
+  it('counts a failed run as settled only when the site answered', async () => {
+    const database = open()
+    const store = createSyncStore(database)
+    const finish = async (
+      startedAt: string,
+      status: SyncRunSummary['status'],
+      failureCode: AppErrorCode | null,
+    ): Promise<void> => {
+      const id = await store.startRun({ kind: 'full', scope: ['wien'], startedAt })
+      await store.commitRun(commit({ id, kind: 'full', startedAt }, { failureCode }, status))
+    }
+
+    await finish(T1, 'ok', null)
+    await finish(T2, 'failed', 'network')
+    expect(loadSyncSchedule(database, ['wien'])).toEqual({ settledAt: T1, unsettledAt: T2 })
+    await finish(T3, 'failed', 'site_unavailable')
+    expect(loadSyncSchedule(database, ['wien'])).toEqual({ settledAt: T3, unsettledAt: T2 })
+    await store.startRun({ kind: 'incremental', scope: ['wien'], startedAt: T4 })
+    closeOpenRuns(database, {
+      status: 'failed',
+      note: 'Not saved',
+      finishedAt: T4,
+      failureCode: 'storage_unavailable',
+    })
+    expect(loadSyncSchedule(database, ['wien'])).toEqual({ settledAt: T3, unsettledAt: T4 })
   })
 })
