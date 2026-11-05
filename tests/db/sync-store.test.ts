@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { SyncRunSummary } from '@shared/domain'
 import type { AppErrorCode } from '@shared/errors'
 import { openDatabase, type AppDatabase } from '../../src/main/db/client'
-import { documents, edicts } from '../../src/main/db/schema'
+import { documents, edicts, userState } from '../../src/main/db/schema'
 import {
   closeOpenRuns,
   createSyncStore,
@@ -142,6 +142,33 @@ describe('sync store', () => {
     })
     // No ok run covered Niederösterreich.
     expect((await store.loadState(['wien', 'noe'])).lastOkRunStartedAt).toBeNull()
+  })
+
+  it('moves star, hide and notes to a new case key, merging cases that now share one', async () => {
+    const database = open()
+    const store = createSyncStore(database)
+    const sync = async (startedAt: string, caseKeys: [string, string]): Promise<void> => {
+      const id = await store.startRun({ kind: 'full', scope: ['wien'], startedAt })
+      const upserts = caseKeys.map((caseKey, index) => ({
+        edict: edictRecord(index + 1, { ...seenAt(startedAt), caseKey }),
+        documents: [],
+      }))
+      await store.commitRun(commit({ id, kind: 'full', startedAt }, { upserts }))
+    }
+
+    await sync(T1, ['old-a', 'old-b'])
+    database
+      .insert(userState)
+      .values([
+        { caseKey: 'old-a', starred: true, hidden: false, notes: 'A', updatedAt: T1 },
+        { caseKey: 'old-b', starred: false, hidden: true, notes: 'B', updatedAt: T1 },
+      ])
+      .run()
+    await sync(T2, ['new', 'new'])
+
+    expect(database.select().from(userState).all()).toEqual([
+      { caseKey: 'new', starred: true, hidden: false, notes: 'A\n\nB', updatedAt: T2 },
+    ])
   })
 
   it('closes runs left open by a quit; cancelled runs do not settle the schedule', async () => {

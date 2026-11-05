@@ -11,7 +11,7 @@ import type {
   SyncStoreState,
 } from '../scraper/sync'
 import type { AppDatabase } from './client'
-import { documents, edicts, syncRuns } from './schema'
+import { documents, edicts, syncRuns, userState } from './schema'
 
 /** IDs per `UPDATE … WHERE id IN (…)`, far below SQLite's variable limit. */
 const ID_CHUNK = 500
@@ -204,6 +204,14 @@ function applyCommit(db: AppDatabase, commit: SyncCommit): void {
  */
 function upsertEdict(tx: Transaction, write: EdictWrite, at: string): void {
   const { edict } = write
+  const stored = tx
+    .select({ caseKey: edicts.caseKey })
+    .from(edicts)
+    .where(eq(edicts.id, edict.id))
+    .get()
+  if (stored !== undefined && stored.caseKey !== edict.caseKey) {
+    moveUserState(tx, stored.caseKey, edict.caseKey, at)
+  }
   tx.insert(edicts)
     .values(edict)
     .onConflictDoUpdate({
@@ -227,6 +235,31 @@ function upsertEdict(tx: Transaction, write: EdictWrite, at: string): void {
     )
     .onConflictDoNothing({ target: [documents.edictId, documents.url] })
     .run()
+}
+
+/**
+ * Moves star, hide and notes to an edict's new case key, as after a parser
+ * change to case keys. When two cases now share one key, a star from either
+ * stays, the case stays hidden only when both were, and both notes are kept.
+ */
+function moveUserState(tx: Transaction, from: string, to: string, at: string): void {
+  const moving = tx.select().from(userState).where(eq(userState.caseKey, from)).get()
+  if (moving === undefined) return
+  const existing = tx.select().from(userState).where(eq(userState.caseKey, to)).get()
+  if (existing === undefined) {
+    tx.update(userState).set({ caseKey: to }).where(eq(userState.caseKey, from)).run()
+    return
+  }
+  tx.update(userState)
+    .set({
+      starred: existing.starred || moving.starred,
+      hidden: existing.hidden && moving.hidden,
+      notes: [existing.notes, moving.notes].filter((notes) => notes !== '').join('\n\n'),
+      updatedAt: at,
+    })
+    .where(eq(userState.caseKey, to))
+    .run()
+  tx.delete(userState).where(eq(userState.caseKey, from)).run()
 }
 
 /** Whether a run over `runScope` covered every Bundesland of `scope`. */
