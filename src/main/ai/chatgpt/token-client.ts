@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { AppError } from '@shared/errors'
+import { log } from '../../log'
 import { ProviderError } from '../provider'
 import {
   BodyTooLargeError,
@@ -10,12 +12,20 @@ import {
   withTimeout,
   type Fetch,
 } from '../api/common'
-import { CHATGPT_ENDPOINTS, CHATGPT_ISSUER, OPENAI_RESOURCE, splitScopes } from './authorization'
+import {
+  CHATGPT_ENDPOINTS,
+  CHATGPT_ISSUER,
+  CHATGPT_SCOPES,
+  OPENAI_RESOURCE,
+  splitScopes,
+} from './authorization'
 import { JwksSchema, type Jwks } from './id-token'
 
 export const AUTH_REQUEST_TIMEOUT_MS = 30_000
 const MAX_AUTH_BODY_BYTES = 256 * 1024
 const MAX_SCOPES = 32
+/** A longer lifetime is shortened: the app renews the access token at least hourly. */
+const MAX_TOKEN_LIFETIME_S = 3600
 const SCOPE_TOKEN = /^[\x21\x23-\x5b\x5d-\x7e]+$/
 
 const INVALID_GRANT_CODES = new Set([
@@ -76,7 +86,7 @@ const DiscoverySchema = z.object({
 const TokenResponseSchema = z.object({
   access_token: z.string().min(1),
   token_type: z.string(),
-  expires_in: z.number().int().min(1).max(3600),
+  expires_in: z.number().int().min(1),
   refresh_token: z.string().min(1).nullish(),
   id_token: z.string().min(1).nullish(),
   scope: z.string().nullish(),
@@ -138,7 +148,7 @@ export async function exchangeCode(
   signal: AbortSignal,
 ): Promise<TokenSet> {
   const sentAt = now()
-  const payload = await requestTokens(
+  const body = await requestTokens(
     fetchFn,
     {
       grant_type: 'authorization_code',
@@ -150,7 +160,9 @@ export async function exchangeCode(
     },
     withTimeout(signal, AUTH_REQUEST_TIMEOUT_MS),
   )
-  return toTokenSet(payload, sentAt, { kind: 'code', scopes: input.callbackScopes })
+  return acceptTokens(fetchFn, input.clientId, body, null, (payload) =>
+    toTokenSet(payload, sentAt, { kind: 'code', scopes: input.callbackScopes }),
+  )
 }
 
 export interface TokenRefresh {
@@ -166,7 +178,7 @@ export async function refreshTokens(
   signal: AbortSignal,
 ): Promise<TokenSet> {
   const sentAt = now()
-  const payload = await requestTokens(
+  const body = await requestTokens(
     fetchFn,
     {
       grant_type: 'refresh_token',
@@ -176,11 +188,13 @@ export async function refreshTokens(
     },
     signal,
   )
-  return toTokenSet(payload, sentAt, {
-    kind: 'refresh',
-    scopes: input.previousScopes,
-    refreshToken: input.refreshToken,
-  })
+  return acceptTokens(fetchFn, input.clientId, body, input.refreshToken, (payload) =>
+    toTokenSet(payload, sentAt, {
+      kind: 'refresh',
+      scopes: input.previousScopes,
+      refreshToken: input.refreshToken,
+    }),
+  )
 }
 
 /** OpenAI answers an empty 200, also for a token that is already invalid. */
@@ -217,8 +231,9 @@ type Grant =
 function toTokenSet(payload: TokenResponse, sentAt: number, grant: Grant): TokenSet {
   if (payload.token_type.toLowerCase() !== 'bearer')
     throw invalidResponse('token type is not Bearer')
-  const scopes = payload.scope != null ? splitScopes(payload.scope) : grant.scopes
-  if (scopes === null) throw invalidResponse('no scope')
+  // RFC 6749 5.1: an answer without scope grants the requested scopes.
+  const scopes =
+    payload.scope != null ? splitScopes(payload.scope) : (grant.scopes ?? [...CHATGPT_SCOPES])
   if (
     scopes.length > MAX_SCOPES ||
     new Set(scopes).size !== scopes.length ||
@@ -245,7 +260,7 @@ function toTokenSet(payload: TokenResponse, sentAt: number, grant: Grant): Token
     accessToken: payload.access_token,
     refreshToken,
     idToken,
-    expiresAt: sentAt + payload.expires_in * 1000,
+    expiresAt: sentAt + Math.min(payload.expires_in, MAX_TOKEN_LIFETIME_S) * 1000,
     scopes,
     earliestRefreshAt: parseEarliestRefresh(payload.earliest_refresh_at),
   }
@@ -262,11 +277,12 @@ function parseEarliestRefresh(value: number | string | null | undefined): number
   return Number.isNaN(parsed) ? null : parsed
 }
 
+/** The parsed body of a success answer; an error answer throws. */
 async function requestTokens(
   fetchFn: Fetch,
   form: Record<string, string>,
   signal: AbortSignal,
-): Promise<TokenResponse> {
+): Promise<unknown> {
   let response: Response
   try {
     response = await postForm(fetchFn, CHATGPT_ENDPOINTS.token, form, signal)
@@ -298,9 +314,46 @@ async function requestTokens(
       `The token endpoint returned HTTP ${response.status}${code ? ` (${code})` : ''}`,
     )
   }
-  const payload = TokenResponseSchema.safeParse(parseJson(text))
-  if (!payload.success) throw invalidResponse('unexpected token response')
-  return payload.data
+  return parseJson(text)
+}
+
+/**
+ * Checks a success answer. A refresh token in an answer that fails the checks
+ * is revoked, so no grant stays open that the app does not keep.
+ */
+async function acceptTokens(
+  fetchFn: Fetch,
+  clientId: string,
+  body: unknown,
+  sentRefreshToken: string | null,
+  toSet: (payload: TokenResponse) => TokenSet,
+): Promise<TokenSet> {
+  try {
+    const payload = TokenResponseSchema.safeParse(body)
+    if (!payload.success) throw invalidResponse('unexpected token response')
+    return toSet(payload.data)
+  } catch (error) {
+    const stray = refreshTokenIn(body)
+    if (stray !== null && stray !== sentRefreshToken) {
+      // Not tied to the caller's signal: a cancel must not leave the grant open.
+      await revokeRefreshToken(
+        fetchFn,
+        { clientId, token: stray },
+        AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
+      ).catch((revokeError: unknown) => {
+        log.warn('chatgpt', 'revoking a rejected refresh token failed', {
+          code: revokeError instanceof AppError ? revokeError.code : 'unknown',
+        })
+      })
+    }
+    throw error
+  }
+}
+
+function refreshTokenIn(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null || !('refresh_token' in body)) return null
+  const token = body.refresh_token
+  return typeof token === 'string' && token !== '' ? token : null
 }
 
 function classify(code: string | null): TokenFailure {

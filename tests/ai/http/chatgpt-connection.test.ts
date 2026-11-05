@@ -6,6 +6,7 @@ import {
   CHATGPT_SCOPES,
 } from '../../../src/main/ai/chatgpt/authorization'
 import { ChatGptConnection } from '../../../src/main/ai/chatgpt/connection'
+import { ProviderError } from '../../../src/main/ai/provider'
 import type { SecretStore } from '../../../src/main/secure/secret-store'
 import {
   CLIENT_ID,
@@ -208,6 +209,42 @@ describe('ChatGPT sign-in', () => {
     expect(await h.connection.status()).toMatchObject({ state: 'signed_out' })
   })
 
+  it('shortens a long token lifetime and takes the requested scopes when none come back', async () => {
+    const h = harness((_form, nonce) =>
+      json(tokens({ id_token: idToken(nonce), expires_in: 86_400, scope: undefined })),
+    )
+
+    expect(await h.connection.signIn(signal())).toMatchObject({ state: 'ready' })
+    expect((await h.secrets.read()).chatgpt.credentials?.tokens).toMatchObject({
+      expiresAt: START + 3_600_000,
+      scopes: [...CHATGPT_SCOPES],
+    })
+  })
+
+  it('revokes the refresh token of a token answer it rejects', async () => {
+    const h = harness((_form, nonce) =>
+      json(tokens({ id_token: idToken(nonce), token_type: 'mac' })),
+    )
+
+    await expect(h.connection.signIn(signal())).rejects.toMatchObject({ code: 'provider_auth' })
+    expect(h.revoked()).toEqual(['refresh-1'])
+    expect((await h.secrets.read()).chatgpt).toMatchObject({ credentials: null, pending: null })
+  })
+
+  it('revokes the issued tokens when the sign-in is cancelled during the code exchange', async () => {
+    const controller = new AbortController()
+    const h = harness((_form, nonce) => {
+      controller.abort()
+      return json(tokens({ id_token: idToken(nonce) }))
+    })
+
+    await expect(h.connection.signIn(controller.signal)).rejects.toMatchObject({
+      code: 'cancelled',
+    })
+    expect(h.revoked()).toEqual(['refresh-1'])
+    expect((await h.secrets.read()).chatgpt).toMatchObject({ credentials: null, pending: null })
+  })
+
   it('clears everything but the host ID on sign-out and revokes the refresh token', async () => {
     const h = harness()
     await h.connection.signIn(signal())
@@ -363,5 +400,68 @@ describe('ChatGPT token renewal', () => {
 
     await expect(h.connection.access()).resolves.toMatchObject({ accessToken: 'access-1' })
     expect(h.calls(CHATGPT_ENDPOINTS.token)).toHaveLength(1)
+  })
+
+  it('keeps renewed tokens when the ID token times disagree with this clock', async () => {
+    const h = await expiredSignIn(() => {
+      const issuedAt = Math.floor(clock / 1000) + 900
+      const renewedIdToken = signIdToken(KEY, {
+        iss: CHATGPT_ISSUER,
+        sub: 'user-1',
+        aud: CLIENT_ID,
+        iat: issuedAt,
+        exp: issuedAt + 3600,
+      })
+      return json(
+        tokens({ access_token: 'access-2', refresh_token: 'refresh-2', id_token: renewedIdToken }),
+      )
+    })
+
+    await expect(h.connection.access()).resolves.toMatchObject({ accessToken: 'access-2' })
+    expect(await h.connection.status()).toMatchObject({ state: 'ready' })
+  })
+})
+
+describe('ChatGPT client ID reuse', () => {
+  /** A client ID from an earlier sign-in, with that sign-in still saved or not. */
+  async function savedClient(withSignIn: boolean): Promise<SecretStore> {
+    const secrets = memorySecretStore()
+    if (withSignIn) await saveChatGptSignIn(secrets, { expiresAt: START + 3_600_000 })
+    else {
+      await secrets.update((all) => ({
+        ...all,
+        chatgpt: { ...all.chatgpt, clientId: 'client-old', loginHint: 'max@example.com' },
+      }))
+    }
+    return secrets
+  }
+
+  it('takes a newly issued client ID when no saved sign-in uses the old one', async () => {
+    const h = harness(signInReply, await savedClient(false))
+
+    expect(await h.connection.signIn(signal())).toMatchObject({ state: 'ready' })
+    expect(only(h.authorizeUrls).searchParams.get('client_id')).toBe('client-old')
+    expect((await h.secrets.read()).chatgpt.clientId).toBe(CLIENT_ID)
+  })
+
+  it.each([
+    ['without a saved sign-in, drops', false, null],
+    ['with a saved sign-in, keeps', true, CLIENT_ID],
+  ])('after a timed-out attempt %s the client ID', async (_case, withSignIn, clientId) => {
+    const secrets = await savedClient(withSignIn)
+    const timedOut = Promise.reject(new ProviderError('chatgpt', 'timeout', 'Timed out'))
+    timedOut.catch(() => undefined)
+    const { fetch } = fakeFetch({ [`GET ${CHATGPT_ENDPOINTS.discovery}`]: () => json(DISCOVERY) })
+    const connection = new ChatGptConnection({
+      secrets,
+      fetch,
+      now: () => clock,
+      startListener: () =>
+        Promise.resolve({ redirectUri: REDIRECT_URI, callback: timedOut, close: () => undefined }),
+      openExternal: () => Promise.resolve(),
+    })
+
+    await expect(connection.signIn(signal())).rejects.toMatchObject({ code: 'timeout' })
+    expect((await secrets.read()).chatgpt.clientId).toBe(clientId)
   })
 })

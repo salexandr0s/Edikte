@@ -65,8 +65,16 @@ describe('ID token verification', () => {
     ],
     ['a foreign azp', signIdToken(KEY, claims({ azp: 'client-999' })), 'invalid'],
     ['another nonce', signIdToken(KEY, claims({ nonce: 'nonce-2' })), 'invalid'],
-    ['an issue time in the future', signIdToken(KEY, claims({ iat: NOW_S + 600 })), 'invalid'],
-    ['an expired token', signIdToken(KEY, claims({ exp: NOW_S - 1 })), 'expired'],
+    [
+      'an issue time in the future',
+      signIdToken(KEY, claims({ iat: NOW_S + 600 })),
+      'not_yet_valid',
+    ],
+    [
+      'an expired token',
+      signIdToken(KEY, claims({ iat: NOW_S - 4000, exp: NOW_S - 400 })),
+      'expired',
+    ],
     ['an HS256 header', signIdToken(KEY, claims(), { alg: 'HS256' }), 'invalid'],
     ['a jku header', signIdToken(KEY, claims(), { jku: 'https://evil.example/jwks' }), 'invalid'],
     ['an unknown key ID', signIdToken(KEY, claims(), { kid: 'key-2' }), 'invalid'],
@@ -79,6 +87,13 @@ describe('ID token verification', () => {
     const [header, , signature] = signIdToken(KEY, claims()).split('.')
     const forged = Buffer.from(JSON.stringify(claims({ sub: 'user-2' }))).toString('base64url')
     expect(failure(`${header}.${forged}.${signature}`)).toBe('invalid')
+  })
+
+  it.each([
+    ['an issue time four minutes ahead', claims({ iat: NOW_S + 240 })],
+    ['an expiry four minutes past', claims({ iat: NOW_S - 3600, exp: NOW_S - 240 })],
+  ])('accepts %s as clock difference', (_case, payload) => {
+    expect(verifyIdToken(signIdToken(KEY, payload), KEY.jwks, expected).subject).toBe('user-1')
   })
 
   it('reports another account on renewal', () => {
@@ -116,6 +131,17 @@ describe('callback checks', () => {
     expect(parseCallback(callback(query), attempt, NOW + 1000, savedClientId)).toMatchObject(
       outcome,
     )
+  })
+
+  it('takes a new client ID when no saved sign-in depends on the old one', () => {
+    const outcome = parseCallback(
+      callback(`${state}&code=c&client_id=client-2`),
+      attempt,
+      NOW + 1000,
+      'client-1',
+      { acceptNewClientId: true },
+    )
+    expect(outcome).toMatchObject({ kind: 'code', clientId: 'client-2' })
   })
 
   it('rejects a callback after ten minutes', () => {

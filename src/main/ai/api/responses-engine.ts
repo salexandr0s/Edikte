@@ -231,24 +231,32 @@ class ResponsesStream {
       case 'response.completed':
         return this.completed(payload)
       case 'response.incomplete': {
-        const reason =
-          TerminalEventSchema.safeParse(payload).data?.response.incomplete_details?.reason
+        const response = TerminalEventSchema.safeParse(payload).data?.response
+        const reason = response?.incomplete_details?.reason
         if (reason === 'content_filter') {
           throw new ProviderError(
             this.provider,
             'provider_refused',
             'A content filter stopped the answer',
+            spent(response?.usage),
           )
         }
         throw new ProviderError(
           this.provider,
           'provider_incomplete',
           `The answer is incomplete (${safeCode(reason) ?? 'no reason given'})`,
+          spent(response?.usage),
         )
       }
       case 'response.failed': {
-        const code = TerminalEventSchema.safeParse(payload).data?.response.error?.code ?? null
-        throw apiError(this.provider, code, 'provider_unavailable', 'The response failed')
+        const response = TerminalEventSchema.safeParse(payload).data?.response
+        throw apiError(
+          this.provider,
+          response?.error?.code ?? null,
+          'provider_unavailable',
+          'The response failed',
+          spent(response?.usage),
+        )
       }
       case 'error': {
         const parsed = ErrorEventSchema.safeParse(payload).data
@@ -264,42 +272,51 @@ class ResponsesStream {
     const parsed = TerminalEventSchema.safeParse(payload)
     if (!parsed.success) throw this.invalid('malformed completion')
     const response = parsed.data.response
+    // The response used tokens even when its answer cannot be used.
+    const failed = spent(response.usage)
     if (response.status !== undefined && response.status !== 'completed') {
       throw new ProviderError(
         this.provider,
         'provider_incomplete',
         `The response ended as ${safeCode(response.status) ?? 'unknown'}`,
+        failed,
       )
     }
-    const output = response.output?.length ? response.output : this.assembled()
+    const output = response.output?.length ? response.output : this.assembled(failed)
     let text = ''
     for (const item of output) {
       if (item.type !== 'message') continue
       for (const part of item.content ?? []) {
         if (part.type === 'refusal') {
-          throw new ProviderError(this.provider, 'provider_refused', 'The model declined to answer')
+          throw new ProviderError(
+            this.provider,
+            'provider_refused',
+            'The model declined to answer',
+            failed,
+          )
         }
         if (part.type === 'output_text') text += part.text ?? ''
       }
     }
     const json = text.trim() === '' ? undefined : parseJson(text)
-    if (json === undefined) throw this.invalid('the answer is not JSON')
+    if (json === undefined) throw this.invalid('the answer is not JSON', failed)
     return { json, raw: text, usage: toUsage(response.usage), model: response.model ?? null }
   }
 
   /** `response.completed` may carry an empty output; then the items come from the done events. */
-  private assembled(): OutputItem[] {
+  private assembled(failed: Spent): OutputItem[] {
     for (const index of this.added.keys()) {
-      if (!this.done.has(index)) throw this.invalid('an output item never finished')
+      if (!this.done.has(index)) throw this.invalid('an output item never finished', failed)
     }
     return [...this.done.entries()].sort(([a], [b]) => a - b).map(([, item]) => item)
   }
 
-  private invalid(reason: string): ProviderError {
+  private invalid(reason: string, failed?: Spent): ProviderError {
     return new ProviderError(
       this.provider,
       'provider_invalid_output',
       `Unexpected answer: ${reason}`,
+      failed,
     )
   }
 }
@@ -309,6 +326,14 @@ function toUsage(usage: z.infer<typeof UsageSchema> | null | undefined): Analysi
     return { inputTokens: null, outputTokens: null, costUsd: null }
   }
   return { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, costUsd: null }
+}
+
+/** Error options carrying the tokens a failed response used, when it reported them. */
+type Spent = { usage: AnalysisUsage } | undefined
+
+function spent(usage: z.infer<typeof UsageSchema> | null | undefined): Spent {
+  const counted = toUsage(usage)
+  return counted.inputTokens === null ? undefined : { usage: counted }
 }
 
 /** OpenAI error codes, including the ChatGPT plan ones, mapped to app error codes. */
@@ -332,12 +357,24 @@ const ERROR_CODES: ReadonlyMap<string, AppErrorCode> = new Map([
   ['server_error', 'provider_unavailable'],
   ['unsupported_capability', 'invalid_request'],
   ['route_not_supported', 'invalid_request'],
-  ['context_length_exceeded', 'invalid_request'],
+  ['context_length_exceeded', 'document_too_large'],
   ['invalid_prompt', 'provider_refused'],
 ])
 
+/** An error answer; the status lets a caller renew a refused token. */
+export class ProviderHttpError extends ProviderError {
+  constructor(
+    provider: ProviderId,
+    code: AppErrorCode,
+    message: string,
+    readonly status: number,
+  ) {
+    super(provider, code, message)
+  }
+}
+
 /** Maps an error answer by its code, then by status. The body text is not copied. */
-export function httpError(provider: ProviderId, status: number, body: string): ProviderError {
+export function httpError(provider: ProviderId, status: number, body: string): ProviderHttpError {
   const fallback: AppErrorCode =
     status === 401 || status === 403
       ? 'provider_auth'
@@ -348,12 +385,12 @@ export function httpError(provider: ProviderId, status: number, body: string): P
           : status === 400 || status === 413 || status === 422
             ? 'invalid_request'
             : 'provider_unavailable'
-  return apiError(
-    provider,
+  const mapped = mapError(
     errorBodyCode(parseJson(body)),
     fallback,
     `${serviceName(provider)} returned HTTP ${status}`,
   )
+  return new ProviderHttpError(provider, mapped.code, mapped.message, status)
 }
 
 function apiError(
@@ -361,10 +398,20 @@ function apiError(
   code: string | null,
   fallback: AppErrorCode,
   message: string,
+  failed?: Spent,
 ): ProviderError {
+  const mapped = mapError(code, fallback, message)
+  return new ProviderError(provider, mapped.code, mapped.message, failed)
+}
+
+function mapError(
+  code: string | null,
+  fallback: AppErrorCode,
+  message: string,
+): { code: AppErrorCode; message: string } {
   const safe = safeCode(code)
-  const mapped = safe === null ? undefined : ERROR_CODES.get(safe)
-  return new ProviderError(provider, mapped ?? fallback, safe ? `${message} (${safe})` : message)
+  const known = safe === null ? undefined : ERROR_CODES.get(safe)
+  return { code: known ?? fallback, message: safe ? `${message} (${safe})` : message }
 }
 
 /** `{error: {code, type}}` from the API, `{detail: {code}}` from ChatGPT plan admission. */

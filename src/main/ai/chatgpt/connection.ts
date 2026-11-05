@@ -16,7 +16,7 @@ import {
   hasPlanScopes,
   parseCallback,
 } from './authorization'
-import { IdTokenError, verifyIdToken, type VerifiedIdentity } from './id-token'
+import { IdTokenError, isClockFailure, verifyIdToken, type VerifiedIdentity } from './id-token'
 import { startLoopbackListener, type StartLoopbackListener } from './loopback-listener'
 import {
   AUTH_REQUEST_TIMEOUT_MS,
@@ -133,8 +133,12 @@ export class ChatGptConnection {
     return this.status()
   }
 
-  /** A usable access token, renewed first when it expires within a minute. */
-  async access(): Promise<ChatGptAccess> {
+  /**
+   * A usable access token, renewed first when it expires within a minute.
+   * `refused` is a token the API answered with HTTP 401; while it is the saved
+   * one, it is renewed whatever its expiry says.
+   */
+  async access(refused?: string): Promise<ChatGptAccess> {
     if (this.refreshing) return this.refreshing
     const { chatgpt } = await this.secrets.read()
     if (this.refreshing) return this.refreshing
@@ -154,7 +158,8 @@ export class ChatGptConnection {
     const now = this.now()
     const refreshBlocked =
       tokens.earliestRefreshAt !== null && now < tokens.earliestRefreshAt && tokens.expiresAt > now
-    if (tokens.expiresAt - now > REFRESH_MARGIN_MS || refreshBlocked) return accessOf(credentials)
+    const fresh = tokens.expiresAt - now > REFRESH_MARGIN_MS || refreshBlocked
+    if (fresh && tokens.accessToken !== refused) return accessOf(credentials)
     const clientId = chatgpt.clientId
     if (tokens.refreshToken === null || clientId === null) throw signInAgain('The session expired')
 
@@ -168,6 +173,27 @@ export class ChatGptConnection {
   async currentSubject(): Promise<string | null> {
     const { chatgpt } = await this.secrets.read()
     return chatgpt.credentials?.identity.subject ?? null
+  }
+
+  /**
+   * Clears a sign-in the API still refuses after a renewal, as a rejected
+   * refresh token does, and returns the error to report.
+   */
+  async dropRefused(accessToken: string): Promise<ProviderError> {
+    await this.refreshing?.catch(() => undefined)
+    const { chatgpt } = await this.secrets.read()
+    const tokens = chatgpt.credentials?.tokens
+    if (tokens?.accessToken === accessToken) {
+      await this.updateChatGpt((current) =>
+        current.credentials?.tokens.accessToken === accessToken
+          ? { ...current, credentials: null, refreshDispatched: false }
+          : current,
+      )
+      if (tokens.refreshToken !== null && chatgpt.clientId !== null) {
+        await this.revokeQuietly(chatgpt.clientId, tokens.refreshToken)
+      }
+    }
+    return signInAgain('ChatGPT refused the sign-in')
   }
 
   /** Clears local state first, then revokes the refresh tokens it held. */
@@ -190,6 +216,9 @@ export class ChatGptConnection {
     await checkDiscovery(this.fetch, signal)
     const attempt = createAuthorizationAttempt(this.randomBytes, this.now())
     const listener = await this.startListener({ state: attempt.state, signal })
+    // A client ID saved without a sign-in may belong to an app registration the
+    // user has since removed in ChatGPT; it is dropped when the attempt fails.
+    const reusedClientId = saved.credentials === null ? saved.clientId : null
     let callbackUrl: URL
     try {
       await this.openExternal(
@@ -205,15 +234,25 @@ export class ChatGptConnection {
         }),
       )
       callbackUrl = await listener.callback
+    } catch (error) {
+      // OpenAI does not redirect for an unknown client, so a removed
+      // registration ends in a timeout or a cancel.
+      const unanswered =
+        error instanceof ProviderError && (error.code === 'timeout' || error.code === 'cancelled')
+      if (unanswered && reusedClientId !== null) await this.forgetClientId(reusedClientId)
+      throw error
     } finally {
       listener.close()
     }
 
-    const outcome = parseCallback(callbackUrl, attempt, this.now(), saved.clientId)
+    const outcome = parseCallback(callbackUrl, attempt, this.now(), saved.clientId, {
+      acceptNewClientId: saved.credentials === null,
+    })
     if (outcome.kind === 'denied') {
       throw new ProviderError('chatgpt', 'provider_auth', 'The ChatGPT sign-in was declined')
     }
     if (outcome.kind === 'failed') {
+      if (reusedClientId !== null) await this.forgetClientId(reusedClientId)
       throw new ProviderError(
         'chatgpt',
         'provider_auth',
@@ -224,8 +263,11 @@ export class ChatGptConnection {
     // Saved before the exchange, so a crash does not lose the registration.
     await this.updateChatGpt((current) => ({ ...current, clientId }))
 
+    if (signal.aborted) throw signInCancelled()
     let tokens: TokenSet
     try {
+      // Not tied to the caller's signal: a cancel while the request is out
+      // would drop issued tokens that then could not be revoked.
       tokens = await exchangeCode(
         this.fetch,
         {
@@ -236,7 +278,7 @@ export class ChatGptConnection {
           callbackScopes: outcome.scopes,
         },
         this.now,
-        signal,
+        AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
       )
     } catch (error) {
       if (error instanceof TokenEndpointError && error.failure === 'invalid_client') {
@@ -249,6 +291,7 @@ export class ChatGptConnection {
     await this.updateChatGpt((current) => ({ ...current, pending: stored(tokens) }))
     let identity: VerifiedIdentity
     try {
+      if (signal.aborted) throw signInCancelled()
       if (tokens.idToken === null) throw new IdTokenError('invalid', 'ID token missing')
       const jwks = await fetchJwks(this.fetch, signal)
       identity = verifyIdToken(tokens.idToken, jwks, {
@@ -329,9 +372,13 @@ export class ChatGptConnection {
         now: this.now(),
       })
     } catch (error) {
-      if (!(error instanceof IdTokenError)) {
-        // The renewed tokens are saved; the account stays the one verified at sign-in.
-        log.warn('chatgpt', 'ID token from renewal not checked, signing keys unavailable')
+      if (!(error instanceof IdTokenError) || isClockFailure(error)) {
+        // The renewed tokens are saved; the account stays the one verified at
+        // sign-in. A time claim fails when this computer's clock is off, and
+        // only after the subject check passed.
+        log.warn('chatgpt', 'ID token from renewal not checked', {
+          reason: error instanceof IdTokenError ? error.failure : 'signing keys unavailable',
+        })
         return accessOf({ tokens: stored(next), identity: credentials.identity })
       }
       await this.updateChatGpt((current) => ({
@@ -413,6 +460,27 @@ export class ChatGptConnection {
     return { saved, hostId: saved.hostId ?? hostId }
   }
 
+  /**
+   * Drops a saved client ID that led nowhere while no sign-in uses it, so the
+   * next sign-in registers the app again. Problems are only logged, so they
+   * cannot hide the sign-in error.
+   */
+  private async forgetClientId(clientId: string): Promise<void> {
+    try {
+      const pending = (await this.secrets.read()).chatgpt.pending?.refreshToken ?? null
+      const saved = await this.updateChatGpt((current) =>
+        current.clientId === clientId && current.credentials === null
+          ? { ...current, clientId: null, loginHint: null, pending: null }
+          : current,
+      )
+      if (pending !== null && saved.clientId === null) await this.revokeQuietly(clientId, pending)
+    } catch (error) {
+      log.warn('chatgpt', 'saved client ID not cleared', {
+        code: error instanceof AppError ? error.code : 'unknown',
+      })
+    }
+  }
+
   private async discardPending(clientId: string): Promise<void> {
     const token = (await this.secrets.read()).chatgpt.pending?.refreshToken ?? null
     await this.updateChatGpt((current) => ({ ...current, pending: null }))
@@ -443,9 +511,7 @@ export class ChatGptConnection {
 
 function exchangeError(error: unknown, signal: AbortSignal): ProviderError {
   if (error instanceof ProviderError) return error
-  if (signal.aborted) {
-    return new ProviderError('chatgpt', 'cancelled', 'The ChatGPT sign-in was cancelled')
-  }
+  if (signal.aborted) return signInCancelled()
   if (!(error instanceof TokenEndpointError)) {
     return new ProviderError('chatgpt', 'internal', 'The ChatGPT sign-in failed')
   }
@@ -464,6 +530,10 @@ function exchangeError(error: unknown, signal: AbortSignal): ProviderError {
 
 function signInAgain(reason: string): ProviderError {
   return new ProviderError('chatgpt', 'provider_auth', `${reason}. Sign in to ChatGPT again.`)
+}
+
+function signInCancelled(): ProviderError {
+  return new ProviderError('chatgpt', 'cancelled', 'The ChatGPT sign-in was cancelled')
 }
 
 function stored(tokens: TokenSet): StoredTokenSet {

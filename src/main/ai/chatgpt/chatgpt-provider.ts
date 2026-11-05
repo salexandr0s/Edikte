@@ -12,12 +12,13 @@ import {
 } from '../api/common'
 import {
   MODELS_URL,
+  ProviderHttpError,
   buildResponsesBody,
   httpError,
   responsesHeaders,
   runResponses,
 } from '../api/responses-engine'
-import { ChatGptConnection, type ChatGptConnectionDeps } from './connection'
+import { ChatGptConnection, type ChatGptAccess, type ChatGptConnectionDeps } from './connection'
 
 const ChatGptModelsSchema = z.object({
   models: z
@@ -55,37 +56,60 @@ export function createChatGptProvider(deps: ChatGptProviderDeps): AiProvider {
     }
   }
 
+  /**
+   * Runs `call` with the saved access token. After HTTP 401 the token is
+   * renewed once and the call repeated; when that is refused too, or no new
+   * token comes back, the sign-in is cleared and Settings shows signed out.
+   */
+  async function withAccess<T>(call: (access: ChatGptAccess) => Promise<T>): Promise<T> {
+    const access = await connection.access()
+    try {
+      return await call(access)
+    } catch (error) {
+      if (!refused(error)) throw error
+    }
+    const renewed = await connection.access(access.accessToken)
+    if (renewed.accessToken !== access.accessToken) {
+      try {
+        return await call(renewed)
+      } catch (error) {
+        if (!refused(error)) throw error
+      }
+    }
+    throw await connection.dropRefused(renewed.accessToken)
+  }
+
   return {
     id: 'chatgpt',
     detect,
-    async models(signal) {
-      const access = await connection.access()
-      return listChatGptModels(fetchFn, access.accessToken, signal)
+    models(signal) {
+      return withAccess((access) => listChatGptModels(fetchFn, access.accessToken, signal))
     },
-    async analyze(request, signal, onProgress) {
-      const access = await connection.access()
-      const result = await runResponses({
-        provider: 'chatgpt',
-        fetch: fetchFn,
-        headers: responsesHeaders(access.accessToken),
-        // The ChatGPT route rejects max_output_tokens.
-        body: buildResponsesBody(request, { maxOutputTokens: false }),
-        signal,
-        onProgress,
+    analyze(request, signal, onProgress) {
+      return withAccess(async (access) => {
+        const result = await runResponses({
+          provider: 'chatgpt',
+          fetch: fetchFn,
+          headers: responsesHeaders(access.accessToken),
+          // The ChatGPT route rejects max_output_tokens.
+          body: buildResponsesBody(request, { maxOutputTokens: false }),
+          signal,
+          onProgress,
+        })
+        if ((await connection.currentSubject()) !== access.subject) {
+          throw new ProviderError(
+            'chatgpt',
+            'provider_account_changed',
+            'The ChatGPT account changed during the analysis',
+          )
+        }
+        // Runs count against the ChatGPT plan, so there is no per-run price.
+        return {
+          ...result,
+          usage: { ...result.usage, costUsd: null },
+          accountLabel: access.accountLabel,
+        }
       })
-      if ((await connection.currentSubject()) !== access.subject) {
-        throw new ProviderError(
-          'chatgpt',
-          'provider_account_changed',
-          'The ChatGPT account changed during the analysis',
-        )
-      }
-      // Runs count against the ChatGPT plan, so there is no per-run price.
-      return {
-        ...result,
-        usage: { ...result.usage, costUsd: null },
-        accountLabel: access.accountLabel,
-      }
     },
     async connect(signal) {
       await connection.signIn(signal)
@@ -132,4 +156,8 @@ async function listChatGptModels(
     })
   }
   return options
+}
+
+function refused(error: unknown): boolean {
+  return error instanceof ProviderHttpError && error.status === 401
 }

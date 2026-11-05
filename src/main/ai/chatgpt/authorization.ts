@@ -90,13 +90,16 @@ export type CallbackOutcome =
 
 /**
  * Checks the redirect the loopback listener accepted. The listener already
- * matched the state; this checks it again along with the rest.
+ * matched the state; this checks it again along with the rest. With
+ * `acceptNewClientId`, no saved sign-in depends on the saved client ID, so a
+ * newly issued one replaces it.
  */
 export function parseCallback(
   url: URL,
   attempt: AuthorizationAttempt,
   now: number,
   savedClientId: string | null,
+  options: { acceptNewClientId?: boolean } = {},
 ): CallbackOutcome {
   if (now - attempt.startedAt > SIGN_IN_TIMEOUT_MS) return failed('sign-in expired')
   const params = url.searchParams
@@ -120,7 +123,11 @@ export function parseCallback(
     if (returnedClientId === DYNAMIC_CLIENT_ID || !isToken(returnedClientId)) {
       return failed('invalid client_id')
     }
-    if (savedClientId !== null && returnedClientId !== savedClientId) {
+    if (
+      savedClientId !== null &&
+      returnedClientId !== savedClientId &&
+      options.acceptNewClientId !== true
+    ) {
       return failed('client_id changed')
     }
   }

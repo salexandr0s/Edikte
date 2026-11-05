@@ -83,12 +83,16 @@ export type AnalysisProgressHandler = (event: {
 
 /** Error raised by providers; `code` maps to a translated message in the UI. */
 export class ProviderError extends AppError {
+  /** Tokens and cost the failed request still used, when the provider reported them. */
+  readonly usage: AnalysisUsage | null
+
   constructor(
     readonly provider: ProviderId,
     code: AppErrorCode,
     message: string,
-    options?: ErrorOptions,
+    options?: ErrorOptions & { usage?: AnalysisUsage },
   ) {
     super(code, message, options)
+    this.usage = options?.usage ?? null
   }
 }

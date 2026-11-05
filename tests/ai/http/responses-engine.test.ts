@@ -14,6 +14,7 @@ import {
   type SseEvent,
   type SseLimits,
 } from '../../../src/main/ai/api/sse'
+import { CHATGPT_ENDPOINTS } from '../../../src/main/ai/chatgpt/authorization'
 import { createChatGptProvider } from '../../../src/main/ai/chatgpt/chatgpt-provider'
 import type { AnalysisRequest } from '../../../src/main/ai/provider'
 import type { SecretStore } from '../../../src/main/secure/secret-store'
@@ -186,6 +187,13 @@ describe('Responses stream', () => {
       'provider_unavailable',
     ],
     [
+      'a context window overflow',
+      sseFrames([
+        { type: 'response.failed', response: { error: { code: 'context_length_exceeded' } } },
+      ]),
+      'document_too_large',
+    ],
+    [
       'a quota error event',
       sseFrames([{ type: 'error', code: 'insufficient_quota', message: 'quota' }]),
       'provider_billing',
@@ -248,6 +256,26 @@ describe('Responses stream', () => {
     await expect(run(streamResponse([stream]))).rejects.toMatchObject({ code })
   })
 
+  it.each([
+    [
+      'an incomplete response',
+      {
+        type: 'response.incomplete',
+        response: {
+          incomplete_details: { reason: 'max_output_tokens' },
+          usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+        },
+      },
+      'provider_incomplete',
+    ],
+    ['text that is not JSON', completed([message('Here it is')]), 'provider_invalid_output'],
+  ])('keeps the tokens used by %s on the error', async (_case, event, code) => {
+    await expect(run(streamResponse([sseFrames([event])]))).rejects.toMatchObject({
+      code,
+      usage: { inputTokens: 10, outputTokens: 5, costUsd: null },
+    })
+  })
+
   it('rejects an answer that is not an event stream', async () => {
     await expect(run(json({ output: [] }))).rejects.toMatchObject({
       code: 'provider_invalid_output',
@@ -264,7 +292,7 @@ describe('Responses stream', () => {
     [429, '{"error":{"type":"requests","message":"sk-abc"}}', 'provider_rate_limit'],
     [403, '{"detail":{"code":"chatpass_v2_scope_not_authorized"}}', 'provider_auth'],
     [429, '{"detail":{"code":"usage_limit_reached"}}', 'provider_rate_limit'],
-    [400, '{"error":{"code":"context_length_exceeded"}}', 'invalid_request'],
+    [400, '{"error":{"code":"context_length_exceeded"}}', 'document_too_large'],
     [400, '{"error":{"code":"constructor"}}', 'invalid_request'],
     [402, '', 'provider_billing'],
     [503, '<html>upstream sk-abc</html>', 'provider_unavailable'],
@@ -318,6 +346,53 @@ describe('ChatGPT route', () => {
     await expect(provider.analyze(REQUEST, new AbortController().signal)).rejects.toMatchObject({
       code: 'provider_account_changed',
     })
+  })
+
+  const renewed = () =>
+    json({
+      access_token: 'access-2',
+      token_type: 'Bearer',
+      expires_in: 3600,
+      refresh_token: 'refresh-2',
+    })
+
+  it('renews a refused token once and repeats the request', async () => {
+    let calls = 0
+    const { provider, requests } = await signedIn(() => ({
+      [`POST ${RESPONSES_URL}`]: () => {
+        calls += 1
+        return calls === 1
+          ? json({ error: { code: 'token_expired' } }, 401)
+          : streamResponse([sseFrames([completed([message(ANSWER)])])])
+      },
+      [`POST ${CHATGPT_ENDPOINTS.token}`]: renewed,
+    }))
+
+    await expect(provider.analyze(REQUEST, new AbortController().signal)).resolves.toMatchObject({
+      json: { ok: true },
+    })
+    const sent = requests.filter((request) => request.url === RESPONSES_URL)
+    expect(sent.map((request) => request.headers.authorization)).toEqual([
+      'Bearer access-1',
+      'Bearer access-2',
+    ])
+  })
+
+  it('signs out when the renewed token is refused too', async () => {
+    const { provider, requests } = await signedIn(() => ({
+      [`POST ${RESPONSES_URL}`]: () => json({ error: { code: 'invalid_token' } }, 401),
+      [`POST ${CHATGPT_ENDPOINTS.token}`]: renewed,
+      [`POST ${CHATGPT_ENDPOINTS.revoke}`]: () => new Response(null, { status: 200 }),
+    }))
+
+    await expect(provider.analyze(REQUEST, new AbortController().signal)).rejects.toMatchObject({
+      code: 'provider_auth',
+    })
+    expect(await provider.detect()).toMatchObject({ state: 'signed_out' })
+    const revoked = requests
+      .filter((request) => request.url === CHATGPT_ENDPOINTS.revoke)
+      .map((request) => new URLSearchParams(request.body).get('token'))
+    expect(revoked).toEqual(['refresh-2'])
   })
 
   it('lists the listed plan models once each, the first as default', async () => {

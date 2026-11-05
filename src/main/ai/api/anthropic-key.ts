@@ -1,4 +1,5 @@
 import Anthropic, {
+  AnthropicError,
   APIConnectionError,
   APIConnectionTimeoutError,
   APIError,
@@ -21,12 +22,27 @@ import {
   type AnalysisResponse,
   type AnalysisUsage,
 } from '../provider'
-import { createProgress, detection, maskKey, parseJson, safeCode, type Fetch } from './common'
+import {
+  createProgress,
+  detection,
+  errorCode,
+  maskKey,
+  parseJson,
+  safeCode,
+  withTimeout,
+  type Fetch,
+} from './common'
 
 const PROVIDER = 'anthropic-api'
 export const ANTHROPIC_DEFAULT_MODEL = 'claude-opus-5-5'
 const ANTHROPIC_BASE_URL = 'https://api.anthropic.com'
 const REQUEST_TIMEOUT_MS = 10 * 60_000
+/**
+ * Limit for a whole analysis. The SDK's timeout covers only the wait for the
+ * response headers, so a stream that stalls afterwards would otherwise run
+ * until the user cancels.
+ */
+const ANALYSIS_TIMEOUT_MS = 15 * 60_000
 /** Ends the auto-paginating model list if the server never does. */
 const MAX_MODELS = 1000
 
@@ -95,6 +111,8 @@ export interface AnthropicKeyProviderDeps {
   /** Passed to the SDK client; tests inject a fake. */
   fetch?: Fetch
   now?: () => number
+  /** Limit for a whole analysis; tests shorten it. */
+  analysisTimeoutMs?: number
 }
 
 /** The user's Anthropic API key through the official SDK. */
@@ -172,16 +190,19 @@ export function createAnthropicKeyProvider(deps: AnthropicKeyProviderDeps): AiPr
       const client = createClient(key, deps.fetch)
       const progress = createProgress(onProgress)
       progress.waiting()
+      const deadline = withTimeout(signal, deps.analysisTimeoutMs ?? ANALYSIS_TIMEOUT_MS)
       let message: Message
       try {
-        const found = await capabilitiesFor(client, request.model, signal)
-        const stream = client.messages.stream(buildMessageParams(request, found), { signal })
+        const found = await capabilitiesFor(client, request.model, deadline)
+        const stream = client.messages.stream(buildMessageParams(request, found), {
+          signal: deadline,
+        })
         stream.on('streamEvent', (event) => {
           if (event.type === 'content_block_delta') progress.delta()
         })
         message = await stream.finalMessage()
       } catch (error) {
-        throw anthropicError(error, signal)
+        throw anthropicError(error, signal, deadline)
       }
       if ((await deps.secrets.read()).apiKeys.anthropic !== key) {
         throw new ProviderError(
@@ -312,17 +333,37 @@ function toResponse(
   if (!parsed.success) {
     throw new ProviderError(PROVIDER, 'provider_invalid_output', 'Unexpected answer: bad message')
   }
-  const { model, stop_reason: stopReason, content, usage } = parsed.data
+  const { model, stop_reason: stopReason, content, usage: reported } = parsed.data
+  const price = PRICES.get(model) ?? PRICES.get(requestedModel) ?? null
+  const usage = toUsage(reported ?? null, price)
+  // A failed answer still used tokens; the error carries them for the run's totals.
+  const spent = reported ? { usage } : undefined
   switch (stopReason) {
     case 'refusal':
-      throw new ProviderError(PROVIDER, 'provider_refused', 'Claude declined to answer')
+      throw new ProviderError(PROVIDER, 'provider_refused', 'Claude declined to answer', spent)
     case 'max_tokens':
-    case 'model_context_window_exceeded':
     case 'pause_turn':
       throw new ProviderError(
         PROVIDER,
         'provider_incomplete',
         `The answer is incomplete (${stopReason})`,
+        spent,
+      )
+    case 'model_context_window_exceeded':
+      throw new ProviderError(
+        PROVIDER,
+        'document_too_large',
+        'The document does not fit the model context window',
+        spent,
+      )
+    case null:
+    case undefined:
+      // Only a finished message has a stop reason.
+      throw new ProviderError(
+        PROVIDER,
+        'provider_incomplete',
+        'The answer stream ended early',
+        spent,
       )
     default:
       break
@@ -330,10 +371,14 @@ function toResponse(
   const text = content.map((block) => (block.type === 'text' ? (block.text ?? '') : '')).join('')
   const json = text.trim() === '' ? undefined : parseJson(text)
   if (json === undefined) {
-    throw new ProviderError(PROVIDER, 'provider_invalid_output', 'Unexpected answer: not JSON')
+    throw new ProviderError(
+      PROVIDER,
+      'provider_invalid_output',
+      'Unexpected answer: not JSON',
+      spent,
+    )
   }
-  const price = PRICES.get(model) ?? PRICES.get(requestedModel) ?? null
-  return { json, usage: toUsage(usage ?? null, price), model, accountLabel, raw: text }
+  return { json, usage, model, accountLabel, raw: text }
 }
 
 function toUsage(usage: Usage | null, price: Price | null): AnalysisUsage {
@@ -353,9 +398,28 @@ function toUsage(usage: Usage | null, price: Price | null): AnalysisUsage {
   }
 }
 
-function anthropicError(error: unknown, signal: AbortSignal | undefined): ProviderError {
+/** MessageStream messages for a stream that ended before the answer did. */
+const CUT_OFF_MESSAGES = [
+  'stream ended without producing',
+  'request ended without sending any chunks',
+]
+
+function anthropicError(
+  error: unknown,
+  signal: AbortSignal | undefined,
+  deadline?: AbortSignal,
+): ProviderError {
   if (error instanceof ProviderError) return error
-  if (error instanceof APIUserAbortError || signal?.aborted) {
+  if (signal?.aborted) return new ProviderError(PROVIDER, 'cancelled', 'The request was cancelled')
+  // The SDK reports an abort by the deadline as its own abort error.
+  if (deadline?.aborted) {
+    return new ProviderError(
+      PROVIDER,
+      'timeout',
+      'The Anthropic API did not finish the answer in time',
+    )
+  }
+  if (error instanceof APIUserAbortError) {
     return new ProviderError(PROVIDER, 'cancelled', 'The request was cancelled')
   }
   if (error instanceof APIConnectionTimeoutError) {
@@ -370,13 +434,50 @@ function anthropicError(error: unknown, signal: AbortSignal | undefined): Provid
     const type = safeCode(error.type)
     const requestId = safeCode(error.requestID)
     const what = status > 0 ? `returned HTTP ${status}` : 'reported an error'
+    const code =
+      status === 400 && promptTooLong(error.error)
+        ? 'document_too_large'
+        : errorCodeFor(status, type)
     return new ProviderError(
       PROVIDER,
-      errorCodeFor(status, type),
+      code,
       `The Anthropic API ${what}${type ? ` (${type})` : ''}${requestId ? `, request ${requestId}` : ''}`,
     )
   }
+  // MessageStream rewraps any other error as a plain AnthropicError with the original as `cause`.
+  if (
+    error instanceof AnthropicError &&
+    CUT_OFF_MESSAGES.some((text) => error.message.startsWith(text))
+  ) {
+    return new ProviderError(PROVIDER, 'provider_incomplete', 'The answer stream ended early')
+  }
+  if (connectionLost(error)) {
+    return new ProviderError(PROVIDER, 'network', 'The connection to the Anthropic API was lost')
+  }
   return new ProviderError(PROVIDER, 'internal', 'The Anthropic request failed')
+}
+
+/** A socket error code on the cause chain, or undici's "terminated" for a body cut off mid-stream. */
+function connectionLost(error: unknown): boolean {
+  let current: unknown = error
+  for (let depth = 0; depth < 4 && current instanceof Error; depth++) {
+    if (current instanceof TypeError && current.message === 'terminated') return true
+    current = current.cause
+  }
+  return errorCode(error) !== null
+}
+
+/** The API's 400 for a prompt over the context window: "prompt is too long: N tokens > M maximum". */
+function promptTooLong(body: unknown): boolean {
+  if (typeof body !== 'object' || body === null || !('error' in body)) return false
+  const detail = body.error
+  return (
+    typeof detail === 'object' &&
+    detail !== null &&
+    'message' in detail &&
+    typeof detail.message === 'string' &&
+    /prompt is too long/i.test(detail.message)
+  )
 }
 
 function errorCodeFor(status: number, type: string | null): AppErrorCode {

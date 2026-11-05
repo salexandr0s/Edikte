@@ -90,7 +90,7 @@ export interface RecordedRequest {
   body: string
 }
 
-export type Route = (request: RecordedRequest) => Response | Promise<Response>
+export type Route = (request: RecordedRequest, init?: RequestInit) => Response | Promise<Response>
 
 /** A fetch that answers from routes keyed by "METHOD url-without-query" and records requests. */
 export function fakeFetch(routes: Record<string, Route>): {
@@ -110,7 +110,7 @@ export function fakeFetch(routes: Record<string, Route>): {
     const key = `${request.method} ${url.split('?')[0] ?? url}`
     const route = routes[key]
     if (!route) throw new Error(`No route for ${key}`)
-    return await route(request)
+    return await route(request, init)
   }
   return { fetch: fetchFn, requests }
 }
@@ -144,6 +144,21 @@ export function streamResponse(chunks: string[], contentType = 'text/event-strea
     },
   })
   return new Response(body, { status: 200, headers: { 'content-type': contentType } })
+}
+
+/** Sends `chunks`, then nothing more until `signal` aborts, like a connection that stalls. */
+export function stalledResponse(
+  chunks: string[],
+  signal: AbortSignal | null | undefined,
+): Response {
+  const encoder = new TextEncoder()
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk))
+      signal?.addEventListener('abort', () => controller.error(signal.reason), { once: true })
+    },
+  })
+  return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } })
 }
 
 /** SSE frames with the event name set to each payload's type. */

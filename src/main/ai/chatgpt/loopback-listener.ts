@@ -89,6 +89,15 @@ export const startLoopbackListener: StartLoopbackListener = async (options) => {
     send(response, verdict)
     if (verdict.url) finish({ url: verdict.url })
   })
+  // Stays for the server's lifetime: an accept failure such as EMFILE would
+  // otherwise be an uncaught exception in main.
+  server.on('error', (error) =>
+    finish({
+      error: new ProviderError('chatgpt', 'network', 'The sign-in listener failed', {
+        cause: error,
+      }),
+    }),
+  )
 
   if (options.signal?.aborted) onAbort()
   else options.signal?.addEventListener('abort', onAbort, { once: true })

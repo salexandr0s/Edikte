@@ -31,12 +31,12 @@ const ClaimsSchema = z.object({
   name: z.string().optional(),
 })
 
-/** Seconds of clock difference accepted for iat and nbf. */
-const CLOCK_SKEW_S = 60
+/** Seconds of clock difference accepted for iat, nbf and exp; PC clocks are often minutes off. */
+const CLOCK_SKEW_S = 300
 const FORBIDDEN_HEADER_FIELDS = ['jku', 'jwk', 'x5u', 'x5c', 'crit']
 const SEGMENT = /^[A-Za-z0-9_-]+$/
 
-export type IdTokenFailure = 'invalid' | 'expired' | 'changed_identity'
+export type IdTokenFailure = 'invalid' | 'expired' | 'not_yet_valid' | 'changed_identity'
 
 export class IdTokenError extends Error {
   constructor(
@@ -45,6 +45,11 @@ export class IdTokenError extends Error {
   ) {
     super(message)
   }
+}
+
+/** A failed time claim. The time claims are checked last, so every other check passed. */
+export function isClockFailure(error: IdTokenError): boolean {
+  return error.failure === 'expired' || error.failure === 'not_yet_valid'
 }
 
 export interface IdTokenExpectations {
@@ -119,11 +124,6 @@ export function verifyIdToken(
     throw invalid('wrong authorized party')
   }
   if (claims.exp <= claims.iat) throw invalid('exp before iat')
-  if (claims.iat > nowSeconds + CLOCK_SKEW_S) throw invalid('issued in the future')
-  if (claims.nbf !== undefined && claims.nbf > nowSeconds + CLOCK_SKEW_S) {
-    throw invalid('not yet valid')
-  }
-  if (claims.exp <= nowSeconds) throw new IdTokenError('expired', 'ID token expired')
   if (
     expected.nonce !== null &&
     (claims.nonce === undefined || !constantTimeEqual(claims.nonce, expected.nonce))
@@ -132,6 +132,13 @@ export function verifyIdToken(
   }
   if (expected.subject !== null && claims.sub !== expected.subject) {
     throw new IdTokenError('changed_identity', 'ID token belongs to another account')
+  }
+  if (claims.iat > nowSeconds + CLOCK_SKEW_S) throw notYetValid('issued in the future')
+  if (claims.nbf !== undefined && claims.nbf > nowSeconds + CLOCK_SKEW_S) {
+    throw notYetValid('not yet valid')
+  }
+  if (claims.exp <= nowSeconds - CLOCK_SKEW_S) {
+    throw new IdTokenError('expired', 'ID token expired')
   }
 
   return {
@@ -156,4 +163,8 @@ function displayText(value: string | undefined, maxLength: number): string | nul
 
 function invalid(reason: string): IdTokenError {
   return new IdTokenError('invalid', `ID token rejected: ${reason}`)
+}
+
+function notYetValid(reason: string): IdTokenError {
+  return new IdTokenError('not_yet_valid', `ID token rejected: ${reason}`)
 }
