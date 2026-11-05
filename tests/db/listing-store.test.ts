@@ -145,6 +145,131 @@ describe('listing rows', () => {
   })
 })
 
+describe('listing cases', () => {
+  it('show a sold flat once, with the status of its newest final notice', () => {
+    const database = open()
+    // The auction, the sale without a higher bid and the distribution of the proceeds.
+    insertEdict(database, 1, {
+      caseKey: 'case-a',
+      objektgroesseSqm: 50,
+      publishedAt: '2026-08-10',
+      auctionAt: '2026-09-24T10:00',
+    })
+    insertEdict(database, 2, {
+      caseKey: 'case-a',
+      noticeType: 'zuschlag_ohne_ueberbot',
+      status: 'sold',
+      publishedAt: '2026-09-30',
+      schaetzwertEur: null,
+    })
+    insertEdict(database, 3, {
+      caseKey: 'case-a',
+      noticeType: 'meistbotsverteilung',
+      status: 'closed',
+      publishedAt: '2026-10-28',
+      schaetzwertEur: null,
+    })
+    insertDocument(database, edictId(1))
+    insertEdict(database, 4)
+
+    const upcoming = queryListings(database, ListingQuerySchema.parse({}))
+    expect(upcoming.rows.map((row) => row.id)).toEqual([edictId(4)])
+    expect(upcoming.totalInScope).toBe(2)
+    const all = queryListings(
+      database,
+      ListingQuerySchema.parse({ statuses: ['upcoming', 'postponed', 'sold', 'closed'] }),
+    )
+    expect(all.rows.filter((row) => row.caseKey === 'case-a')).toEqual([
+      expect.objectContaining({
+        id: edictId(1),
+        status: 'closed',
+        noticeType: 'meistbotsverteilung',
+        auctionAt: '2026-09-24T10:00',
+        pricePerSqm: 4000,
+        hasLanggutachten: true,
+      }),
+    ])
+    // The other notices still open, with the rest of the case as related edicts.
+    expect(getListing(database, edictId(2)).related.map((related) => related.id)).toEqual([
+      edictId(1),
+      edictId(3),
+    ])
+  })
+
+  it('follow a re-scheduled auction to its newest notice', () => {
+    const database = open()
+    // Versteigerung, Verschiebung, then a new Versteigerung with a lower Schätzwert.
+    insertEdict(database, 1, {
+      caseKey: 'case-b',
+      publishedAt: '2026-08-03',
+      auctionAt: '2026-09-15T10:00',
+    })
+    insertEdict(database, 2, {
+      caseKey: 'case-b',
+      noticeType: 'verschiebung',
+      status: 'postponed',
+      publishedAt: '2026-09-02',
+      auctionAt: '2026-09-15T10:00',
+    })
+    insertEdict(database, 3, {
+      caseKey: 'case-b',
+      publishedAt: '2026-10-06',
+      auctionAt: '2026-11-24T09:30',
+      schaetzwertEur: 180_000,
+    })
+    // Sold, then put up for auction again (Wiederversteigerung).
+    insertEdict(database, 4, { caseKey: 'case-c', publishedAt: '2026-07-01' })
+    insertEdict(database, 5, {
+      caseKey: 'case-c',
+      noticeType: 'zuschlag_mit_ueberbot',
+      status: 'sold',
+      publishedAt: '2026-08-20',
+    })
+    insertEdict(database, 6, { caseKey: 'case-c', publishedAt: '2026-10-15' })
+
+    const page = queryListings(database, ListingQuerySchema.parse({}))
+    const byCase = new Map(page.rows.map((row) => [row.caseKey, row]))
+    expect(page.rows).toHaveLength(2)
+    expect(page.totalInScope).toBe(2)
+    expect(byCase.get('case-b')).toMatchObject({
+      id: edictId(3),
+      status: 'upcoming',
+      noticeType: 'versteigerung',
+      auctionAt: '2026-11-24T09:30',
+      schaetzwertEur: 180_000,
+    })
+    expect(byCase.get('case-c')).toMatchObject({ id: edictId(6), status: 'upcoming' })
+  })
+
+  it('report the case status in the detail of the Versteigerung of a sold case', () => {
+    const database = open()
+    insertEdict(database, 1, {
+      caseKey: 'case-a',
+      publishedAt: '2026-08-10',
+      auctionAt: '2026-09-24T10:00',
+    })
+    insertEdict(database, 2, {
+      caseKey: 'case-a',
+      noticeType: 'zuschlag_mit_ueberbot',
+      status: 'sold',
+      publishedAt: '2026-09-30',
+      schaetzwertEur: null,
+      meistbotEur: 231_000,
+    })
+
+    // Status and Meistbot come from the sale; the other numbers stay the opened edict's.
+    expect(getListing(database, edictId(1))).toMatchObject({
+      id: edictId(1),
+      status: 'sold',
+      noticeType: 'zuschlag_mit_ueberbot',
+      schaetzwertEur: 200_000,
+      meistbotEur: 231_000,
+      auctionAt: '2026-09-24T10:00',
+      related: [expect.objectContaining({ id: edictId(2), status: 'sold' })],
+    })
+  })
+})
+
 describe('listing detail', () => {
   it('collects documents, estimates, the latest analysis, user state and related edicts', () => {
     const database = open()

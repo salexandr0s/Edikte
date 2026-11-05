@@ -6,7 +6,7 @@ import type {
   ListingRow,
   RelatedEdict,
 } from '@shared/domain'
-import type { Bundesland, PriceBasis } from '@shared/enums'
+import type { Bundesland, NoticeType, PriceBasis } from '@shared/enums'
 import { AppError } from '@shared/errors'
 import { applyListingQuery } from '@shared/listing-query'
 import type { AppDatabase } from './client'
@@ -54,8 +54,8 @@ const listingColumns = {
 } satisfies Record<keyof ListingEdict, unknown>
 
 /**
- * The `listings:query` response. Rows cover the Bundesländer in the sync
- * settings; edicts the site no longer lists stay out.
+ * The `listings:query` response: one row per case in the Bundesländer of the
+ * sync settings. Edicts the site no longer lists stay out.
  */
 export function queryListings(db: AppDatabase, query: ListingQuery): ListingPage {
   const { syncBundeslaender } = readSettings(db)
@@ -97,10 +97,15 @@ export function getListing(db: AppDatabase, id: string): ListingDetail {
     },
     readSettings(db).priceBasis,
   )
+  const decider = caseDecider(db, edict)
   return {
     ...row,
+    // The header shows the case's status, as the list row does, and the Meistbot
+    // of the sale that decided it. The rest is this edict's.
+    status: decider.status,
+    noticeType: decider.noticeType,
     vadiumEur: edict.vadiumEur,
-    meistbotEur: edict.meistbotEur,
+    meistbotEur: edict.meistbotEur ?? decider.meistbotEur,
     zubehoer: edict.zubehoer,
     objektgroesseRaw: edict.objektgroesseRaw,
     grundbuch: edict.grundbuch,
@@ -121,6 +126,26 @@ export function getListing(db: AppDatabase, id: string): ListingDetail {
     firstSeenAt: edict.firstSeenAt,
     lastSeenAt: edict.lastSeenAt,
   }
+}
+
+/**
+ * The edict that decides the status of `edict`'s case, by the rule of the list
+ * rows. When the site lists no edict of the case, the opened edict decides.
+ */
+function caseDecider(db: AppDatabase, edict: EdictRow): CaseEdict & Pick<EdictRow, 'meistbotEur'> {
+  const [first, ...others] = db
+    .select({
+      id: edicts.id,
+      noticeType: edicts.noticeType,
+      status: edicts.status,
+      publishedAt: edicts.publishedAt,
+      auctionAt: edicts.auctionAt,
+      meistbotEur: edicts.meistbotEur,
+    })
+    .from(edicts)
+    .where(and(eq(edicts.caseKey, edict.caseKey), isNull(edicts.removedAt)))
+    .all()
+  return first === undefined ? edict : pickCaseEdicts([first, ...others]).decider
 }
 
 /** Pages without a text layer, by document ID, for `DocumentInfo.scannedPages`. */
@@ -194,7 +219,14 @@ function loadListingRows(
       .all()
       .map((analysis) => [analysis.edictId, toFinishedAnalysis(analysis)]),
   )
-  return rows.map((edict) => {
+  const cases = new Map<string, [ListingEdict, ...ListingEdict[]]>()
+  for (const edict of rows) {
+    const group = cases.get(edict.caseKey)
+    if (group === undefined) cases.set(edict.caseKey, [edict])
+    else group.push(edict)
+  }
+  return [...cases.values()].map((group) => {
+    const { representative: edict, decider } = pickCaseEdicts(group)
     const user = users.get(edict.caseKey)
     const sources = {
       starred: user?.starred ?? false,
@@ -204,8 +236,73 @@ function loadListingRows(
       finished: finished.get(edict.id) ?? null,
       estimates: estimates.get(edict.id) ?? [],
     }
-    return buildListingRow(edict, sources, basis).row
+    const { row } = buildListingRow(edict, sources, basis)
+    return { ...row, status: decider.status, noticeType: decider.noticeType }
   })
+}
+
+/** Notices of a case whose auction is still ahead or was moved or called off. */
+const AUCTION_STAGE: ReadonlySet<NoticeType> = new Set<NoticeType>([
+  'versteigerung',
+  'schriftliche_anbote',
+  'verschiebung',
+  'entfall',
+])
+
+type CaseEdict = Pick<ListingEdict, 'id' | 'noticeType' | 'status' | 'publishedAt' | 'auctionAt'>
+
+/**
+ * The edicts that stand for a case. A sold or closed notice decides the status
+ * unless an auction-stage notice was published after it; closed outranks sold.
+ * Otherwise the newest auction-stage notice decides. Numbers, documents and
+ * analyses come from the representative: the newest auction-stage edict, or
+ * the newest edict when the case has none.
+ */
+function pickCaseEdicts<T extends CaseEdict>(
+  group: readonly [T, ...T[]],
+): { representative: T; decider: T } {
+  const [first, ...others] = group
+  const latest = others.reduce((best, edict) => (compareAge(edict, best) > 0 ? edict : best), first)
+  const representative = newest(group.filter((edict) => AUCTION_STAGE.has(edict.noticeType)))
+  const standing = group.filter(
+    (edict) =>
+      (edict.status === 'sold' || edict.status === 'closed') &&
+      !group.some((later) => AUCTION_STAGE.has(later.noticeType) && publishedAfter(later, edict)),
+  )
+  const final = newest(standing.filter((edict) => edict.status === 'closed')) ?? newest(standing)
+  return {
+    representative: representative ?? latest,
+    decider: final ?? representative ?? latest,
+  }
+}
+
+function newest<T extends CaseEdict>(candidates: readonly T[]): T | undefined {
+  let best: T | undefined
+  for (const candidate of candidates) {
+    if (best === undefined || compareAge(candidate, best) > 0) best = candidate
+  }
+  return best
+}
+
+/** Positive when `a` is newer: by publication date, then auction date, then ID. */
+function compareAge(a: CaseEdict, b: CaseEdict): number {
+  const byPublished = compareText(a.publishedAt, b.publishedAt)
+  if (byPublished !== 0) return byPublished
+  const byAuction = compareText(a.auctionAt, b.auctionAt)
+  return byAuction !== 0 ? byAuction : compareText(a.id, b.id)
+}
+
+/** Compares site dates or IDs as text; a missing value counts as oldest. */
+function compareText(a: string | null, b: string | null): number {
+  if (a === b) return 0
+  if (a === null) return -1
+  if (b === null) return 1
+  return a < b ? -1 : 1
+}
+
+/** Published on a later day; an edict without a date is never later. */
+function publishedAfter(a: CaseEdict, b: CaseEdict): boolean {
+  return a.publishedAt !== null && b.publishedAt !== null && a.publishedAt > b.publishedAt
 }
 
 /** Subquery: the newest analysis ID per edict, optionally among those that are done. */
