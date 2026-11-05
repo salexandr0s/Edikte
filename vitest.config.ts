@@ -9,5 +9,8 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     environment: 'node',
     restoreMocks: true,
+    // The cache key ignores the files behind import.meta.glob, so a new
+    // migration stayed invisible to src/main/db/migrate.ts until the cache was cleared.
+    fsModuleCache: false,
   },
 })
