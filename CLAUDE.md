@@ -51,7 +51,7 @@ Before a commit: typecheck, lint, unit tests and `format:check`. Run `test:e2e` 
 - Read `~/.claude/uiux-contract/` before UI work. The tokens are mapped to Tailwind in `src/renderer/src/styles/app.css`; use only those values.
 - White text sits on `bg-accent-fill` (blue-700). Coloured text uses `text-accent-text`, `text-danger-text`, `text-warning-text` or `text-success-text`. The plain accent and danger colours fail WCAG AA as text colour and behind white text.
 - Minimum window width is 960 px.
-- Every string lives in `src/renderer/src/i18n/de.json` and `en.json` with the same keys; `tests/i18n.test.ts` checks keys and placeholders. German uses "Sie". English keeps the legal term on first mention, for example "Appraised value (Schätzwert)".
+- Every string lives in a `de.json` and `en.json` pair with the same keys: shared strings in `src/renderer/src/i18n/`, each screen's own strings in `src/renderer/src/features/<screen>/i18n/`. `tests/i18n.test.ts` checks keys and placeholders, and that each top-level namespace sits in one file. Main reads the same files for its startup error dialog. German uses "Sie". English keeps the legal term on first mention, for example "Appraised value (Schätzwert)".
 - Write copy under the avoid-ai-writing rules, and read German strings by hand.
 
 ## Tests

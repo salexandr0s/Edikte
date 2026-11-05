@@ -14,3 +14,6 @@ playwright-report/
 *.sqlite-*
 # Local regression corpus with personal data from court notices. Never commit.
 /corpus/
+
+# Claude desktop preview config (personal)
+.claude/launch.json
