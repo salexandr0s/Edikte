@@ -32,7 +32,7 @@ export function LanguageOptions({ value, disabled, onChange }: LanguageOptionsPr
                 checked={value === option}
                 disabled={disabled}
                 onChange={() => onChange(option)}
-                className="size-4 shrink-0 accent-blue-700 disabled:cursor-not-allowed disabled:opacity-55"
+                className="size-4 shrink-0 accent-accent-fill disabled:cursor-not-allowed disabled:opacity-55"
               />
               {t(`language.${option}`)}
             </label>

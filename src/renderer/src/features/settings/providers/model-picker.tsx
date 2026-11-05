@@ -10,6 +10,7 @@ import { modelChoice } from './provider-logic'
 import type { ProviderAction } from './use-provider-action'
 
 const MODEL_ID_MAX_LENGTH = 200
+const CLI_DEFAULT_MODEL = 'default'
 
 type ModelsResult = { attempt: number } & ({ options: ModelOption[] } | { error: AppErrorCode })
 
@@ -64,14 +65,27 @@ export function ModelPicker({ status, action }: ModelPickerProps) {
     )
   }
 
-  const choice = modelChoice(result.options, status.model)
+  const { options } = result
+  const choice = modelChoice(options, status.model)
+
+  function optionLabel(option: ModelOption): string {
+    // The CLIs' `default` alias runs whatever model the CLI picks by itself.
+    if (option.id === CLI_DEFAULT_MODEL) return t('providers.model.cliDefault')
+    return option.isDefault
+      ? t('providers.model.defaultOption', { label: option.label })
+      : option.label
+  }
   const busy = action.busy !== null
 
   async function save(model: string) {
     setPendingModel(model)
-    await action.run('model', () => invoke('providers:setModel', { provider, model }), {
-      title: t('providers.model.saved'),
-    })
+    // The default option saves null, so the choice follows the provider's default if it changes.
+    const isDefault = options.some((option) => option.id === model && option.isDefault)
+    await action.run(
+      'model',
+      () => invoke('providers:setModel', { provider, model: isDefault ? null : model }),
+      { title: t('providers.model.saved') },
+    )
     setPendingModel(null)
   }
 
@@ -90,9 +104,7 @@ export function ModelPicker({ status, action }: ModelPickerProps) {
             >
               {result.options.map((option) => (
                 <option key={option.id} value={option.id}>
-                  {option.isDefault
-                    ? t('providers.model.defaultOption', { label: option.label })
-                    : option.label}
+                  {optionLabel(option)}
                 </option>
               ))}
               {choice.extra !== null && <option value={choice.extra}>{choice.extra}</option>}

@@ -201,9 +201,7 @@
       "showRun": "Lauf vom {{date}} anzeigen",
       "viewing": "Sie sehen den Lauf vom {{date}}.",
       "showLatest": "Neuesten Lauf anzeigen"
-    },
-    "yes": "Ja",
-    "no": "Nein"
+    }
   },
   "documents": {
     "title": "Dokumente",

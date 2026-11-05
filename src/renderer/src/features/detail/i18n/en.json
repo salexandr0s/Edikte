@@ -201,9 +201,7 @@
       "showRun": "Show the run from {{date}}",
       "viewing": "You are looking at the run from {{date}}.",
       "showLatest": "Show latest run"
-    },
-    "yes": "Yes",
-    "no": "No"
+    }
   },
   "documents": {
     "title": "Documents",

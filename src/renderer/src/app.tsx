@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Tooltip } from 'radix-ui'
 import {
   LanguageSettingSchema,
   type AppInfo,
@@ -20,6 +21,7 @@ import { changeLanguage, resolveLanguage } from './i18n'
 import { AppContext, useApp, type AppContextValue, type View } from './lib/app-context'
 import { errorCode, invoke, usingMockBridge } from './lib/bridge'
 import { cx } from './lib/cx'
+import { useBridgeEvent } from './lib/use-bridge-event'
 
 interface AppProps {
   info: AppInfo
@@ -32,9 +34,13 @@ export function App({ info, initialSettings }: AppProps) {
     initialSettings.firstRunCompletedAt === null ? { screen: 'firstRun' } : { screen: 'listings' },
   )
 
+  // Counts settings writes and reloads; a reload applies only if nothing newer arrived meanwhile.
+  const settingsRevision = useRef(0)
+
   const updateSettings = useCallback(
     async (patch: SettingsPatch) => {
       const next = await invoke('settings:update', patch)
+      settingsRevision.current += 1
       setSettings(next)
       if (patch.language !== undefined) {
         await changeLanguage(resolveLanguage(next.language, info.systemLocale))
@@ -44,6 +50,18 @@ export function App({ info, initialSettings }: AppProps) {
     [info.systemLocale],
   )
 
+  // Main changes the selected provider, models and CLI paths when providers change.
+  useBridgeEvent('providers:changed', () => {
+    const revision = (settingsRevision.current += 1)
+    invoke('settings:get').then(
+      (next) => {
+        if (settingsRevision.current === revision) setSettings(next)
+      },
+      // The next providers:changed event or settings write brings the state up to date.
+      () => undefined,
+    )
+  })
+
   const context = useMemo<AppContextValue>(
     () => ({ info, settings, updateSettings, view, navigate: setView }),
     [info, settings, updateSettings, view],
@@ -52,9 +70,11 @@ export function App({ info, initialSettings }: AppProps) {
   return (
     <AppContext.Provider value={context}>
       <ToastProvider>
-        <AnalysisGateProvider>
-          <Shell />
-        </AnalysisGateProvider>
+        <Tooltip.Provider delayDuration={300}>
+          <AnalysisGateProvider>
+            <Shell />
+          </AnalysisGateProvider>
+        </Tooltip.Provider>
       </ToastProvider>
     </AppContext.Provider>
   )
@@ -63,7 +83,8 @@ export function App({ info, initialSettings }: AppProps) {
 /**
  * Header, main area and footer. The listings screen stays mounted under the
  * other screens, so its filters and scroll position survive a visit to a
- * listing or to Settings. Each screen fills a scroll container of its own.
+ * listing or to Settings. Each screen fills a scroll container of its own,
+ * isolated so sticky headers inside stay below menus and dialogs in portals.
  */
 function Shell() {
   const { t } = useTranslation()
@@ -139,12 +160,15 @@ function Shell() {
 
       <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 outline-none">
         {!firstRun && (
-          <div inert={view.screen !== 'listings'} className="absolute inset-0 overflow-auto">
+          <div
+            inert={view.screen !== 'listings'}
+            className="absolute inset-0 isolate overflow-auto"
+          >
             <ListingsScreen />
           </div>
         )}
         {view.screen !== 'listings' && (
-          <div className="absolute inset-0 overflow-auto bg-bg">
+          <div className="absolute inset-0 isolate overflow-auto bg-bg">
             {view.screen === 'detail' && <DetailScreen key={view.id} id={view.id} />}
             {view.screen === 'settings' && <SettingsScreen />}
             {view.screen === 'firstRun' && <FirstRunScreen />}

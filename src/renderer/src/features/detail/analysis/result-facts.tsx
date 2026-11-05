@@ -128,7 +128,7 @@ export function OwnershipSection({ result }: { result: AnalysisResult }) {
   const notStated = t('common.notStated')
   const { ownership } = result
   const yesNo = (value: boolean | null) =>
-    value === null ? notStated : value ? t('analysis.yes') : t('analysis.no')
+    value === null ? notStated : value ? t('common.yes') : t('common.no')
   return (
     <ResultSection title={t('analysis.ownership.title')}>
       <FactList columns={2}>

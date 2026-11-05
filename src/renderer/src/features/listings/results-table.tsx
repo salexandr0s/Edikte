@@ -1,4 +1,3 @@
-import { Tooltip } from 'radix-ui'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ListingRow } from '@shared/domain'
@@ -54,51 +53,49 @@ export function ResultsTable({
   )
 
   return (
-    <Tooltip.Provider delayDuration={300}>
-      <div className="isolate rounded-lg border border-border">
-        <table
-          aria-labelledby={labelledBy}
-          aria-busy={busy || undefined}
-          className="w-full border-separate border-spacing-0 text-sm"
-        >
-          <thead>
-            <tr>
-              <th scope="col" className={cx(HEADER, 'w-12 rounded-tl-lg px-2')}>
-                <span className="sr-only">{t('listings.columns.star')}</span>
-              </th>
-              <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
-                {t('listings.columns.object')}
-              </th>
-              <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
-                {t('listings.columns.status')}
-              </th>
-              {sortable('auctionAt', t('listings.columns.auctionAt'))}
-              {sortable('price', t(`listings.columns.price.${priceBasis}`), 'right')}
-              {sortable('area', t('listings.columns.area'), 'right')}
-              {sortable('pricePerSqm', t('listings.columns.pricePerSqm'), 'right')}
-              <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
-                {t('listings.columns.analysis')}
-              </th>
-              <th scope="col" className={cx(HEADER, 'w-12 rounded-tr-lg px-2')}>
-                <span className="sr-only">{t('listings.columns.actions')}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <ListingTableRow
-                key={row.id}
-                row={row}
-                analysisStatus={currentAnalysisStatus(row, tracker)}
-                onOpen={() => onOpen(row)}
-                onStar={() => onStar(row)}
-                onToggleHidden={() => onToggleHidden(row)}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Tooltip.Provider>
+    <div className="isolate rounded-lg border border-border">
+      <table
+        aria-labelledby={labelledBy}
+        aria-busy={busy || undefined}
+        className="w-full border-separate border-spacing-0 text-sm"
+      >
+        <thead>
+          <tr>
+            <th scope="col" className={cx(HEADER, 'w-12 rounded-tl-lg px-2')}>
+              <span className="sr-only">{t('listings.columns.star')}</span>
+            </th>
+            <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
+              {t('listings.columns.object')}
+            </th>
+            <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
+              {t('listings.columns.status')}
+            </th>
+            {sortable('auctionAt', t('listings.columns.auctionAt'))}
+            {sortable('price', t(`listings.columns.price.${priceBasis}`), 'right')}
+            {sortable('area', t('listings.columns.area'), 'right')}
+            {sortable('pricePerSqm', t('listings.columns.pricePerSqm'), 'right')}
+            <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
+              {t('listings.columns.analysis')}
+            </th>
+            <th scope="col" className={cx(HEADER, 'w-12 rounded-tr-lg px-2')}>
+              <span className="sr-only">{t('listings.columns.actions')}</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <ListingTableRow
+              key={row.id}
+              row={row}
+              analysisStatus={currentAnalysisStatus(row, tracker)}
+              onOpen={() => onOpen(row)}
+              onStar={() => onStar(row)}
+              onToggleHidden={() => onToggleHidden(row)}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 

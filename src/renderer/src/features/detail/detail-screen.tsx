@@ -1,4 +1,3 @@
-import { Tooltip } from 'radix-ui'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../components/ui/button'
 import { EmptyState } from '../../components/ui/empty-state'
@@ -63,26 +62,24 @@ export function DetailScreen({ id }: { id: string }) {
 
   const { detail } = state
   return (
-    <Tooltip.Provider delayDuration={300}>
-      <div className={PAGE}>
-        <DetailHeader detail={detail} onBack={back} />
-        <KeyNumbers detail={detail} />
-        <div className="grid items-start gap-6 xl:grid-cols-5">
-          <div className="flex min-w-0 flex-col gap-6 xl:col-span-3">
-            <AnalysisCard detail={detail} reload={reload} />
-            {detail.kurzgutachten !== null && <KurzgutachtenCard facts={detail.kurzgutachten} />}
-            <AreaCandidatesCard detail={detail} />
-          </div>
-          <div className="flex min-w-0 flex-col gap-6 xl:col-span-2">
-            <DocumentsCard documents={detail.documents} />
-            <NotesCard caseKey={detail.caseKey} initialNotes={detail.notes} />
-            {detail.related.length > 0 && <RelatedCard related={detail.related} />}
-            {Object.keys(detail.rawLabels).length > 0 && (
-              <EdictLabelsCard labels={detail.rawLabels} />
-            )}
-          </div>
+    <div className={PAGE}>
+      <DetailHeader detail={detail} onBack={back} />
+      <KeyNumbers detail={detail} />
+      <div className="grid items-start gap-6 xl:grid-cols-5">
+        <div className="flex min-w-0 flex-col gap-6 xl:col-span-3">
+          <AnalysisCard detail={detail} reload={reload} />
+          {detail.kurzgutachten !== null && <KurzgutachtenCard facts={detail.kurzgutachten} />}
+          <AreaCandidatesCard detail={detail} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-6 xl:col-span-2">
+          <DocumentsCard documents={detail.documents} />
+          <NotesCard caseKey={detail.caseKey} initialNotes={detail.notes} />
+          {detail.related.length > 0 && <RelatedCard related={detail.related} />}
+          {Object.keys(detail.rawLabels).length > 0 && (
+            <EdictLabelsCard labels={detail.rawLabels} />
+          )}
         </div>
       </div>
-    </Tooltip.Provider>
+    </div>
   )
 }

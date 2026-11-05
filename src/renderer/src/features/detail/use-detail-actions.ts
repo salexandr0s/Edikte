@@ -47,14 +47,18 @@ export function useOpenExternal(): (url: string) => Promise<void> {
   )
 }
 
-/** Formats a percentage such as 12.34 as "12.3%", with a plus sign on request. */
+/**
+ * Formats a percentage such as 12.34 as "12.3%", with a plus sign on request.
+ * Negative values get a real minus sign; Intl writes a hyphen for de-AT and en-GB.
+ */
 export function usePercent(): (percent: number, signed?: boolean) => string {
   const { t } = useTranslation()
   const format = useFormat()
   return useCallback(
     (percent: number, signed = false) => {
-      const sign = signed && percent > 0 ? '+' : ''
-      return t('detail.percent', { value: `${sign}${format.number(percent, 1)}` })
+      const rounded = Math.round(percent * 10) / 10
+      const sign = rounded < 0 ? '−' : signed && rounded > 0 ? '+' : ''
+      return t('detail.percent', { value: `${sign}${format.number(Math.abs(rounded), 1)}` })
     },
     [t, format],
   )

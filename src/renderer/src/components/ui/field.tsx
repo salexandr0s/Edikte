@@ -104,7 +104,7 @@ export function Checkbox({ label, description, className, id, ...props }: Checkb
         id={inputId}
         type="checkbox"
         aria-describedby={descriptionId}
-        className="mt-0.5 size-4 shrink-0 accent-blue-700 disabled:cursor-not-allowed disabled:opacity-55"
+        className="mt-0.5 size-4 shrink-0 accent-accent-fill disabled:cursor-not-allowed disabled:opacity-55"
         {...props}
       />
       <div className="flex min-w-0 flex-col">

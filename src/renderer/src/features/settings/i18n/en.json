@@ -113,6 +113,7 @@
       "loading": "Loading models…",
       "loadFailed": "The list of models could not be loaded.",
       "defaultOption": "{{label}} (default)",
+      "cliDefault": "The CLI's default model",
       "none": "The provider offers no models to choose from.",
       "saved": "Model saved",
       "custom": "Other model ID",

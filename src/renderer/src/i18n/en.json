@@ -22,7 +22,9 @@
     "delete": "Delete",
     "edit": "Edit",
     "notStated": "Not stated",
-    "openOnSite": "Open on edikte.justiz.gv.at"
+    "openOnSite": "Open on edikte.justiz.gv.at",
+    "yes": "Yes",
+    "no": "No"
   },
   "shell": {
     "version": "Version {{version}}",

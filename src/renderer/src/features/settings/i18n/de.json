@@ -113,6 +113,7 @@
       "loading": "Modelle werden geladen …",
       "loadFailed": "Die Liste der Modelle konnte nicht geladen werden.",
       "defaultOption": "{{label}} (Standard)",
+      "cliDefault": "Standardmodell der CLI",
       "none": "Der Anbieter bietet keine Modelle zur Auswahl an.",
       "saved": "Modell gespeichert",
       "custom": "Andere Modell-ID",
