@@ -17,6 +17,8 @@ export interface Formatters {
   localDate(value: string): string
   /** A site date and time, "YYYY-MM-DDTHH:mm". */
   localDateTime(value: string): string
+  /** The time of a site date and time, or null when the value is a date alone. */
+  localTime(value: string): string | null
   /** An ISO timestamp written by the app. */
   timestamp(value: string): string
   fileSize(kb: number): string
@@ -54,6 +56,7 @@ export function createFormatters(language: UiLanguage): Formatters {
     timeStyle: 'short',
     timeZone: 'UTC',
   })
+  const siteTime = new Intl.DateTimeFormat(locale, { timeStyle: 'short', timeZone: 'UTC' })
   const appTime = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })
 
   return {
@@ -64,6 +67,7 @@ export function createFormatters(language: UiLanguage): Formatters {
     usd: (value) => usd.format(value),
     localDate: (value) => formatSiteTime(siteDate, value),
     localDateTime: (value) => formatSiteTime(siteDateTime, value),
+    localTime: (value) => (value.includes('T') ? formatSiteTime(siteTime, value) : null),
     timestamp: (value) => {
       const date = new Date(value)
       return Number.isNaN(date.getTime()) ? value : appTime.format(date)

@@ -12,7 +12,6 @@
     "columns": {
       "star": "Star",
       "object": "Property",
-      "status": "Status",
       "auctionAt": "Auction date",
       "price": {
         "schaetzwert": "Appraised value",
@@ -48,6 +47,15 @@
         "geringstes_gebot": "Min. bid {{value}}"
       },
       "areaSource": "Source: {{source}}",
+      "areaKind": {
+        "nutzflaeche": "Usable area",
+        "wohnflaeche": "Living area",
+        "grundflaeche": "Plot area",
+        "keller": "Cellar",
+        "balkon_terrasse": "Balcony, terrace",
+        "garten": "Garden",
+        "sonstige": "Other area"
+      },
       "approximate": "Approximate value",
       "approximateValue": "≈ {{value}}",
       "risk": "Risk: {{level}}",

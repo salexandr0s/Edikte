@@ -63,13 +63,16 @@ export function ListingTableRow({
       ? t('bezirk.full', { number: row.bezirk, name: districtName })
       : null
   const address = addressLine(row, district)
+  const propertyType = t(`propertyType.${row.propertyType}`)
+  const auctionTime = row.auctionAt === null ? null : format.localTime(row.auctionAt)
+  const place = address === null ? propertyType : `${propertyType} · ${address}`
   const hideLabel = row.hidden
     ? t('listings.row.unhide', { title: row.title })
     : t('listings.row.hide', { title: row.title })
 
   return (
     <tr className="group/row transition-colors hover:bg-bg-muted">
-      <td className={cx(CELL, 'px-2')}>
+      <td className={cx(CELL, 'px-1')}>
         <Button
           variant="ghost"
           size="icon-sm"
@@ -84,22 +87,26 @@ export function ListingTableRow({
           />
         </Button>
       </td>
-      <td className={cx(CELL, 'min-w-48 px-4')}>
+      <td className={cx(CELL, 'min-w-36 px-4')}>
         <div className="flex flex-col items-start gap-0.5">
           <button
             type="button"
             // The shell returns focus here when the user comes back from the listing.
             data-listing-link={row.id}
             onClick={onOpen}
+            title={row.title}
+            // Titles come from the site in German; long compounds break with hyphens.
+            lang="de"
             className={cx(
-              'rounded-sm text-left font-medium underline-offset-4 hover:underline',
+              'line-clamp-2 rounded-sm text-left hyphens-auto font-medium underline-offset-4 hover:underline',
               row.hidden ? 'text-fg-muted' : 'text-accent-text',
             )}
           >
             {row.title}
           </button>
-          {address !== null && <span className="text-xs text-fg-muted">{address}</span>}
-          <span className="text-xs text-fg-muted">{t(`propertyType.${row.propertyType}`)}</span>
+          <span title={place} className="line-clamp-2 text-xs text-fg-muted">
+            {place}
+          </span>
           {(row.hidden || row.removedAt !== null) && (
             <span className="mt-1 flex flex-wrap gap-1">
               {row.hidden && (
@@ -114,18 +121,27 @@ export function ListingTableRow({
       </td>
       <td className={cx(CELL, 'px-4')}>
         <div className="flex flex-col items-start gap-1">
-          <Badge size="sm" variant={STATUS_VARIANT[row.status]}>
+          {row.auctionAt === null ? (
+            <Missing label={notStated} />
+          ) : (
+            <span className="flex flex-col tabular-nums">
+              <span className="whitespace-nowrap">
+                {format.localDate(row.auctionAt.slice(0, 10))}
+              </span>
+              {auctionTime !== null && <span className="text-xs text-fg-muted">{auctionTime}</span>}
+            </span>
+          )}
+          <Badge
+            size="sm"
+            variant={STATUS_VARIANT[row.status]}
+            title={t(`noticeType.${row.noticeType}`)}
+          >
             {t(`listingStatus.${row.status}`)}
           </Badge>
-          <span className="text-xs text-fg-muted">{t(`noticeType.${row.noticeType}`)}</span>
+          {row.noticeType !== 'versteigerung' && (
+            <span className="text-xs text-fg-muted">{t(`noticeType.${row.noticeType}`)}</span>
+          )}
         </div>
-      </td>
-      <td className={cx(CELL, 'px-4 tabular-nums')}>
-        {row.auctionAt === null ? (
-          <Missing label={notStated} />
-        ) : (
-          format.localDateTime(row.auctionAt)
-        )}
       </td>
       <td className={cx(CELL, 'px-4 text-right')}>
         <div className="flex flex-col items-end gap-0.5">
@@ -147,8 +163,10 @@ export function ListingTableRow({
         ) : (
           <div className="flex flex-col items-end gap-0.5">
             <span className="whitespace-nowrap tabular-nums">{format.sqm(row.area.sqm)}</span>
-            <span className="text-xs text-fg-muted">{t(`areaKind.${row.area.kind}`)}</span>
-            <span className="text-xs text-fg-muted">
+            <span className="text-xs whitespace-nowrap text-fg-muted">
+              {t(`listings.row.areaKind.${row.area.kind}`)}
+            </span>
+            <span className="text-xs whitespace-nowrap text-fg-muted">
               {t('listings.row.areaSource', { source: t(`areaSource.${row.area.source}`) })}
             </span>
           </div>
@@ -160,7 +178,7 @@ export function ListingTableRow({
       <td className={cx(CELL, 'px-4')}>
         <AnalysisBadge status={analysisStatus} risk={row.riskLevel} />
       </td>
-      <td className={cx(CELL, 'px-2')}>
+      <td className={cx(CELL, 'px-1')}>
         <Button
           variant="ghost"
           size="icon-sm"

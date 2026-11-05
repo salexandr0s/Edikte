@@ -61,14 +61,11 @@ export function ResultsTable({
       >
         <thead>
           <tr>
-            <th scope="col" className={cx(HEADER, 'w-12 rounded-tl-lg px-2')}>
+            <th scope="col" className={cx(HEADER, 'w-10 rounded-tl-lg px-1')}>
               <span className="sr-only">{t('listings.columns.star')}</span>
             </th>
             <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
               {t('listings.columns.object')}
-            </th>
-            <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
-              {t('listings.columns.status')}
             </th>
             {sortable('auctionAt', t('listings.columns.auctionAt'))}
             {sortable('price', t(`listings.columns.price.${priceBasis}`), 'right')}
@@ -77,7 +74,7 @@ export function ResultsTable({
             <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
               {t('listings.columns.analysis')}
             </th>
-            <th scope="col" className={cx(HEADER, 'w-12 rounded-tr-lg px-2')}>
+            <th scope="col" className={cx(HEADER, 'w-10 rounded-tr-lg px-1')}>
               <span className="sr-only">{t('listings.columns.actions')}</span>
             </th>
           </tr>

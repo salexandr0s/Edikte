@@ -148,7 +148,7 @@ function SortControl({ sort, onSort }: { sort: ListingSort; onSort: (sort: Listi
   const id = useId()
   return (
     <div className="flex items-center gap-2">
-      <label htmlFor={id} className="text-sm text-fg-muted">
+      <label htmlFor={id} className="text-sm whitespace-nowrap text-fg-muted">
         {t('listings.sort.label')}
       </label>
       <Select
