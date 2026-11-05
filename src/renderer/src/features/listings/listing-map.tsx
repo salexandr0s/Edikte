@@ -57,10 +57,9 @@ interface ListingMapProps {
   rows: ListingRow[]
   geocode: GeocodeProgress
   onOpen: (row: ListingRow) => void
-  className?: string
 }
 
-export function ListingMap({ rows, geocode, onOpen, className }: ListingMapProps) {
+export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
   const { t, i18n } = useTranslation()
   const format = useFormat()
   const { settings } = useApp()
@@ -264,10 +263,7 @@ export function ListingMap({ rows, geocode, onOpen, className }: ListingMapProps
 
   return (
     <div
-      className={cx(
-        'edk-map relative isolate min-h-90 flex-1 overflow-hidden rounded-lg border border-border bg-bg-muted shadow-xs',
-        className,
-      )}
+      className="edk-map relative isolate min-h-90 flex-1 overflow-hidden rounded-lg border border-border bg-bg-muted shadow-xs"
       onKeyDown={(event) => {
         if (event.key === 'Escape' && selectedKey !== null) {
           event.stopPropagation()
