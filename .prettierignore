@@ -7,3 +7,5 @@ playwright-report/
 corpus/
 package-lock.json
 src/main/db/migrations/
+# Raw site HTML and recorded provider output must stay byte-for-byte.
+tests/**/fixtures/

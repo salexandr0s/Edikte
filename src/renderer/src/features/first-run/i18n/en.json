@@ -1,0 +1,24 @@
+{
+  "firstRun": {
+    "title": "Set up Edikte",
+    "welcome": "Edikte lists court auctions of real estate from edikte.justiz.gv.at and can analyze the appraisal reports (Gutachten) with an AI provider you sign in to. Choose a few settings to start; you can change all of them later in Settings.",
+    "steps": "Setup steps",
+    "stepOf": "Step {{current}} of {{total}}",
+    "stepDone": "{{step}}, done",
+    "saveFailed": "The setup could not be saved.",
+    "language": {
+      "title": "Language",
+      "text": "Choose the language of the app."
+    },
+    "providers": {
+      "title": "AI providers",
+      "text": "Edikte checks which AI providers are ready to use on this computer. Analysis is optional, and you can set up providers later in Settings.",
+      "detecting": "Checking for AI providers…",
+      "detectFailed": "The check for AI providers did not finish."
+    },
+    "sync": {
+      "title": "First sync",
+      "text": "Choose the Bundesländer whose auctions the app loads. You can change this later in Settings."
+    }
+  }
+}

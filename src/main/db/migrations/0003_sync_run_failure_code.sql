@@ -1,0 +1,1 @@
+ALTER TABLE `sync_runs` ADD `failure_code` text;

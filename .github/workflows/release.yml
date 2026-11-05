@@ -1,0 +1,299 @@
+name: Release
+
+# A tag v<version> builds and checks the packages, then uploads them to a draft
+# GitHub release. A manual run builds and checks the packages and keeps them on
+# the run for 14 days, without a release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  preflight:
+    name: Checks before packaging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      # Runs before npm ci, so a tag with the wrong version fails within seconds.
+      - name: Compare the tag with package.json
+        if: github.ref_type == 'tag'
+        run: node scripts/check-release-version.mjs "$GITHUB_REF_NAME"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # A tag can point at a commit that CI never checked.
+      - name: Type check, lint and unit tests
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    needs: preflight
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each package is built on a runner with the same architecture, so the
+        # self-check starts the app natively. better-sqlite3 ships the x64
+        # binary in its npm package, so either runner could package both. When
+        # GitHub retires the Intel runners, build x64 on macos-latest with --x64
+        # and run the self-check under Rosetta.
+        include:
+          - arch: arm64
+            runner: macos-latest
+            lipo: arm64
+          - arch: x64
+            runner: macos-15-intel
+            lipo: x86_64
+    env:
+      ARCH: ${{ matrix.arch }}
+      LIPO_ARCH: ${{ matrix.lipo }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Cache Electron and electron-builder downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: electron-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-${{ matrix.arch }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the app
+        run: npm run build
+
+      - name: Package the app
+        run: npx electron-builder --mac "--$ARCH" --publish never
+
+      - name: Check the disk image
+        run: |
+          shopt -s nullglob
+          images=(dist/*-mac-"$ARCH".dmg)
+          if [ "${#images[@]}" -ne 1 ]; then
+            echo "::error::Expected one disk image for $ARCH in dist, found ${#images[@]}"
+            exit 1
+          fi
+          mount_point="$RUNNER_TEMP/edikte-dmg"
+          hdiutil attach "${images[0]}" -nobrowse -readonly -mountpoint "$mount_point"
+          trap 'hdiutil detach "$mount_point" -force' EXIT
+          app="$mount_point/Edikte.app"
+          prebuilds="$app/Contents/Resources/app.asar.unpacked/node_modules/better-sqlite3/prebuilds"
+
+          check_arch() {
+            local actual
+            actual=$(lipo -archs "$1")
+            echo "$1: $actual"
+            if [ "$actual" != "$LIPO_ARCH" ]; then
+              echo "::error::$1 is built for $actual, expected $LIPO_ARCH"
+              exit 1
+            fi
+          }
+          check_arch "$app/Contents/MacOS/Edikte"
+          check_arch "$app/Contents/Frameworks/Electron Framework.framework/Electron Framework"
+          found=$(ls "$prebuilds")
+          if [ "$found" != "darwin-$ARCH.node" ]; then
+            echo "::error::Expected only darwin-$ARCH.node in $prebuilds, found: $found"
+            exit 1
+          fi
+          check_arch "$prebuilds/darwin-$ARCH.node"
+
+          # macOS calls an app with a broken signature damaged and offers no
+          # way to open it, not even in System Settings.
+          codesign --verify --deep --strict --verbose=2 "$app"
+
+          node scripts/run-self-check.mjs "$app/Contents/MacOS/Edikte"
+
+      - name: Check the zip archive
+        run: |
+          shopt -s nullglob
+          archives=(dist/*-mac-"$ARCH".zip)
+          if [ "${#archives[@]}" -ne 1 ]; then
+            echo "::error::Expected one zip archive for $ARCH in dist, found ${#archives[@]}"
+            exit 1
+          fi
+          unpacked="$RUNNER_TEMP/edikte-zip"
+          ditto -x -k "${archives[0]}" "$unpacked"
+          codesign --verify --deep --strict --verbose=2 "$unpacked/Edikte.app"
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mac-${{ matrix.arch }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: Windows x64
+    needs: preflight
+    runs-on: windows-latest
+    timeout-minutes: 45
+    # pwsh passes the installer's /S switch unchanged. Git Bash would turn it
+    # into a path.
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Cache Electron and electron-builder downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-x64-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-x64-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the app
+        run: npm run build
+
+      - name: Package the app
+        run: npx electron-builder --win --x64 --publish never
+
+      # The checks below use the installed app rather than dist/win-unpacked, so
+      # they cover the files users get: a broken installer payload fails the
+      # release. The per-user installer needs no administrator rights, and in
+      # silent mode it does not start the app, so the self-check runs the only
+      # instance.
+      - name: Install for the current user
+        run: |
+          $installers = @(Get-ChildItem -Path dist -Filter '*-win-x64-setup.exe')
+          if ($installers.Count -ne 1) {
+            throw "Expected one installer in dist, found $($installers.Count)"
+          }
+          $process = Start-Process -FilePath $installers[0].FullName -ArgumentList '/S' -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "The installer exited with code $($process.ExitCode)"
+          }
+          $appDir = Join-Path $env:LOCALAPPDATA 'Programs\edikte'
+          if (-not (Test-Path -LiteralPath (Join-Path $appDir 'Edikte.exe'))) {
+            Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'Programs') -Depth 1 | Select-Object -ExpandProperty FullName
+            throw "Edikte.exe is not in $appDir"
+          }
+          Add-Content -Path $env:GITHUB_ENV -Value "EDIKTE_APP_DIR=$appDir" -Encoding utf8
+
+      - name: Check the architecture of the installed binaries
+        run: |
+          node scripts/check-pe-arch.mjs (Join-Path $env:EDIKTE_APP_DIR 'Edikte.exe') x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $prebuilds = Join-Path $env:EDIKTE_APP_DIR 'resources\app.asar.unpacked\node_modules\better-sqlite3\prebuilds'
+          $found = @(Get-ChildItem -LiteralPath $prebuilds -Name)
+          if ($found.Count -ne 1 -or $found[0] -ne 'win32-x64.node') {
+            throw "Expected only win32-x64.node in $prebuilds, found: $($found -join ', ')"
+          }
+          node scripts/check-pe-arch.mjs (Join-Path $prebuilds 'win32-x64.node') x64
+
+      - name: Self-check of the installed app
+        run: node scripts/run-self-check.mjs (Join-Path $env:EDIKTE_APP_DIR 'Edikte.exe')
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-x64
+          path: dist/*-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Draft GitHub release
+    needs: [macos, windows]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download the packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Create the draft release with checksums
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          files=(
+            "Edikte-$version-mac-arm64.dmg"
+            "Edikte-$version-mac-arm64.zip"
+            "Edikte-$version-mac-x64.dmg"
+            "Edikte-$version-mac-x64.zip"
+            "Edikte-$version-win-x64-setup.exe"
+          )
+          for file in "${files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error::$file is missing from the build artifacts"
+              ls -l
+              exit 1
+            fi
+          done
+          sha256sum "${files[@]}" > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+          readme="$GITHUB_SERVER_URL/$GH_REPO#readme"
+          cat > notes.md <<EOF
+          Nicht signierte Builds für den privaten Gebrauch. Welche Datei Sie brauchen und wie Sie die App beim ersten Start öffnen, steht im [README]($readme). SHA256SUMS.txt enthält die SHA-256-Prüfsummen.
+
+          Unsigned builds for personal use. The [README]($readme) explains which file to download and how to open the app the first time. SHA256SUMS.txt lists the SHA-256 checksums.
+          EOF
+
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
+            --title "Edikte $GITHUB_REF_NAME" --notes-file notes.md \
+            "${files[@]}" SHA256SUMS.txt

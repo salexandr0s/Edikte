@@ -1,0 +1,24 @@
+{
+  "firstRun": {
+    "title": "Edikte einrichten",
+    "welcome": "Edikte zeigt gerichtliche Versteigerungen von Immobilien aus edikte.justiz.gv.at und kann die Gutachten mit einem KI-Anbieter auswerten, bei dem Sie angemeldet sind. Legen Sie zu Beginn ein paar Einstellungen fest. Alle lassen sich später in den Einstellungen ändern.",
+    "steps": "Schritte der Einrichtung",
+    "stepOf": "Schritt {{current}} von {{total}}",
+    "stepDone": "{{step}}, erledigt",
+    "saveFailed": "Die Einrichtung konnte nicht gespeichert werden.",
+    "language": {
+      "title": "Sprache",
+      "text": "Wählen Sie die Sprache der App."
+    },
+    "providers": {
+      "title": "KI-Anbieter",
+      "text": "Edikte prüft, welche KI-Anbieter auf diesem Computer bereitstehen. Analysen sind optional, und Sie können Anbieter später in den Einstellungen einrichten.",
+      "detecting": "KI-Anbieter werden gesucht …",
+      "detectFailed": "Die Suche nach KI-Anbietern wurde nicht abgeschlossen."
+    },
+    "sync": {
+      "title": "Erste Synchronisierung",
+      "text": "Wählen Sie die Bundesländer, deren Versteigerungen die App lädt. Sie können das später in den Einstellungen ändern."
+    }
+  }
+}

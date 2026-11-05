@@ -1,0 +1,205 @@
+{
+  "app": {
+    "name": "Edikte"
+  },
+  "language": {
+    "label": "Language",
+    "system": "System language",
+    "de": "Deutsch",
+    "en": "English",
+    "saveFailed": "The language could not be saved."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "retry": "Try again",
+    "loading": "Loading…",
+    "unknown": "Unknown",
+    "details": "Technical details",
+    "back": "Back",
+    "continue": "Continue",
+    "delete": "Delete",
+    "edit": "Edit",
+    "notStated": "Not stated",
+    "openOnSite": "Open on edikte.justiz.gv.at",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "shell": {
+    "version": "Version {{version}}",
+    "dataDir": "Data folder: {{path}}",
+    "sampleData": "Sample data",
+    "skipToContent": "Skip to content"
+  },
+  "startup": {
+    "failed": "Edikte could not start"
+  },
+  "bundesland": {
+    "wien": "Vienna",
+    "noe": "Lower Austria",
+    "bgld": "Burgenland",
+    "ooe": "Upper Austria",
+    "sbg": "Salzburg",
+    "stmk": "Styria",
+    "ktn": "Carinthia",
+    "tirol": "Tyrol",
+    "vbg": "Vorarlberg"
+  },
+  "errors": {
+    "invalid_request": "The request was invalid. This is a bug in the app.",
+    "forbidden": "This action is not allowed.",
+    "not_found": "Not found. It may have been removed.",
+    "not_implemented": "This feature is not available yet.",
+    "busy": "Another task is still running. Try again when it has finished.",
+    "cancelled": "Cancelled.",
+    "timeout": "This took too long and was stopped.",
+    "network": "No connection. Check your internet connection and try again.",
+    "site_unavailable": "edikte.justiz.gv.at is not responding. Try again later.",
+    "site_changed": "edikte.justiz.gv.at returned a page the app cannot read. The site may have changed.",
+    "rate_limited": "edikte.justiz.gv.at is limiting requests. Try again in a few minutes.",
+    "document_too_large": "The document is larger than the app's download limit.",
+    "document_unreadable": "The PDF could not be read. It may be damaged or protected.",
+    "storage_unavailable": "The app cannot write to its data folder. Check free disk space and folder permissions.",
+    "database_newer": "The data folder was created by a newer version of Edikte. Install that version to open it.",
+    "consent_required": "Confirm first that the appraisal report text may be sent to your AI provider.",
+    "provider_not_selected": "Choose an AI provider in Settings first.",
+    "provider_not_connected": "The selected AI provider is not signed in. Sign in under Settings.",
+    "provider_auth": "The AI provider rejected the sign-in or API key. Sign in again or check the key.",
+    "provider_billing": "The AI provider reports a billing or plan problem. Check your account with the provider.",
+    "provider_rate_limit": "You have reached the AI provider's usage limit. Try again later.",
+    "provider_refused": "The AI model declined this request.",
+    "provider_incomplete": "The AI model stopped before finishing its answer.",
+    "provider_invalid_output": "The AI model's answer did not have the expected format.",
+    "provider_unavailable": "The AI provider cannot be reached right now. Try again later.",
+    "provider_account_changed": "The signed-in account changed during the analysis, so the result was discarded.",
+    "cli_not_found": "The command-line tool was not found. Install it or choose its file in Settings.",
+    "cli_update_required": "This version of the command-line tool lacks options the app needs. Update it and try again.",
+    "cli_failed": "The command-line tool stopped with an error.",
+    "internal": "An unexpected error occurred in the app."
+  },
+  "nav": {
+    "label": "Main navigation",
+    "listings": "Auctions",
+    "settings": "Settings"
+  },
+  "toast": {
+    "region": "Notifications"
+  },
+  "listingStatus": {
+    "upcoming": "Upcoming",
+    "postponed": "Postponed",
+    "cancelled": "Cancelled",
+    "sold": "Sold",
+    "closed": "Closed"
+  },
+  "noticeType": {
+    "versteigerung": "Auction (Versteigerung)",
+    "schriftliche_anbote": "Written bids (Schriftliche Anbote)",
+    "verschiebung": "Postponement (Verschiebung)",
+    "entfall": "Date cancelled (Entfall des Termins)",
+    "zuschlag_ohne_ueberbot": "Award (Zuschlag ohne Überbot)",
+    "zuschlag_mit_ueberbot": "Award (Zuschlag mit Überbot)",
+    "zuschlag_nach_ueberbot": "Award (Zuschlag nach Überbot)",
+    "meistbotsverteilung": "Distribution of proceeds (Meistbotsverteilung)",
+    "other": "Other notice"
+  },
+  "propertyType": {
+    "apartment": "Apartment",
+    "house": "House",
+    "multi_family_house": "Multi-family house",
+    "land": "Land",
+    "agricultural": "Agricultural or forest land",
+    "commercial": "Commercial property",
+    "other": "Other"
+  },
+  "areaKind": {
+    "nutzflaeche": "Usable area (Nutzfläche)",
+    "wohnflaeche": "Living area (Wohnfläche)",
+    "grundflaeche": "Plot area (Grundfläche)",
+    "keller": "Cellar",
+    "balkon_terrasse": "Balcony or terrace",
+    "garten": "Garden",
+    "sonstige": "Other area"
+  },
+  "areaSource": {
+    "listing": "Listing",
+    "ai_verified": "AI, checked",
+    "ai_unverified": "AI, unchecked",
+    "local_estimate": "Text search"
+  },
+  "riskLevel": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High"
+  },
+  "approximate": {
+    "partial_ownership": "Part ownership",
+    "multiple_units": "Several units",
+    "bundled_parking": "Includes parking",
+    "area_mismatch": "Areas disagree"
+  },
+  "analysisStatus": {
+    "queued": "Queued",
+    "running": "Running",
+    "done": "Analyzed",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "priceBasis": {
+    "schaetzwert": "Appraised value (Schätzwert)",
+    "geringstes_gebot": "Minimum bid (Geringstes Gebot)"
+  },
+  "bezirk": {
+    "short": "{{number}}",
+    "full": "District {{number}}, {{name}}"
+  },
+  "providerName": {
+    "chatgpt": "ChatGPT",
+    "claude-cli": "Claude (CLI)",
+    "codex-cli": "Codex (CLI)",
+    "openai-api": "OpenAI (API key)",
+    "anthropic-api": "Anthropic (API key)"
+  },
+  "analysisGate": {
+    "queued_one": "Analysis queued",
+    "queued_other": "{{count}} analyses queued",
+    "failed": "The analysis could not start.",
+    "openSettings": "Open Settings",
+    "provider": {
+      "noneTitle": "Choose an AI provider",
+      "noneText": "Analyses run through an AI provider that you sign in to. Choose one in Settings.",
+      "notReadyTitle": "{{provider}} is not ready",
+      "notReadyText": "Sign in under Settings or choose another provider."
+    },
+    "consent": {
+      "title": "Send Gutachten to {{provider}}?",
+      "text": "For an analysis, the app sends the text of the Gutachten and images of scanned pages to {{provider}}. Gutachten name the owners and contain land register data.",
+      "terms": "The terms of {{provider}} decide how this data is stored and used.",
+      "once": "You confirm this once. It then applies to all analyses, including with other providers.",
+      "accept": "Agree and continue"
+    },
+    "confirm": {
+      "title_one": "Analyze this auction?",
+      "title_other": "Analyze {{count}} auctions?",
+      "provider": "Provider",
+      "model": "Model",
+      "defaultModel": "Provider default",
+      "download": "Download first",
+      "tokens": "Size",
+      "tokenCounts": "About {{input}} tokens in, {{output}} tokens out",
+      "cost": "Cost",
+      "estimatedCost": "About {{cost}} at list prices",
+      "planCost": "Counts towards the usage limits of your {{provider}} plan",
+      "skipped_one": "One auction has no Gutachten and is skipped.",
+      "skipped_other": "{{count}} auctions have no Gutachten and are skipped.",
+      "again_one": "One auction already has an analysis and is analyzed again.",
+      "again_other": "{{count}} auctions already have an analysis and are analyzed again.",
+      "start": "Start analysis"
+    },
+    "nothing": {
+      "title": "Nothing to analyze",
+      "text": "None of these auctions has a Gutachten to analyze."
+    }
+  }
+}

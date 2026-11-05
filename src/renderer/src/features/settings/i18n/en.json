@@ -1,0 +1,123 @@
+{
+  "settings": {
+    "title": "Settings",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveFailed": "The setting could not be saved.",
+    "languageHelp": "System language follows your computer: German if it is set to German, English otherwise.",
+    "data": {
+      "title": "Data and sync",
+      "bundeslaender": "Bundesländer to sync",
+      "bundeslaenderHelp": "The app loads the auctions published for these Bundesländer.",
+      "bundeslaenderRequired": "Choose at least one Bundesland.",
+      "autoSync": "Sync automatically",
+      "autoSyncHelp": "Checks edikte.justiz.gv.at for new and changed auctions every 6 hours while the app is open, and at start when the last check is older than that.",
+      "priceBasis": "Default price basis",
+      "priceBasisHelp": "Used for the price per m² in the auction list.",
+      "retention": "Keep downloaded documents",
+      "retentionUnit": "days after a case closes",
+      "retentionHelp": "After that, the app deletes the files. You can enter 1 to 3650 days.",
+      "retentionInvalid": "Enter a whole number from 1 to 3650.",
+      "dataDir": "Data folder",
+      "dataDirHelp": "Downloaded documents are stored here."
+    },
+    "consent": {
+      "title": "Analysis consent",
+      "given": "You agreed on {{date}} that the app may send the text of appraisal reports (Gutachten) to your AI provider.",
+      "givenNote": "If you withdraw, the app asks again before the next analysis.",
+      "withdraw": "Withdraw",
+      "notGiven": "Before the first analysis, the app asks you to confirm that the text of the appraisal reports (Gutachten), owner names included, goes to the selected provider."
+    },
+    "about": {
+      "title": "About Edikte",
+      "notAffiliated": "Edikte is not affiliated with the Austrian Federal Ministry of Justice (Bundesministerium für Justiz).",
+      "source": "The auction data comes from the public Ediktsdatei at edikte.justiz.gv.at.",
+      "personalUse": "The app is meant for personal use.",
+      "openSite": "Open edikte.justiz.gv.at"
+    }
+  },
+  "providers": {
+    "title": "AI providers",
+    "intro": "Analyses run through the provider marked “In use”. Each provider works with your own account or API key.",
+    "checkAgain": "Check again",
+    "lastChecked": "Last checked {{time}}",
+    "checkFailed": "The last check of this provider failed.",
+    "state": {
+      "ready": "Ready",
+      "not_installed": "Not installed",
+      "signed_out": "Signed out",
+      "signing_in": "Signing in",
+      "update_required": "Update required",
+      "identity_only": "No model access",
+      "error": "Error",
+      "noKey": "No key"
+    },
+    "description": {
+      "chatgpt": "Sign in with your ChatGPT account. Analyses count towards the usage limits of your plan.",
+      "claude-cli": "Edikte runs the Claude CLI installed on this computer under your own account.",
+      "codex-cli": "Edikte runs the Codex CLI installed on this computer under your own account.",
+      "openai-api": "Uses your own OpenAI API key. OpenAI charges each analysis to the key's account.",
+      "anthropic-api": "Uses your own Anthropic API key. Anthropic charges each analysis to the key's account."
+    },
+    "vendor": {
+      "openai-api": "OpenAI",
+      "anthropic-api": "Anthropic"
+    },
+    "account": "Account",
+    "key": "Key",
+    "plan": "Plan",
+    "version": "Version",
+    "program": "Program",
+    "source": {
+      "override": "Chosen by you",
+      "known_location": "Found in a usual install location",
+      "path": "Found through the PATH variable",
+      "login_shell": "Found through your login shell"
+    },
+    "inUse": "In use",
+    "useForAnalysis": "Use for analysis",
+    "stopUsing": "Stop using",
+    "nowUsed": "Analyses now use {{provider}}",
+    "noLongerUsed": "{{provider}} is no longer used for analyses",
+    "disconnected": "{{provider}} disconnected",
+    "signingIn": "Waiting for the sign-in in your browser…",
+    "oauth": {
+      "connect": "Continue with ChatGPT",
+      "connectHint": "Opens the sign-in page in your browser.",
+      "identityOnly": "You are signed in, but without access to models. Sign in again and allow model access.",
+      "signInAgain": "Sign in again",
+      "disconnect": "Disconnect"
+    },
+    "cli": {
+      "notInstalled": "Not found. Install the CLI, then choose “Check again”, or choose its program file.",
+      "updateRequired": "This version lacks options Edikte needs. Update the CLI, then choose “Check again”.",
+      "signIn": "Sign in",
+      "signInHint": "Starts the CLI's own sign-in in your browser.",
+      "chooseFile": "Choose file…",
+      "useDetected": "Use detected path",
+      "staysSignedIn": "The CLI itself stays signed in."
+    },
+    "apiKey": {
+      "label": "API key",
+      "help": "The app checks the key with the provider and stores it encrypted on this computer. It is not shown again.",
+      "save": "Save key",
+      "saved": "API key saved",
+      "tooShort": "This is too short for an API key. Paste the whole key.",
+      "remove": "Remove key",
+      "removeTitle": "Remove the {{vendor}} API key?",
+      "removeText": "The app deletes the stored key from this computer. To use {{vendor}} again, you need to enter the key again.",
+      "removed": "API key removed"
+    },
+    "model": {
+      "label": "Model",
+      "loading": "Loading models…",
+      "loadFailed": "The list of models could not be loaded.",
+      "defaultOption": "{{label}} (default)",
+      "cliDefault": "The CLI's default model",
+      "none": "The provider offers no models to choose from.",
+      "saved": "Model saved",
+      "custom": "Other model ID",
+      "customHelp": "For a model that is not in the list. The Codex CLI must accept the ID."
+    }
+  }
+}

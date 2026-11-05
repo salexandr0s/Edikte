@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "electron-vite dev",
-    "dev:renderer": "electron-vite dev --rendererOnly",
+    "dev:renderer": "vite --config vite.renderer.config.ts",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
@@ -30,7 +30,6 @@
     "@eslint/js": "9.39.5",
     "@playwright/test": "1.64.1",
     "@tailwindcss/vite": "4.3.3",
-    "@tanstack/react-table": "9.3.1",
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",

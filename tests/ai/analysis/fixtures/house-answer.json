@@ -1,0 +1,123 @@
+{
+  "areas": [
+    {
+      "kind": "nutzflaeche",
+      "label": "Wohnnutzfläche Hauptgeschoss",
+      "sqm": 71.01,
+      "page": 5,
+      "quote": "Wohnnutzfläche Hauptgeschoss gesamt 71,01 m²"
+    },
+    {
+      "kind": "keller",
+      "label": "Kellergeschoss",
+      "sqm": 64.92,
+      "page": 5,
+      "quote": "Kellergeschoss 64,92 m2"
+    },
+    {
+      "kind": "balkon_terrasse",
+      "label": "Terrasse teilweise überdacht",
+      "sqm": 17.5,
+      "page": 5,
+      "quote": "Terrasse teilweise überdacht 15,20 m²"
+    }
+  ],
+  "primary_area_index": 0,
+  "verkehrswert": {
+    "eur": 556000,
+    "stichtag": "2024-03-12",
+    "page": 9,
+    "quote": "Verkehrswert gerundet € 556.000"
+  },
+  "zubehoer_eur": null,
+  "property": {
+    "rooms": 3,
+    "floor": "Erdgeschoss",
+    "building_year": 1968,
+    "condition": "durchschnittlich",
+    "heating": "Gaszentralheizung",
+    "hwb_kwh_m2a": 142,
+    "energy_class": "D"
+  },
+  "ownership": {
+    "share": "1/1",
+    "wohnungseigentum": false,
+    "unit_count": 1,
+    "bundled_parking": false
+  },
+  "tenancy": {
+    "status": "owner_occupied",
+    "mrg_scope": "none",
+    "monthly_rent_eur": null,
+    "page": null,
+    "quote": null
+  },
+  "encumbrances": [
+    {
+      "text_de": "Dienstbarkeit des Gehrechts über Grundstück 123/4",
+      "text_en": "Right of way over plot 123/4",
+      "amount_eur": null,
+      "page": 4,
+      "quote": "Dienstbarkeit des Gehrechts über Grundstück 123/4"
+    }
+  ],
+  "arrears": [
+    {
+      "text_de": "Offene Forderung der MA 6 über 345 Euro",
+      "text_en": "Unpaid charge of 345 euros owed to MA 6",
+      "amount_eur": 345,
+      "page": 9,
+      "quote": "offene Forderungen lt. MA 6 -€ 345"
+    }
+  ],
+  "defects": [
+    {
+      "text_de": "Das Dach ist undicht.",
+      "text_en": "The roof leaks.",
+      "amount_eur": null,
+      "page": 3,
+      "quote": "Das Dach ist undicht"
+    },
+    {
+      "text_de": "Risse im Mauerwerk des Kellers.",
+      "text_en": "Cracks in the cellar masonry.",
+      "amount_eur": null,
+      "page": 6,
+      "quote": "Risse im Mauerwerk"
+    },
+    {
+      "text_de": "Die Elektroinstallation ist veraltet.",
+      "text_en": "The wiring is outdated.",
+      "amount_eur": null,
+      "page": 5,
+      "quote": "Die Elektroinstallation entspricht nicht mehr dem Stand der Technik."
+    }
+  ],
+  "interior_inspected": true,
+  "risks": [
+    {
+      "severity": "high",
+      "title_de": "Feuchtigkeit im Keller",
+      "title_en": "Damp in the cellar",
+      "detail_de": "Die Außenwände im Kellergeschoss sind feucht. Eine Sanierung ist mittelfristig nötig.",
+      "detail_en": "The outer cellar walls are damp and need repair in the medium term.",
+      "page": 7,
+      "quote": "Im Kellergeschoss zeigen sich Feuchtigkeitsschäden an den Außenwänden."
+    },
+    {
+      "severity": "medium",
+      "title_de": "Altlasten nicht geprüft",
+      "title_en": "Contamination not checked",
+      "detail_de": "Das Gutachten prüft den Boden nicht auf Altlasten.",
+      "detail_en": "The report does not check the soil for contamination.",
+      "page": 99,
+      "quote": "Altlasten"
+    }
+  ],
+  "summary_de": "Einfamilienhaus in 1100 Wien mit 71,01 m² Wohnnutzfläche und 64,92 m² Kellergeschoss, Baujahr 1968, von der Eigentümerseite bewohnt. Verkehrswert 556.000 Euro zum 12.03.2024. Feuchtigkeit im Keller und ein Gehrecht für den Nachbarn mindern den Wert.",
+  "summary_en": "Detached house in 1100 Vienna with 71.01 m² of living space and a 64.92 m² cellar, built in 1968 and lived in by the owner. Market value 556,000 euros as of 12 March 2024. Damp in the cellar and a neighbour's right of way lower the value.",
+  "confidence": "medium",
+  "unread_pages": [
+    99
+  ]
+}

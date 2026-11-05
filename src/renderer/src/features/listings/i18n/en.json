@@ -1,0 +1,196 @@
+{
+  "listings": {
+    "title": "Auctions",
+    "empty": "No auctions yet",
+    "emptyText": "Choose Sync now to load the current auctions from edikte.justiz.gv.at.",
+    "noMatches": "No auctions match these filters",
+    "noMatchesText": "Change the filters or reset them to see more auctions.",
+    "loadFailed": "The auctions could not be loaded.",
+    "updateFailed": "The list could not be updated.",
+    "count_one": "{{shown}} of {{total}} auction",
+    "count_other": "{{shown}} of {{total}} auctions",
+    "columns": {
+      "star": "Star",
+      "object": "Property",
+      "auctionAt": "Auction date",
+      "price": {
+        "schaetzwert": "Appraised value",
+        "geringstes_gebot": "Minimum bid"
+      },
+      "area": "Area",
+      "pricePerSqm": "€/m²",
+      "analysis": "Analysis",
+      "actions": "Actions"
+    },
+    "sort": {
+      "label": "Sort by",
+      "direction": "Sort direction",
+      "asc": "Ascending",
+      "desc": "Descending",
+      "column": {
+        "auctionAt": "Auction date",
+        "publishedAt": "Publication date",
+        "pricePerSqm": "€/m²",
+        "price": "Price",
+        "area": "Area",
+        "bezirk": "District"
+      }
+    },
+    "row": {
+      "star": "Star {{title}}",
+      "hide": "Hide {{title}}",
+      "unhide": "Show {{title}} again",
+      "hidden": "Hidden",
+      "removed": "No longer online",
+      "otherPrice": {
+        "schaetzwert": "Appraised {{value}}",
+        "geringstes_gebot": "Min. bid {{value}}"
+      },
+      "areaSource": "Source: {{source}}",
+      "areaKind": {
+        "nutzflaeche": "Usable area",
+        "wohnflaeche": "Living area",
+        "grundflaeche": "Plot area",
+        "keller": "Cellar",
+        "balkon_terrasse": "Balcony, terrace",
+        "garten": "Garden",
+        "sonstige": "Other area"
+      },
+      "approximate": "Approximate value",
+      "approximateValue": "≈ {{value}}",
+      "risk": "Risk: {{level}}",
+      "notAnalyzed": "Not analyzed",
+      "starFailed": "The star could not be saved.",
+      "hideFailed": "The change could not be saved.",
+      "hiddenToast": "Auction hidden",
+      "undo": "Undo"
+    }
+  },
+  "filters": {
+    "title": "Filters",
+    "activeCount_one": "{{count}} active",
+    "activeCount_other": "{{count}} active",
+    "search": "Search",
+    "searchPlaceholder": "Title, street, court or case number",
+    "priceBasis": "Price basis",
+    "maxPricePerSqm": "Max. price per m² (€)",
+    "includeWithoutArea": "Include auctions without an area",
+    "includeWithoutAreaHelp": "Also shows auctions without a stated area when you filter by €/m² or area.",
+    "price": "Price (€)",
+    "priceHelp": "Applies to the price basis chosen above.",
+    "area": "Area (m²)",
+    "from": "From",
+    "to": "To",
+    "bundeslaender": "Federal states (Bundesländer)",
+    "bezirke": "Vienna districts (Bezirke)",
+    "propertyTypes": "Property type",
+    "statuses": "Status",
+    "auctionDate": "Auction date",
+    "riskLevels": "Risk (from the analysis)",
+    "analyzedOnly": "Analyzed only",
+    "starredOnly": "Starred only",
+    "showHidden": "Show hidden auctions",
+    "reset": "Reset filters",
+    "errors": {
+      "wholeNumber": "Enter a whole number, such as 5000.",
+      "aboveZero": "Enter a number above 0.",
+      "range": "The minimum is above the maximum.",
+      "dateRange": "The start date is after the end date."
+    },
+    "presets": {
+      "wien_under_5000": "Vienna under €5,000/m²"
+    },
+    "saved": {
+      "menu": "Saved filters",
+      "empty": "No saved filters yet",
+      "loadFailed": "Saved filters could not be loaded.",
+      "save": "Save current filter…",
+      "delete": "Delete a filter"
+    },
+    "save": {
+      "title": "Save filter",
+      "description": "Saves the current filters and sort order under a name.",
+      "name": "Name",
+      "nameRequired": "Enter a name.",
+      "nameTooLong": "Use at most 80 characters.",
+      "saved": "Filter saved",
+      "failed": "The filter could not be saved."
+    },
+    "delete": {
+      "title": "Delete the filter “{{name}}”?",
+      "text": "Only the saved filter is removed. Auctions, stars and notes stay as they are.",
+      "deleted": "Filter deleted",
+      "failed": "The filter could not be deleted."
+    }
+  },
+  "sync": {
+    "now": "Sync now",
+    "never": "Not synced yet",
+    "ended": "Sync ended: {{status}}",
+    "last": "Last sync: {{time}}",
+    "unavailable": "Sync status unavailable: {{reason}}",
+    "starting": "Starting sync",
+    "cancelling": "Stopping…",
+    "progress": "{{done}} of {{total}}",
+    "progressLabel": "Sync progress",
+    "phase": {
+      "list": "Reading the auction list",
+      "details": "Reading auction pages",
+      "kurzgutachten": "Reading Kurzgutachten"
+    },
+    "status": {
+      "running": "Running",
+      "ok": "Complete",
+      "degraded": "Incomplete",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "startFailed": "The sync could not start.",
+    "cancelFailed": "The sync could not be stopped."
+  },
+  "batch": {
+    "fill": {
+      "button": "Fill missing areas",
+      "checkFailed": "Missing areas could not be checked.",
+      "nothingTitle": "Nothing to download",
+      "allHaveArea": "Every auction in this filter has an area.",
+      "noDocuments_one": "One auction has no area, but there is no Gutachten left to download for it.",
+      "noDocuments_other": "{{count}} auctions have no area, but there is no Gutachten left to download for them.",
+      "confirmTitle": "Download {{documents}} Gutachten?",
+      "listings": "Auctions without area",
+      "documents": "Gutachten to download",
+      "size": "Download size",
+      "confirmText": "The app looks for the area in the text of each Gutachten. You can cancel at any time.",
+      "start": "Download",
+      "startFailed": "The download could not start.",
+      "running": "Filling missing areas",
+      "item": "Gutachten {{current}} of {{total}}",
+      "announce": "Filling missing areas: Gutachten {{current}} of {{total}}",
+      "bytes": "{{done}} of {{total}}",
+      "phase": {
+        "download": "Downloading",
+        "extract": "Reading text",
+        "estimate": "Looking for the area"
+      },
+      "progressLabel": "Progress of filling missing areas",
+      "cancelFailed": "The download could not be stopped.",
+      "finished": "Finished filling missing areas",
+      "cancelled": "Download stopped",
+      "failed": "Filling missing areas stopped with an error.",
+      "summary": "Gutachten read: {{done}} of {{total}}."
+    },
+    "analysis": {
+      "button": "Analyze filtered",
+      "nothingTitle": "Nothing new to analyze",
+      "nothingText": "Every auction shown is already analyzed or waiting for analysis.",
+      "queue": "Analyses: {{running}}, {{waiting}}",
+      "running_one": "{{count}} running",
+      "running_other": "{{count}} running",
+      "waiting_one": "{{count}} waiting",
+      "waiting_other": "{{count}} waiting",
+      "cancelAll": "Cancel all",
+      "cancelled": "Analyses cancelled",
+      "cancelFailed": "The analyses could not be cancelled."
+    }
+  }
+}

@@ -1,0 +1,61 @@
+# electron-builder 26 configuration. Option names follow
+# node_modules/app-builder-lib/scheme.json.
+appId: local.edikte.desktop
+productName: Edikte
+directories:
+  output: dist
+
+files:
+  - out/**
+  - package.json
+  # better-sqlite3 ships its C sources and a prebuilt binary for every
+  # platform. The app needs lib/ and the one binary that mac.files or
+  # win.files keeps for the target.
+  - '!node_modules/better-sqlite3/{deps,src}/**'
+  - '!node_modules/better-sqlite3/binding.gyp'
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3/prebuilds/*.node
+# better-sqlite3 13 is a Node-API addon: its prebuilt binary loads in Electron
+# as it is, so nothing gets rebuilt.
+npmRebuild: false
+publish: null
+
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
+  enableCookieEncryption: true
+  # Flipping the fuses rewrites the Electron Framework binary, which breaks
+  # its ad hoc signature, and macOS kills an arm64 app with a broken signature
+  # at launch. With mac.identity null electron-builder signs nothing, so
+  # @electron/fuses signs the whole app ad hoc again right after the flip.
+  resetAdHocDarwinSignature: true
+
+# The targets name no architecture on purpose: electron-builder ignores
+# --arm64 and --x64 for targets that list their own. The release workflow
+# passes one architecture per job, and `npm run dist:mac` builds for the
+# machine it runs on.
+mac:
+  target:
+    - dmg
+    - zip
+  identity: null
+  artifactName: '${productName}-${version}-mac-${arch}.${ext}'
+  files:
+    - '!node_modules/better-sqlite3/prebuilds/!(darwin-${arch}).node'
+dmg:
+  writeUpdateInfo: false
+
+win:
+  target:
+    - nsis
+  files:
+    - '!node_modules/better-sqlite3/prebuilds/!(win32-${arch}).node'
+nsis:
+  oneClick: true
+  perMachine: false
+  differentialPackage: false
+  artifactName: '${productName}-${version}-win-${arch}-setup.${ext}'

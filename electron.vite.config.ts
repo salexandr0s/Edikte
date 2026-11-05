@@ -52,6 +52,22 @@ function contentSecurityPolicy(): Plugin {
   }
 }
 
+/** Also used by vite.renderer.config.ts for `npm run dev:renderer`. */
+export const renderer = {
+  resolve: {
+    alias: { ...sharedAlias, '@renderer': resolve(root, 'src/renderer/src') },
+  },
+  plugins: [react(), tailwindcss(), contentSecurityPolicy()],
+  build: {
+    rolldownOptions: {
+      input: {
+        index: resolve(root, 'src/renderer/index.html'),
+        'pdf-raster': resolve(root, 'src/renderer/pdf-raster.html'),
+      },
+    },
+  },
+}
+
 export default defineConfig({
   main: {
     resolve: { alias: sharedAlias },
@@ -72,18 +88,5 @@ export default defineConfig({
       },
     },
   },
-  renderer: {
-    resolve: {
-      alias: { ...sharedAlias, '@renderer': resolve(root, 'src/renderer/src') },
-    },
-    plugins: [react(), tailwindcss(), contentSecurityPolicy()],
-    build: {
-      rolldownOptions: {
-        input: {
-          index: resolve(root, 'src/renderer/index.html'),
-          'pdf-raster': resolve(root, 'src/renderer/pdf-raster.html'),
-        },
-      },
-    },
-  },
+  renderer,
 })

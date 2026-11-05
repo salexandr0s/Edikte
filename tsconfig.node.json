@@ -24,6 +24,7 @@
     "src/shared/**/*",
     "tests/**/*",
     "electron.vite.config.ts",
+    "vite.renderer.config.ts",
     "vitest.config.ts",
     "playwright.config.ts",
     "drizzle.config.ts"
