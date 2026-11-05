@@ -52,7 +52,11 @@ export function ListingsScreen() {
   return (
     <div className="flex flex-col gap-6 px-6 py-6">
       <header className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-        <h1 id={titleId} className="text-2xl font-semibold tracking-tight">
+        <h1
+          id={titleId}
+          tabIndex={-1}
+          className="text-2xl font-semibold tracking-tight outline-none"
+        >
           {t('listings.title')}
         </h1>
         <SyncBar sync={sync} />

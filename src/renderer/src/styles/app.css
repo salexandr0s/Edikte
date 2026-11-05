@@ -151,15 +151,42 @@
   /*
    * Text-safe variants (QG-ACCESS-001, WCAG AA 4.5:1). White text measures
    * 3.6:1 on accent blue-500 and 4.4:1 on blue-600, so buttons and other
-   * filled controls with text use blue-700 (6.0:1). The 500 status colors
-   * are too light for small text on white; use the *-text colors for text.
+   * filled controls with text use blue-700 (6.0:1), destructive ones red-700
+   * (6.5:1). The 500 status colors are too light for small text on white;
+   * use the *-text colors for text.
    */
   --edk-accent-fill: var(--color-blue-700);
   --edk-accent-fill-hover: var(--color-blue-800);
+  --edk-danger-fill: var(--color-red-700);
+  --edk-danger-fill-hover: var(--color-red-800);
   --edk-accent-text: var(--color-blue-700);
   --edk-danger-text: var(--color-red-700);
   --edk-warning-text: var(--color-amber-700);
   --edk-success-text: var(--color-green-700);
+
+  /*
+   * Subtle status backgrounds and the text on them (badge.v1): the contract's
+   * 100/700 pairs in light mode (4.5:1 or more), 900/200 in dark mode (6.9:1
+   * or more).
+   */
+  --edk-accent-subtle: var(--color-blue-100);
+  --edk-accent-subtle-fg: var(--color-blue-700);
+  --edk-success-subtle: var(--color-green-100);
+  --edk-success-subtle-fg: var(--color-green-700);
+  --edk-warning-subtle: var(--color-amber-100);
+  --edk-warning-subtle-fg: var(--color-amber-700);
+  --edk-danger-subtle: var(--color-red-100);
+  --edk-danger-subtle-fg: var(--color-red-700);
+
+  /*
+   * Widths from modal.v1 and toast.v1, used as w-(--edk-modal-width-md).
+   * The contract sets no modal height; 90vh keeps the window edge visible.
+   */
+  --edk-modal-width-sm: min(420px, 92vw);
+  --edk-modal-width-md: min(560px, 92vw);
+  --edk-modal-width-lg: min(720px, 94vw);
+  --edk-modal-max-height: 90vh;
+  --edk-toast-width: min(360px, 92vw);
 
   --edk-z-dropdown: 50;
   --edk-z-sticky: 60;
@@ -184,6 +211,14 @@
     --edk-danger-text: var(--color-red-400);
     --edk-warning-text: var(--color-amber-400);
     --edk-success-text: var(--color-green-400);
+    --edk-accent-subtle: var(--color-blue-900);
+    --edk-accent-subtle-fg: var(--color-blue-200);
+    --edk-success-subtle: var(--color-green-900);
+    --edk-success-subtle-fg: var(--color-green-200);
+    --edk-warning-subtle: var(--color-amber-900);
+    --edk-warning-subtle-fg: var(--color-amber-200);
+    --edk-danger-subtle: var(--color-red-900);
+    --edk-danger-subtle-fg: var(--color-red-200);
   }
 }
 
@@ -201,13 +236,23 @@
   --color-accent-fill: var(--edk-accent-fill);
   --color-accent-fill-hover: var(--edk-accent-fill-hover);
   --color-accent-text: var(--edk-accent-text);
+  --color-accent-subtle: var(--edk-accent-subtle);
+  --color-accent-subtle-fg: var(--edk-accent-subtle-fg);
   --color-ring: var(--edk-ring);
   --color-danger: var(--edk-danger);
+  --color-danger-fill: var(--edk-danger-fill);
+  --color-danger-fill-hover: var(--edk-danger-fill-hover);
   --color-danger-text: var(--edk-danger-text);
+  --color-danger-subtle: var(--edk-danger-subtle);
+  --color-danger-subtle-fg: var(--edk-danger-subtle-fg);
   --color-warning: var(--edk-warning);
   --color-warning-text: var(--edk-warning-text);
+  --color-warning-subtle: var(--edk-warning-subtle);
+  --color-warning-subtle-fg: var(--edk-warning-subtle-fg);
   --color-success: var(--edk-success);
   --color-success-text: var(--edk-success-text);
+  --color-success-subtle: var(--edk-success-subtle);
+  --color-success-subtle-fg: var(--edk-success-subtle-fg);
   --color-overlay: var(--edk-overlay);
 }
 

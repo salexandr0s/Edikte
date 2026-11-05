@@ -16,10 +16,10 @@ interface BadgeProps {
 // badge.v1. Labels stay short: a badge never wraps or truncates.
 const VARIANTS: Record<BadgeVariant, string> = {
   default: 'border border-border bg-bg-muted text-fg',
-  primary: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200',
-  success: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200',
-  warning: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200',
-  danger: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200',
+  primary: 'bg-accent-subtle text-accent-subtle-fg',
+  success: 'bg-success-subtle text-success-subtle-fg',
+  warning: 'bg-warning-subtle text-warning-subtle-fg',
+  danger: 'bg-danger-subtle text-danger-subtle-fg',
   outline: 'border border-border-strong text-fg',
 }
 

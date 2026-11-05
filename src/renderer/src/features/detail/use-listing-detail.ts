@@ -7,7 +7,12 @@ import { useBridgeEvent } from '../../lib/use-bridge-event'
 export type DetailState =
   | { status: 'loading' }
   | { status: 'error'; code: AppErrorCode }
-  | { status: 'ready'; detail: ListingDetail }
+  | {
+      status: 'ready'
+      detail: ListingDetail
+      /** Why the latest reload failed; `detail` then comes from an earlier load. */
+      reloadError: AppErrorCode | null
+    }
 
 interface ListingDetailHandle {
   state: DetailState
@@ -30,13 +35,16 @@ export function useListingDetail(id: string): ListingDetailHandle {
     let current = true
     invoke('listings:get', { id }).then(
       (detail) => {
-        if (current) setState({ status: 'ready', detail })
+        if (current) setState({ status: 'ready', detail, reloadError: null })
       },
       (error: unknown) => {
         if (!current) return
-        // A failed reload keeps the data on screen; the next change tries again.
+        const code = errorCode(error)
+        // A failed reload keeps the data on screen and records why it is not newer.
         setState((previous) =>
-          previous.status === 'ready' ? previous : { status: 'error', code: errorCode(error) },
+          previous.status === 'ready'
+            ? { ...previous, reloadError: code }
+            : { status: 'error', code },
         )
       },
     )
@@ -45,7 +53,15 @@ export function useListingDetail(id: string): ListingDetailHandle {
     }
   }, [id, version])
 
-  const reload = useCallback(() => setVersion((value) => value + 1), [])
+  const reload = useCallback(() => {
+    // The new attempt replaces the failure of the last one.
+    setState((previous) =>
+      previous.status === 'ready' && previous.reloadError !== null
+        ? { ...previous, reloadError: null }
+        : previous,
+    )
+    setVersion((value) => value + 1)
+  }, [])
 
   const retry = useCallback(() => {
     setState({ status: 'loading' })

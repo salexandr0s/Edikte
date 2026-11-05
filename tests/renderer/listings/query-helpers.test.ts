@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import type { ListingRow } from '@shared/domain'
+import type { ListingQuery, ListingRow } from '@shared/domain'
 import {
   analyzableIds,
   applyPatch,
   applyUserStatePatches,
   defaultQuery,
   EMPTY_TRACKER,
+  nextPendingUserState,
   nextSort,
-  onlyTextChanged,
+  onlyTypedFieldsChanged,
   parseWholeNumber,
+  pendingPatches,
   queueCounts,
   trackAnalysis,
+  type PendingUserState,
+  type UserStateEvent,
+  type UserStatePatch,
 } from '../../../src/renderer/src/features/listings/query-helpers'
 
 function row(id: string, analysisStatus: ListingRow['analysisStatus']): ListingRow {
@@ -66,11 +71,15 @@ describe('parseWholeNumber', () => {
 })
 
 describe('query updates', () => {
-  it('debounces only changes of the search text', () => {
+  it('debounces changes of the search text and the number filters only', () => {
     const query = defaultQuery('schaetzwert')
-    expect(onlyTextChanged(query, applyPatch(query, { text: 'Favoriten' }))).toBe(true)
-    expect(onlyTextChanged(query, applyPatch(query, { text: 'x', starredOnly: true }))).toBe(false)
-    expect(onlyTextChanged(query, defaultQuery('schaetzwert'))).toBe(false)
+    const typed = (patch: Partial<ListingQuery>) =>
+      onlyTypedFieldsChanged(query, applyPatch(query, patch))
+    expect(typed({ text: 'Favoriten' })).toBe(true)
+    expect(typed({ minPrice: 50_000, maxPricePerSqm: 4_000 })).toBe(true)
+    expect(typed({ text: 'x', starredOnly: true })).toBe(false)
+    expect(typed({})).toBe(false)
+    expect(onlyTypedFieldsChanged(query, defaultQuery('schaetzwert'))).toBe(false)
   })
 
   it('keeps the same query object when a patch changes nothing', () => {
@@ -115,5 +124,37 @@ describe('applyUserStatePatches', () => {
     expect(visible.map((candidate) => candidate.id)).toEqual(['b'])
     const all = applyUserStatePatches(rows, patches, { showHidden: true, starredOnly: false })
     expect(all[0]?.hidden).toBe(true)
+  })
+})
+
+describe('pending star and hide changes', () => {
+  const sent = (id: number, patch: UserStatePatch): UserStateEvent => ({
+    kind: 'sent',
+    id,
+    caseKey: 'case-a',
+    patch,
+  })
+  const replay = (events: UserStateEvent[]) =>
+    events.reduce<readonly PendingUserState[]>(
+      (changes, event) => nextPendingUserState(changes, event),
+      [],
+    )
+
+  it('keeps a change over refetched pages until a page arrives after its save', () => {
+    const inFlight = replay([sent(1, { starred: true }), { kind: 'page' }])
+    expect(pendingPatches(inFlight).get('case-a')).toEqual({ starred: true })
+    const saved = nextPendingUserState(inFlight, { kind: 'saved', id: 1 })
+    expect(pendingPatches(saved).get('case-a')).toEqual({ starred: true })
+    expect(nextPendingUserState(saved, { kind: 'page' })).toEqual([])
+  })
+
+  it('takes back only the change whose request failed', () => {
+    const changes = replay([
+      sent(1, { starred: true }),
+      sent(2, { hidden: true }),
+      sent(3, { starred: false }),
+      { kind: 'failed', id: 3 },
+    ])
+    expect(pendingPatches(changes).get('case-a')).toEqual({ starred: true, hidden: true })
   })
 })

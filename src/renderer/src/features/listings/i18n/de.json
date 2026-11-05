@@ -2,7 +2,7 @@
   "listings": {
     "title": "Versteigerungen",
     "empty": "Noch keine Versteigerungen",
-    "emptyText": "Wählen Sie „Jetzt aktualisieren“, um die aktuellen Versteigerungen von edikte.justiz.gv.at zu laden.",
+    "emptyText": "Wählen Sie „Jetzt synchronisieren“, um die aktuellen Versteigerungen von edikte.justiz.gv.at zu laden.",
     "noMatches": "Keine Versteigerungen passen zu diesen Filtern",
     "noMatchesText": "Ändern Sie die Filter oder setzen Sie sie zurück, um mehr Versteigerungen zu sehen.",
     "loadFailed": "Die Versteigerungen konnten nicht geladen werden.",
@@ -116,14 +116,15 @@
     }
   },
   "sync": {
-    "now": "Jetzt aktualisieren",
-    "never": "Noch nicht aktualisiert",
-    "last": "Letzte Aktualisierung: {{time}}",
-    "unavailable": "Status nicht verfügbar: {{reason}}",
-    "starting": "Aktualisierung startet",
+    "now": "Jetzt synchronisieren",
+    "never": "Noch nicht synchronisiert",
+    "ended": "Synchronisierung beendet: {{status}}",
+    "last": "Letzte Synchronisierung: {{time}}",
+    "unavailable": "Synchronisierungsstatus nicht verfügbar: {{reason}}",
+    "starting": "Synchronisierung startet",
     "cancelling": "Wird abgebrochen …",
     "progress": "{{done}} von {{total}}",
-    "progressLabel": "Fortschritt der Aktualisierung",
+    "progressLabel": "Fortschritt der Synchronisierung",
     "phase": {
       "list": "Liste wird gelesen",
       "details": "Edikte werden gelesen",
@@ -136,8 +137,8 @@
       "failed": "Fehlgeschlagen",
       "cancelled": "Abgebrochen"
     },
-    "startFailed": "Die Aktualisierung konnte nicht starten.",
-    "cancelFailed": "Die Aktualisierung konnte nicht abgebrochen werden."
+    "startFailed": "Die Synchronisierung konnte nicht starten.",
+    "cancelFailed": "Die Synchronisierung konnte nicht abgebrochen werden."
   },
   "batch": {
     "fill": {
@@ -156,6 +157,7 @@
       "startFailed": "Der Download konnte nicht starten.",
       "running": "Fehlende Flächen werden ergänzt",
       "item": "Gutachten {{current}} von {{total}}",
+      "announce": "Fehlende Flächen werden ergänzt: Gutachten {{current}} von {{total}}",
       "bytes": "{{done}} von {{total}}",
       "phase": {
         "download": "Wird heruntergeladen",

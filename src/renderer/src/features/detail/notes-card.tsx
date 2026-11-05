@@ -1,13 +1,15 @@
-import { useId, useState } from 'react'
+import { useEffect, useEffectEvent, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AppErrorCode } from '@shared/errors'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { Textarea } from '../../components/ui/field'
 import { CheckIcon } from '../../components/ui/icons'
+import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
 import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
+import { createSaveQueue } from '../../lib/save-queue'
 
 /** The limit of userState:update. */
 const MAX_NOTES = 10_000
@@ -21,27 +23,50 @@ interface NotesCardProps {
   initialNotes: string
 }
 
-/** Personal notes for the case, saved on blur and with the Save button. */
+/**
+ * Personal notes for the case, saved on blur, with the Save button and when
+ * the card closes. Saves run one at a time and end with the latest text.
+ */
 export function NotesCard({ caseKey, initialNotes }: NotesCardProps) {
   const { t } = useTranslation()
+  const toast = useToast()
   const format = useFormat()
   const id = useId()
   const [draft, setDraft] = useState(initialNotes)
   const [saved, setSaved] = useState(initialNotes)
   const [save, setSave] = useState<SaveState>({ kind: 'idle' })
+  // The queue outlives the card, so a save still runs after the user goes Back.
+  const [queue] = useState(() =>
+    createSaveQueue({
+      send: (notes: string) => invoke('userState:update', { caseKey, notes }),
+      onSaved: (state) => {
+        setSaved(state.notes)
+        setSave({ kind: 'saved' })
+      },
+      onFailed: (error) => {
+        const code = errorCode(error)
+        setSave({ kind: 'failed', code })
+        // The card may be closed by now, so a toast reports the failure as well.
+        toast({
+          kind: 'error',
+          title: t('detail.notes.saveFailed'),
+          description: t(`errors.${code}`),
+        })
+      },
+    }),
+  )
   const dirty = draft !== saved
 
-  async function store() {
-    if (!dirty || save.kind === 'saving') return
+  function store() {
+    // During a save the queue decides whether the text needs another one.
+    if (!dirty && save.kind !== 'saving') return
     setSave({ kind: 'saving' })
-    try {
-      const state = await invoke('userState:update', { caseKey, notes: draft })
-      setSaved(state.notes)
-      setSave({ kind: 'saved' })
-    } catch (error) {
-      setSave({ kind: 'failed', code: errorCode(error) })
-    }
+    queue(draft)
   }
+
+  // Leaving the screen without a blur, or during a save, still stores the last text.
+  const storeOnClose = useEffectEvent(store)
+  useEffect(() => () => storeOnClose(), [])
 
   return (
     <Card title={t('detail.notes.title')}>
@@ -56,7 +81,7 @@ export function NotesCard({ caseKey, initialNotes }: NotesCardProps) {
           maxLength={MAX_NOTES}
           aria-describedby={`${id}-help ${id}-status`}
           onChange={(event) => setDraft(event.target.value)}
-          onBlur={() => void store()}
+          onBlur={store}
         />
         <p id={`${id}-help`} className="text-xs text-fg-muted">
           {t('detail.notes.help')}
@@ -84,7 +109,7 @@ export function NotesCard({ caseKey, initialNotes }: NotesCardProps) {
               variant="secondary"
               disabled={!dirty}
               loading={save.kind === 'saving'}
-              onClick={() => void store()}
+              onClick={store}
             >
               {t('common.save')}
             </Button>

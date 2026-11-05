@@ -5,6 +5,7 @@ import type { RiskLevel } from '@shared/enums'
 import {
   analysisView,
   areaMismatch,
+  checkedSource,
   nextDocumentProgress,
   pageRanges,
   risksBySeverity,
@@ -58,14 +59,30 @@ describe('analysisView', () => {
     expect(analysisView(run(5, 'done'), progress(4, 'running', 'asking')).kind).toBe('done')
   })
 
-  it('keeps an unfinished record pending until the reload brings its end state', () => {
-    expect(analysisView(run(5, 'running'), progress(5, 'done'))).toMatchObject({
-      kind: 'pending',
+  it('shows a run as ended until the reload brings its end state', () => {
+    expect(analysisView(run(5, 'running'), progress(5, 'done'))).toEqual({
+      kind: 'ended',
       analysisId: 5,
-      step: null,
     })
+    expect(analysisView(run(4, 'done'), progress(5, 'failed')).kind).toBe('ended')
+    expect(analysisView(run(5, 'running'), null)).toMatchObject({ kind: 'pending', step: null })
     expect(analysisView(run(5, 'cancelled'), progress(5, 'cancelled')).kind).toBe('stopped')
     expect(analysisView(null, null).kind).toBe('none')
+  })
+})
+
+describe('checkedSource', () => {
+  it('links a quote found on another page to the page where it was found', () => {
+    const record: AnalysisRecord = {
+      ...run(5, 'done'),
+      evidence: [
+        { path: 'risks.0', page: 9, status: 'wrong_page' },
+        { path: 'risks.1', page: 4, status: 'verified' },
+      ],
+    }
+    expect(checkedSource(record, 'risks.0', 3)).toEqual({ status: 'wrong_page', page: 9 })
+    expect(checkedSource(record, 'risks.1', 4)).toEqual({ status: 'verified', page: 4 })
+    expect(checkedSource(record, 'areas.0', 7)).toEqual({ status: null, page: 7 })
   })
 })
 

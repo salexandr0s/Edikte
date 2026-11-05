@@ -19,22 +19,17 @@ const CONFIDENCE_VARIANTS: Readonly<Record<RiskLevel, BadgeVariant>> = {
   low: 'danger',
 }
 
-interface AnalysisResultProps {
-  record: AnalysisRecord
-  /** The Langgutachten that page links open. */
-  documentId: number | null
-}
-
 /**
  * A finished run: summary, risks and checks first, then the facts. AI output
- * is untrusted, so every value renders as plain text.
+ * is untrusted, so every value renders as plain text. Page links open the
+ * Langgutachten the run read.
  */
-export function AnalysisResult({ record, documentId }: AnalysisResultProps) {
+export function AnalysisResult({ record }: { record: AnalysisRecord }) {
   const { t, i18n } = useTranslation()
   const { result } = record
   if (result === null) return <p className="text-sm text-fg-muted">{t('analysis.noResult')}</p>
   const german = i18n.language === 'de'
-  const source: ResultSource = { record, documentId }
+  const source: ResultSource = { record }
 
   return (
     <div className="flex flex-col gap-8">

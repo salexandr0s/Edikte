@@ -193,11 +193,23 @@ export function FillProgressPanel({ job }: { job: FillJob }) {
   const { t } = useTranslation()
   const format = useFormat()
   const { progress } = job
-  if (progress === null) return null
-
-  const current = Math.min(progress.done + 1, Math.max(progress.total, 1))
+  const counts =
+    progress === null || progress.total === 0
+      ? null
+      : {
+          current: format.number(Math.min(progress.done + 1, progress.total)),
+          total: format.number(progress.total),
+        }
+  // Screen readers hear the start and each new Gutachten, not every phase or
+  // byte count. The end arrives as a toast.
+  const announcement =
+    progress === null
+      ? ''
+      : counts === null
+        ? t('batch.fill.running')
+        : t('batch.fill.announce', counts)
   const bytes =
-    progress.phase === 'download' && progress.bytesDone !== null && progress.bytesTotal !== null
+    progress?.phase === 'download' && progress.bytesDone !== null && progress.bytesTotal !== null
       ? t('batch.fill.bytes', {
           done: format.fileSize(progress.bytesDone / 1024),
           total: format.fileSize(progress.bytesTotal / 1024),
@@ -205,37 +217,39 @@ export function FillProgressPanel({ job }: { job: FillJob }) {
       : null
 
   return (
-    <section
-      aria-label={t('batch.fill.running')}
-      className="flex flex-col gap-2 rounded-lg border border-border bg-surface px-4 py-3"
-    >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        <span className="font-medium">{t('batch.fill.running')}</span>
-        {progress.total > 0 && (
-          <span className="text-fg-muted tabular-nums">
-            {t('batch.fill.item', {
-              current: format.number(current),
-              total: format.number(progress.total),
-            })}
-          </span>
-        )}
-        <span className="text-fg-muted">{t(`batch.fill.phase.${progress.phase}`)}</span>
-        {bytes !== null && <span className="text-fg-muted tabular-nums">{bytes}</span>}
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-auto"
-          loading={job.cancelling}
-          onClick={job.cancel}
+    <>
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
+      {progress !== null && (
+        <section
+          aria-label={t('batch.fill.running')}
+          className="flex flex-col gap-2 rounded-lg border border-border bg-surface px-4 py-3"
         >
-          {t('common.cancel')}
-        </Button>
-      </div>
-      <ProgressBar
-        value={progress.done}
-        max={progress.total}
-        label={t('batch.fill.progressLabel')}
-      />
-    </section>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <span className="font-medium">{t('batch.fill.running')}</span>
+            {counts !== null && (
+              <span className="text-fg-muted tabular-nums">{t('batch.fill.item', counts)}</span>
+            )}
+            <span className="text-fg-muted">{t(`batch.fill.phase.${progress.phase}`)}</span>
+            {bytes !== null && <span className="text-fg-muted tabular-nums">{bytes}</span>}
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              loading={job.cancelling}
+              onClick={job.cancel}
+            >
+              {t('common.cancel')}
+            </Button>
+          </div>
+          <ProgressBar
+            value={progress.done}
+            max={progress.total}
+            label={t('batch.fill.progressLabel')}
+          />
+        </section>
+      )}
+    </>
   )
 }

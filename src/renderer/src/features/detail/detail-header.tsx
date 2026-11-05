@@ -53,7 +53,11 @@ export function DetailHeader({ detail, onBack }: DetailHeaderProps) {
             <ListingStatusBadge status={detail.status} />
             <span className="text-sm text-fg-muted">{t(`noticeType.${detail.noticeType}`)}</span>
           </div>
-          <h1 lang="de" className="text-2xl font-semibold tracking-tight wrap-break-word">
+          <h1
+            lang="de"
+            tabIndex={-1}
+            className="text-2xl font-semibold tracking-tight wrap-break-word outline-none"
+          >
             {detail.title}
           </h1>
           <p className="text-sm text-fg-muted">{location === '' ? notStated : location}</p>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AnalysisRecord } from '@shared/analysis-schema'
+import type { AppErrorCode } from '@shared/errors'
 import { Button } from '../../../components/ui/button'
 import { AlertIcon } from '../../../components/ui/icons'
 import { ProgressBar } from '../../../components/ui/progress-bar'
@@ -85,6 +86,38 @@ export function PendingAnalysis({ view }: { view: PendingView }) {
         onClick={() => void cancel()}
       >
         {t('analysis.cancel')}
+      </Button>
+    </div>
+  )
+}
+
+/** A run has ended and the listing is loading again to bring its record. */
+export function EndedAnalysis({
+  error,
+  onRetry,
+}: {
+  /** Why that reload failed, or null while it runs. */
+  error: AppErrorCode | null
+  onRetry: () => void
+}) {
+  const { t } = useTranslation()
+  if (error === null) {
+    return (
+      <p role="status" className="flex items-center gap-2 text-sm text-fg-muted">
+        <Spinner />
+        {t('analysis.loadingResult')}
+      </p>
+    )
+  }
+  return (
+    <div role="alert" className="flex flex-col items-start gap-3">
+      <p className="flex items-start gap-2 text-sm font-medium text-danger-text">
+        <AlertIcon className="mt-0.5" />
+        {t('analysis.resultLoadFailed')}
+      </p>
+      <p className="text-sm">{t(`errors.${error}`)}</p>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        {t('common.retry')}
       </Button>
     </div>
   )

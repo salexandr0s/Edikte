@@ -9,7 +9,9 @@ export function SettingsScreen() {
   const { t } = useTranslation()
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-8">
-      <h1 className="text-2xl font-semibold tracking-tight">{t('settings.title')}</h1>
+      <h1 tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
+        {t('settings.title')}
+      </h1>
       <ProvidersCard />
       <DataSyncCard />
       <LanguageCard />

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SyncRunSummary, SyncStatus } from '@shared/domain'
 import { Badge, type BadgeVariant } from '../../components/ui/badge'
@@ -24,6 +25,7 @@ export function SyncBar({ sync }: { sync: SyncControls }) {
 
   return (
     <div className="flex min-w-0 items-center gap-4">
+      <SyncAnnouncement status={status} />
       <div className="flex min-w-0 flex-col items-end gap-1 text-right">
         {active ? <RunningSync status={status} /> : <LastRun sync={sync} />}
       </div>
@@ -44,6 +46,32 @@ export function SyncBar({ sync }: { sync: SyncControls }) {
         </Button>
       )}
     </div>
+  )
+}
+
+/**
+ * Tells screen readers when a sync starts, reaches the next phase and ends.
+ * The counts stay on screen only, so the region does not speak every step.
+ */
+function SyncAnnouncement({ status }: { status: SyncStatus | null }) {
+  const { t } = useTranslation()
+  // The result of the last run is news only after a run seen in this session.
+  const [sawRun, setSawRun] = useState(false)
+  const active = status !== null && status.state !== 'idle'
+  if (active && !sawRun) setSawRun(true)
+
+  let message = ''
+  if (active) {
+    if (status.state === 'cancelling') message = t('sync.cancelling')
+    else if (status.phase === null) message = t('sync.starting')
+    else message = t(`sync.phase.${status.phase}`)
+  } else if (sawRun && status !== null && status.lastFinished !== null) {
+    message = t('sync.ended', { status: t(`sync.status.${status.lastFinished.status}`) })
+  }
+  return (
+    <p role="status" className="sr-only">
+      {message}
+    </p>
   )
 }
 

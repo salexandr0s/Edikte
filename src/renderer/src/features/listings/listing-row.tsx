@@ -88,6 +88,8 @@ export function ListingTableRow({
         <div className="flex flex-col items-start gap-0.5">
           <button
             type="button"
+            // The shell returns focus here when the user comes back from the listing.
+            data-listing-link={row.id}
             onClick={onOpen}
             className={cx(
               'rounded-sm text-left font-medium underline-offset-4 hover:underline',

@@ -12,14 +12,14 @@ export interface ButtonProps extends ComponentPropsWithRef<'button'> {
   loading?: boolean
 }
 
-// button.v1. White text sits on blue-700 and red-700, because the 500 shades
-// fail WCAG AA behind white text.
+// button.v1. White text sits on the accent and danger fills (blue-700 and
+// red-700), because the 500 shades fail WCAG AA behind white text.
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-accent-fill text-white hover:bg-accent-fill-hover',
   secondary: 'border border-border bg-bg-muted text-fg hover:bg-surface',
   outline: 'border border-border-strong text-fg hover:bg-bg-muted',
   ghost: 'text-fg hover:bg-bg-muted',
-  destructive: 'bg-red-700 text-white hover:bg-red-800',
+  destructive: 'bg-danger-fill text-white hover:bg-danger-fill-hover',
   link: 'text-sm text-accent-text underline-offset-4 hover:underline',
 }
 

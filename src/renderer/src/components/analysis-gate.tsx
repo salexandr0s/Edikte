@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AnalysisEstimate } from '@shared/domain'
 import type { ProviderStatus } from '@shared/providers'
@@ -37,17 +37,22 @@ export function AnalysisGateProvider({ children }: { children: ReactNode }) {
   const { settings, updateSettings, navigate } = useApp()
   const toast = useToast()
   const [pending, setPending] = useState<Pending | null>(null)
+  // The answer of the open question; a newer question answers it with false.
+  const openAnswer = useRef<((accepted: boolean) => void) | null>(null)
 
   const ask = useCallback(
     (question: Question) =>
       new Promise<boolean>((resolve) => {
-        setPending({
-          question,
-          answer: (accepted) => {
-            setPending(null)
-            resolve(accepted)
-          },
-        })
+        openAnswer.current?.(false)
+        const answer = (accepted: boolean) => {
+          // A replaced question was answered already.
+          if (openAnswer.current !== answer) return
+          openAnswer.current = null
+          setPending(null)
+          resolve(accepted)
+        }
+        openAnswer.current = answer
+        setPending({ question, answer })
       }),
     [],
   )

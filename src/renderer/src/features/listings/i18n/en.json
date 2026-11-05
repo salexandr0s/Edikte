@@ -118,6 +118,7 @@
   "sync": {
     "now": "Sync now",
     "never": "Not synced yet",
+    "ended": "Sync ended: {{status}}",
     "last": "Last sync: {{time}}",
     "unavailable": "Sync status unavailable: {{reason}}",
     "starting": "Starting sync",
@@ -156,6 +157,7 @@
       "startFailed": "The download could not start.",
       "running": "Filling missing areas",
       "item": "Gutachten {{current}} of {{total}}",
+      "announce": "Filling missing areas: Gutachten {{current}} of {{total}}",
       "bytes": "{{done}} of {{total}}",
       "phase": {
         "download": "Downloading",

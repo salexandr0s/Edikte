@@ -1,15 +1,14 @@
 import { useId, type ReactNode } from 'react'
 import type { AnalysisRecord } from '@shared/analysis-schema'
-import { evidenceStatus } from '../detail-helpers'
+import { checkedSource } from '../detail-helpers'
 import { GermanQuote } from '../fact-list'
 import { PageLink } from '../page-link'
 import { EvidenceBadge } from './evidence-badge'
 
-/** The run and the PDF that page links and evidence badges refer to. */
+/** The run that page links and evidence badges refer to. */
 export interface ResultSource {
+  /** Page numbers refer to `record.documentId`, the Langgutachten the run read. */
   record: AnalysisRecord
-  /** The Langgutachten the analysis read, when the listing has one. */
-  documentId: number | null
 }
 
 export function ResultSection({ title, children }: { title: ReactNode; children: ReactNode }) {
@@ -34,14 +33,14 @@ interface SourceLineProps {
 
 /** Page link, evidence badge and German quote of one value in the result. */
 export function SourceLine({ source, path, page, quote }: SourceLineProps) {
-  const status = evidenceStatus(source.record, path)
-  if (page === null && quote === null && status === null) return null
+  const checked = checkedSource(source.record, path, page)
+  if (checked.page === null && quote === null && checked.status === null) return null
   return (
     <div className="flex flex-col gap-1.5">
-      {(page !== null || status !== null) && (
+      {(checked.page !== null || checked.status !== null) && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <PageLink documentId={source.documentId} page={page} />
-          {status !== null && <EvidenceBadge status={status} />}
+          <PageLink documentId={source.record.documentId} page={checked.page} />
+          {checked.status !== null && <EvidenceBadge status={checked.status} />}
         </div>
       )}
       {quote !== null && <GermanQuote text={quote} />}

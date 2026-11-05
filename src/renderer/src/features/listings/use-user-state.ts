@@ -1,16 +1,21 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ListingPage, ListingQuery, ListingRow } from '@shared/domain'
 import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
-import { applyUserStatePatches, type UserStatePatch } from './query-helpers'
+import {
+  applyUserStatePatches,
+  nextPendingUserState,
+  pendingPatches,
+  type PendingUserState,
+  type UserStateEvent,
+  type UserStatePatch,
+} from './query-helpers'
 
-const NO_PATCHES: ReadonlyMap<string, UserStatePatch> = new Map()
-
-interface Patches {
-  /** The page the patches were made on; a newer page already contains them. */
+interface Tracked {
+  /** The page the changes were last compared with. */
   page: ListingPage | null
-  byCase: ReadonlyMap<string, UserStatePatch>
+  changes: readonly PendingUserState[]
 }
 
 export interface UserStateControls {
@@ -21,8 +26,8 @@ export interface UserStateControls {
 }
 
 /**
- * Star and hide. The row changes at once; main confirms the change through
- * listings:changed, and the refetched page replaces the local patch.
+ * Star and hide. The row changes at once and keeps the change over refetched
+ * pages until main has stored it and a page with the change has arrived.
  */
 export function useUserState(
   page: ListingPage | null,
@@ -30,26 +35,37 @@ export function useUserState(
 ): UserStateControls {
   const { t } = useTranslation()
   const toast = useToast()
-  const [patches, setPatches] = useState<Patches>({ page: null, byCase: NO_PATCHES })
-  const current = patches.page === page ? patches.byCase : NO_PATCHES
-  const rows = page === null ? [] : applyUserStatePatches(page.rows, current, query)
+  const lastId = useRef(0)
+  const [tracked, setTracked] = useState<Tracked>({ page, changes: [] })
+  let { changes } = tracked
+  if (tracked.page !== page) {
+    // A new page contains the saved changes; changes still in flight stay on top.
+    changes = nextPendingUserState(changes, { kind: 'page' })
+    setTracked((current) =>
+      current.page === page
+        ? current
+        : { page, changes: nextPendingUserState(current.changes, { kind: 'page' }) },
+    )
+  }
+  const rows = page === null ? [] : applyUserStatePatches(page.rows, pendingPatches(changes), query)
 
-  function patch(caseKey: string, change: UserStatePatch | null) {
-    setPatches((state) => {
-      const byCase = new Map(state.page === page ? state.byCase : NO_PATCHES)
-      if (change === null) byCase.delete(caseKey)
-      else byCase.set(caseKey, { ...byCase.get(caseKey), ...change })
-      return { page, byCase }
-    })
+  function track(event: UserStateEvent) {
+    setTracked((current) => ({
+      ...current,
+      changes: nextPendingUserState(current.changes, event),
+    }))
   }
 
-  async function update(row: ListingRow, change: UserStatePatch, failure: string) {
-    patch(row.caseKey, change)
+  async function update(row: ListingRow, patch: UserStatePatch, failure: string) {
+    lastId.current += 1
+    const id = lastId.current
+    track({ kind: 'sent', id, caseKey: row.caseKey, patch })
     try {
-      await invoke('userState:update', { caseKey: row.caseKey, ...change })
+      await invoke('userState:update', { caseKey: row.caseKey, ...patch })
+      track({ kind: 'saved', id })
       return true
     } catch (error) {
-      patch(row.caseKey, null)
+      track({ kind: 'failed', id })
       toast({ kind: 'error', title: failure, description: t(`errors.${errorCode(error)}`) })
       return false
     }

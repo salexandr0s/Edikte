@@ -90,6 +90,8 @@
     "failed": "The analysis failed.",
     "cancelled": "The analysis was cancelled.",
     "noResult": "This run has no result.",
+    "loadingResult": "Loading the result…",
+    "resultLoadFailed": "The analysis has ended, but its result could not be loaded.",
     "queuedTitle": "Waiting in the queue",
     "runningTitle": "Analysis running",
     "inQueue_one": "{{count}} analysis in the queue",
@@ -144,7 +146,7 @@
       "title": "Ownership",
       "share": "Share",
       "wohnungseigentum": "Condominium (Wohnungseigentum)",
-      "units": "Units in the sale",
+      "units": "Units in the auction",
       "parking": "Parking space included"
     },
     "tenancy": {

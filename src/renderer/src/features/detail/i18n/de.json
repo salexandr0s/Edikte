@@ -73,7 +73,7 @@
     "notes": {
       "title": "Notizen",
       "label": "Ihre Notizen zu dieser Versteigerung",
-      "help": "Die Notizen werden nur auf diesem Computer gespeichert. Sie bleiben beim Fall, auch wenn die Versteigerung einen neuen Termin bekommt.",
+      "help": "Die Notizen werden nur auf diesem Computer gespeichert und bleiben beim Fall, auch wenn die Versteigerung einen neuen Termin bekommt.",
       "length": "{{used}} von {{max}} Zeichen",
       "saving": "Wird gespeichert …",
       "saved": "Gespeichert",
@@ -90,6 +90,8 @@
     "failed": "Die Analyse ist fehlgeschlagen.",
     "cancelled": "Die Analyse wurde abgebrochen.",
     "noResult": "Dieser Lauf hat kein Ergebnis.",
+    "loadingResult": "Das Ergebnis wird geladen …",
+    "resultLoadFailed": "Die Analyse ist beendet, aber das Ergebnis konnte nicht geladen werden.",
     "queuedTitle": "Wartet in der Warteschlange",
     "runningTitle": "Analyse läuft",
     "inQueue_one": "{{count}} Analyse in der Warteschlange",
@@ -144,7 +146,7 @@
       "title": "Eigentum",
       "share": "Anteil",
       "wohnungseigentum": "Wohnungseigentum",
-      "units": "Einheiten im Verkauf",
+      "units": "Versteigerte Einheiten",
       "parking": "Mit Stellplatz"
     },
     "tenancy": {

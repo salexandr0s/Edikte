@@ -60,20 +60,21 @@ export function DetailScreen({ id }: { id: string }) {
     )
   }
 
-  const { detail } = state
+  const { detail, reloadError } = state
   return (
     <div className={PAGE}>
       <DetailHeader detail={detail} onBack={back} />
       <KeyNumbers detail={detail} />
       <div className="grid items-start gap-6 xl:grid-cols-5">
         <div className="flex min-w-0 flex-col gap-6 xl:col-span-3">
-          <AnalysisCard detail={detail} reload={reload} />
+          <AnalysisCard detail={detail} reload={reload} reloadError={reloadError} />
           {detail.kurzgutachten !== null && <KurzgutachtenCard facts={detail.kurzgutachten} />}
           <AreaCandidatesCard detail={detail} />
         </div>
         <div className="flex min-w-0 flex-col gap-6 xl:col-span-2">
           <DocumentsCard documents={detail.documents} />
-          <NotesCard caseKey={detail.caseKey} initialNotes={detail.notes} />
+          {/* A new case gets a new card; the old one still saves its last text. */}
+          <NotesCard key={detail.caseKey} caseKey={detail.caseKey} initialNotes={detail.notes} />
           {detail.related.length > 0 && <RelatedCard related={detail.related} />}
           {Object.keys(detail.rawLabels).length > 0 && (
             <EdictLabelsCard labels={detail.rawLabels} />

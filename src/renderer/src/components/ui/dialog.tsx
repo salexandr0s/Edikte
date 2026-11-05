@@ -20,9 +20,9 @@ interface DialogProps {
 
 // modal.v1 widths.
 const WIDTHS = {
-  sm: 'w-[min(420px,92vw)]',
-  md: 'w-[min(560px,92vw)]',
-  lg: 'w-[min(720px,94vw)]',
+  sm: 'w-(--edk-modal-width-sm)',
+  md: 'w-(--edk-modal-width-md)',
+  lg: 'w-(--edk-modal-width-lg)',
 } as const
 
 /** Modal dialog with focus trap, Escape to close and focus return (Radix). */
@@ -45,7 +45,7 @@ export function Dialog({
           {...(description === undefined ? { 'aria-describedby': undefined } : {})}
           onPointerDownOutside={dismissible ? undefined : (event) => event.preventDefault()}
           className={cx(
-            'fixed top-1/2 left-1/2 z-(--edk-z-modal) flex max-h-[90vh] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg border border-border bg-surface-elevated p-6 text-fg shadow-lg',
+            'fixed top-1/2 left-1/2 z-(--edk-z-modal) flex max-h-(--edk-modal-max-height) -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg border border-border bg-surface-elevated p-6 text-fg shadow-lg',
             WIDTHS[size],
           )}
         >

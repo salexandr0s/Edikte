@@ -34,15 +34,24 @@ export function applyPatch(query: ListingQuery, patch: Partial<ListingQuery>): L
   return changed ? { ...query, ...patch } : query
 }
 
+/** Fields the user types into: the search text and the number filters. */
+const TYPED_KEYS: ReadonlySet<keyof ListingQuery> = new Set<keyof ListingQuery>([
+  'text',
+  'minPrice',
+  'maxPrice',
+  'minArea',
+  'maxArea',
+  'maxPricePerSqm',
+])
+
 /**
- * True when only the search text differs. Query updates spread the previous
- * query, so every other field keeps its identity and a shallow compare works.
+ * True when something changed and all of it was typed. Query updates spread
+ * the previous query, so every other field keeps its identity and a shallow
+ * compare works.
  */
-export function onlyTextChanged(previous: ListingQuery, next: ListingQuery): boolean {
-  return (
-    previous.text !== next.text &&
-    QUERY_KEYS.every((key) => key === 'text' || previous[key] === next[key])
-  )
+export function onlyTypedFieldsChanged(previous: ListingQuery, next: ListingQuery): boolean {
+  const changed = QUERY_KEYS.filter((key) => previous[key] !== next[key])
+  return changed.length > 0 && changed.every((key) => TYPED_KEYS.has(key))
 }
 
 /** Vienna's districts are offered while Vienna or no Bundesland is selected. */
@@ -188,4 +197,57 @@ export function applyUserStatePatches(
     if (query.starredOnly && !next.starred) return []
     return [next]
   })
+}
+
+/** A star or hide change, from the click until a page that contains it. */
+export interface PendingUserState {
+  id: number
+  caseKey: string
+  patch: UserStatePatch
+  /** Main has stored the change, so the next page contains it. */
+  saved: boolean
+}
+
+export type UserStateEvent =
+  | { kind: 'sent'; id: number; caseKey: string; patch: UserStatePatch }
+  | { kind: 'saved' | 'failed'; id: number }
+  /** A refetched page arrived. */
+  | { kind: 'page' }
+
+/**
+ * Keeps star and hide changes until a refetch confirms them. A change stays
+ * on top of every page that arrives while its request is in flight, and ends
+ * with the first page after main stored it. A failed request takes back only
+ * its own change.
+ */
+export function nextPendingUserState(
+  changes: readonly PendingUserState[],
+  event: UserStateEvent,
+): readonly PendingUserState[] {
+  switch (event.kind) {
+    case 'sent':
+      return [
+        ...changes,
+        { id: event.id, caseKey: event.caseKey, patch: event.patch, saved: false },
+      ]
+    case 'saved':
+      return changes.map((change) => (change.id === event.id ? { ...change, saved: true } : change))
+    case 'failed':
+      return changes.filter((change) => change.id !== event.id)
+    case 'page': {
+      const unsaved = changes.filter((change) => !change.saved)
+      return unsaved.length === changes.length ? changes : unsaved
+    }
+  }
+}
+
+/** The pending changes per case, later changes over earlier ones. */
+export function pendingPatches(
+  changes: readonly PendingUserState[],
+): ReadonlyMap<string, UserStatePatch> {
+  const byCase = new Map<string, UserStatePatch>()
+  for (const change of changes) {
+    byCase.set(change.caseKey, { ...byCase.get(change.caseKey), ...change.patch })
+  }
+  return byCase
 }

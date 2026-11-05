@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip } from 'radix-ui'
 import {
@@ -93,6 +93,26 @@ function Shell() {
   const [savingLanguage, setSavingLanguage] = useState(false)
   const firstRun = view.screen === 'firstRun'
   const section = view.screen === 'settings' ? 'settings' : 'listings'
+  const listingsRef = useRef<HTMLDivElement>(null)
+  const screenRef = useRef<HTMLDivElement>(null)
+  const shownView = useRef(view)
+
+  // After a screen change, keyboard and screen reader users continue at the
+  // new screen's heading, or on the list at the row of the listing they left.
+  useEffect(() => {
+    const previous = shownView.current
+    shownView.current = view
+    if (viewKey(previous) === viewKey(view)) return
+    if (view.screen !== 'listings') return focusHeading(screenRef.current)
+    const opener =
+      previous.screen === 'detail'
+        ? listingsRef.current?.querySelector<HTMLElement>(
+            `[data-listing-link="${CSS.escape(previous.id)}"]`,
+          )
+        : null
+    const target = opener ?? listingsRef.current?.querySelector('h1')
+    target?.focus()
+  }, [view])
 
   async function selectLanguage(value: string) {
     setSavingLanguage(true)
@@ -161,6 +181,7 @@ function Shell() {
       <main id="main" tabIndex={-1} className="relative min-h-0 flex-1 outline-none">
         {!firstRun && (
           <div
+            ref={listingsRef}
             inert={view.screen !== 'listings'}
             className="absolute inset-0 isolate overflow-auto"
           >
@@ -168,7 +189,7 @@ function Shell() {
           </div>
         )}
         {view.screen !== 'listings' && (
-          <div className="absolute inset-0 isolate overflow-auto bg-bg">
+          <div ref={screenRef} className="absolute inset-0 isolate overflow-auto bg-bg">
             {view.screen === 'detail' && <DetailScreen key={view.id} id={view.id} />}
             {view.screen === 'settings' && <SettingsScreen />}
             {view.screen === 'firstRun' && <FirstRunScreen />}
@@ -184,6 +205,33 @@ function Shell() {
       </footer>
     </div>
   )
+}
+
+function viewKey(view: View): string {
+  return view.screen === 'detail' ? `detail:${view.id}` : view.screen
+}
+
+/**
+ * Focuses the screen's h1 (tabIndex -1). The detail screen renders its h1
+ * once the listing has loaded; that late heading takes focus only when no
+ * other element has it by then. Returns the cleanup for the effect.
+ */
+function focusHeading(screen: HTMLElement | null): (() => void) | undefined {
+  if (screen === null) return undefined
+  const heading = screen.querySelector('h1')
+  if (heading !== null) {
+    heading.focus()
+    return undefined
+  }
+  const observer = new MutationObserver(() => {
+    const late = screen.querySelector('h1')
+    if (late === null) return
+    observer.disconnect()
+    const active = document.activeElement
+    if (active === null || active === document.body) late.focus()
+  })
+  observer.observe(screen, { childList: true, subtree: true })
+  return () => observer.disconnect()
 }
 
 function NavItem({

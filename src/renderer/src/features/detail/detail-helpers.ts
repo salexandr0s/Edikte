@@ -23,9 +23,20 @@ export function risksBySeverity(risks: readonly Risk[]): Array<{ risk: Risk; ind
     )
 }
 
-/** The app's check of a value such as "areas.0", or null when there is none. */
-export function evidenceStatus(record: AnalysisRecord, path: string): EvidenceStatus | null {
-  return record.evidence.find((item) => item.path === path)?.status ?? null
+/**
+ * The app's check of a value such as "areas.0" (null when there is none) and
+ * the page its link opens: the cited page, or for `wrong_page` the page where
+ * the check found the quote.
+ */
+export function checkedSource(
+  record: AnalysisRecord,
+  path: string,
+  cited: number | null,
+): { status: EvidenceStatus | null; page: number | null } {
+  const item = record.evidence.find((entry) => entry.path === path)
+  if (item === undefined) return { status: null, page: cited }
+  const page = item.status === 'wrong_page' && item.page !== null ? item.page : cited
+  return { status: item.status, page }
 }
 
 export function isSameArea(a: AreaValue, b: AreaValue): boolean {
@@ -70,6 +81,8 @@ export type AnalysisView =
       /** Analyses in the queue, when a progress event reported it. */
       queued: number | null
     }
+  /** A run has ended, and the listing reload that brings its record is pending or failed. */
+  | { kind: 'ended'; analysisId: number }
   | { kind: 'stopped'; record: AnalysisRecord }
   | { kind: 'done'; record: AnalysisRecord }
 
@@ -92,9 +105,15 @@ export function analysisView(
       queued: live.queued,
     }
   }
+  // The event reports the end of a run that the record shows as older or unfinished.
+  if (
+    live !== null &&
+    (record === null || record.id < live.analysisId || isPending(record.status))
+  ) {
+    return { kind: 'ended', analysisId: live.analysisId }
+  }
   if (record === null) return { kind: 'none' }
   if (isPending(record.status)) {
-    // When `live` reports the end of this run, the reload it triggers brings the record.
     return {
       kind: 'pending',
       analysisId: record.id,

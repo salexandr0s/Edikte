@@ -3,10 +3,10 @@ import type { ListingPage, ListingQuery } from '@shared/domain'
 import type { AppErrorCode } from '@shared/errors'
 import { errorCode, invoke } from '../../lib/bridge'
 import { useBridgeEvent } from '../../lib/use-bridge-event'
-import { onlyTextChanged } from './query-helpers'
+import { onlyTypedFieldsChanged } from './query-helpers'
 
-/** Typing in the search field waits this long before the list is queried. */
-const TEXT_DELAY_MS = 250
+/** Typing in the search field or a number filter waits this long before the list is queried. */
+const TYPING_DELAY_MS = 300
 /** Bursts of listings:changed events (one per analysis step) cause one refetch. */
 const REFRESH_DELAY_MS = 100
 
@@ -35,7 +35,7 @@ export function useListingPage(query: ListingQuery): ListingPageState {
     const last = previous.current
     previous.current = { query, refreshes }
     let wait = 0
-    if (last !== null && onlyTextChanged(last.query, query)) wait = TEXT_DELAY_MS
+    if (last !== null && onlyTypedFieldsChanged(last.query, query)) wait = TYPING_DELAY_MS
     else if (last?.query === query && last.refreshes !== refreshes) wait = REFRESH_DELAY_MS
 
     let ignore = false
