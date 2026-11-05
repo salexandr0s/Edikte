@@ -26,6 +26,8 @@ export interface SecretFiles {
   remove(file: string): Promise<void>
 }
 
+// Files written by an older version must keep parsing: a field added after
+// the first release needs a `.default(...)`.
 const TokenSetSchema = z.object({
   accessToken: z.string().min(1),
   refreshToken: z.string().min(1).nullable(),
@@ -97,6 +99,8 @@ export interface SecretStoreOptions {
   file: string
   encryption: SecretEncryption
   files?: SecretFiles
+  /** Names the copy of a damaged file; tests fix it. */
+  now?: () => number
 }
 
 export const nodeSecretFiles: SecretFiles = {
@@ -125,6 +129,7 @@ export const nodeSecretFiles: SecretFiles = {
 export function createSecretStore(options: SecretStoreOptions): SecretStore {
   const { file, encryption } = options
   const files = options.files ?? nodeSecretFiles
+  const now = options.now ?? Date.now
   let cache: Secrets | null = null
   let queue: Promise<unknown> = Promise.resolve()
 
@@ -146,21 +151,45 @@ export function createSecretStore(options: SecretStoreOptions): SecretStore {
       return cache
     }
     if (!encryption.isAvailable()) throw unavailable()
-    cache = decode(data)
+    const secrets = decode(data)
+    if (secrets === null) await setAside()
+    cache = secrets ?? emptySecrets()
     return cache
   }
 
-  function decode(data: Buffer): Secrets {
+  /**
+   * Null for a damaged file. A decryption failure throws instead and caches
+   * nothing: the keychain may be locked or access declined, and the next read
+   * tries again without anything being overwritten.
+   */
+  function decode(data: Buffer): Secrets | null {
+    const envelope = EnvelopeSchema.safeParse(parseJson(data.toString('utf8')))
+    if (!envelope.success) return null
+    let plainText: string
     try {
-      const envelope = EnvelopeSchema.parse(JSON.parse(data.toString('utf8')))
-      const plainText = encryption.decrypt(Buffer.from(envelope.data, 'base64'))
-      return SecretsSchema.parse(JSON.parse(plainText))
-    } catch {
-      // A copied file or a reset keychain cannot be decrypted. The user signs
-      // in again and the next save replaces the file.
-      log.warn('secrets', 'secret file unreadable, starting empty')
-      return emptySecrets()
+      plainText = encryption.decrypt(Buffer.from(envelope.data.data, 'base64'))
+    } catch (error) {
+      throw new AppError('storage_unavailable', 'The secret file could not be decrypted', {
+        cause: error,
+      })
     }
+    const secrets = SecretsSchema.safeParse(parseJson(plainText))
+    return secrets.success ? secrets.data : null
+  }
+
+  /** Keeps a damaged file under another name, so starting empty overwrites nothing. */
+  async function setAside(): Promise<void> {
+    const aside = `${file}.bad-${now()}`
+    try {
+      await files.rename(file, aside)
+    } catch (error) {
+      throw new AppError('storage_unavailable', 'The damaged secret file could not be moved', {
+        cause: error,
+      })
+    }
+    log.warn('secrets', 'secret file unreadable, moved aside, starting empty', {
+      file: path.basename(aside),
+    })
   }
 
   async function persist(secrets: Secrets): Promise<void> {
@@ -199,4 +228,12 @@ function unavailable(): AppError {
 
 function isNotFound(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return undefined
+  }
 }

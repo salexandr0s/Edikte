@@ -68,12 +68,47 @@ describe('secret store', () => {
     expect(await readdir(dir)).toEqual(['secrets.json'])
   })
 
-  it('starts empty when the file cannot be decrypted', async () => {
-    await writeFile(file, JSON.stringify({ version: 1, data: 'bm90IG91cnM=' }))
-    const store = createSecretStore({ file, encryption: fakeEncryption() })
+  it('keeps the file and caches nothing while decryption fails', async () => {
+    const encryption = fakeEncryption()
+    await createSecretStore({ file, encryption }).update((s) => ({
+      ...s,
+      apiKeys: { ...s.apiKeys, openai: KEY },
+    }))
+    const before = await readFile(file)
+    let locked = true
+    const store = createSecretStore({
+      file,
+      encryption: {
+        ...encryption,
+        decrypt: (cipherText) => {
+          if (locked) throw new Error('keychain locked')
+          return encryption.decrypt(cipherText)
+        },
+      },
+    })
+
+    await expect(store.read()).rejects.toMatchObject({ code: 'storage_unavailable' })
+    await expect(
+      store.update((s) => ({ ...s, apiKeys: { ...s.apiKeys, anthropic: KEY } })),
+    ).rejects.toMatchObject({ code: 'storage_unavailable' })
+    expect(await readFile(file)).toEqual(before)
+    locked = false
+    expect((await store.read()).apiKeys.openai).toBe(KEY)
+  })
+
+  it('moves a damaged file aside before starting empty', async () => {
+    const encryption = fakeEncryption()
+    const damaged = JSON.stringify({
+      version: 1,
+      data: encryption.encrypt('{"apiKeys":{}}').toString('base64'),
+    })
+    await writeFile(file, damaged)
+    const store = createSecretStore({ file, encryption, now: () => 1234 })
 
     expect((await store.read()).apiKeys.openai).toBeNull()
     await store.update((s) => ({ ...s, apiKeys: { ...s.apiKeys, anthropic: KEY } }))
-    expect((await store.read()).apiKeys.anthropic).toBe(KEY)
+    expect((await readdir(dir)).sort()).toEqual(['secrets.json', 'secrets.json.bad-1234'])
+    expect(await readFile(`${file}.bad-1234`, 'utf8')).toBe(damaged)
+    expect((await createSecretStore({ file, encryption }).read()).apiKeys.anthropic).toBe(KEY)
   })
 })
