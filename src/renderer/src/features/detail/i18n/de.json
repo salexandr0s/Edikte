@@ -19,7 +19,9 @@
       "landRegister": "Grundbuch",
       "kg": "KG {{value}}",
       "ez": "EZ {{value}}",
-      "remarks": "Anmerkungen"
+      "remarks": "Anmerkungen",
+      "showMore": "Alles anzeigen",
+      "showLess": "Weniger anzeigen"
     },
     "numbers": {
       "title": "Eckdaten",

@@ -19,7 +19,9 @@
       "landRegister": "Land register (Grundbuch)",
       "kg": "KG {{value}}",
       "ez": "EZ {{value}}",
-      "remarks": "Remarks"
+      "remarks": "Remarks",
+      "showMore": "Show all",
+      "showLess": "Show less"
     },
     "numbers": {
       "title": "Key figures",

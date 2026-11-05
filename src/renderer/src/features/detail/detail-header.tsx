@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ListingDetail } from '@shared/domain'
 import { bezirkName } from '@shared/wien-bezirke'
@@ -112,13 +112,46 @@ export function DetailHeader({ detail, onBack }: DetailHeaderProps) {
             {landRegister === '' ? notStated : landRegister}
           </Fact>
           {detail.remarks !== null && (
-            <Fact label={t('detail.facts.remarks')} lang="de" className="col-span-full">
-              {detail.remarks}
+            <Fact label={t('detail.facts.remarks')} className="col-span-full">
+              <ClampedText text={detail.remarks} />
             </Fact>
           )}
         </FactList>
       </Card>
     </header>
+  )
+}
+
+/**
+ * Site text that can run to a page, such as the remarks, cut to three lines
+ * with a button that shows the rest. The button appears only when lines were cut.
+ */
+function ClampedText({ text }: { text: string }) {
+  const { t } = useTranslation()
+  const id = useId()
+  const ref = useRef<HTMLSpanElement>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [cut, setCut] = useState(false)
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (element !== null && !expanded) setCut(element.scrollHeight > element.clientHeight)
+  }, [text, expanded])
+  return (
+    <span className="flex flex-col items-start gap-1">
+      <span id={id} ref={ref} lang="de" className={cx(!expanded && 'line-clamp-3')}>
+        {text}
+      </span>
+      {(cut || expanded) && (
+        <Button
+          variant="link"
+          aria-expanded={expanded}
+          aria-controls={id}
+          onClick={() => setExpanded((open) => !open)}
+        >
+          {expanded ? t('detail.facts.showLess') : t('detail.facts.showMore')}
+        </Button>
+      )}
+    </span>
   )
 }
 
