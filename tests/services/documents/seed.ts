@@ -120,6 +120,7 @@ export function listingRow(id: string, area: number | null): ListingRow {
     pricePerSqm: null,
     approximate: [],
     analysisStatus: null,
+    hasAnalysis: false,
     riskLevel: null,
     hasLanggutachten: true,
     starred: false,

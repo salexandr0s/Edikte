@@ -40,6 +40,7 @@ function row(id: string, analysisStatus: ListingRow['analysisStatus']): ListingR
     pricePerSqm: null,
     approximate: [],
     analysisStatus,
+    hasAnalysis: false,
     riskLevel: null,
     hasLanggutachten: true,
     starred: false,

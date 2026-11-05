@@ -39,6 +39,7 @@ function row(name: string, fields: Partial<ListingRow> = {}): ListingRow {
     pricePerSqm: null,
     approximate: [],
     analysisStatus: null,
+    hasAnalysis: false,
     riskLevel: null,
     hasLanggutachten: true,
     starred: false,

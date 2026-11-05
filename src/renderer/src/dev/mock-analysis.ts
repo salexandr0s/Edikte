@@ -120,6 +120,7 @@ export function rowWithAnalyses(
     {
       ...row,
       analysisStatus: own.at(-1)?.status ?? null,
+      hasAnalysis: latestDone !== undefined,
       riskLevel: highestRisk(latestDone?.result ?? null),
       area: aiArea !== null && row.area?.source !== 'listing' ? aiArea : row.area,
     },

@@ -66,7 +66,10 @@ export const ListingRowSchema = z.object({
   priceBasis: PriceBasisSchema,
   pricePerSqm: z.number().nonnegative().nullable(),
   approximate: z.array(ApproximateReasonSchema),
+  /** Status of the newest analysis run, finished or not. */
   analysisStatus: AnalysisStatusSchema.nullable(),
+  /** A finished analysis exists. Its risk level and area stay while a newer run is queued, running or failed. */
+  hasAnalysis: z.boolean(),
   riskLevel: RiskLevelSchema.nullable(),
   hasLanggutachten: z.boolean(),
   starred: z.boolean(),

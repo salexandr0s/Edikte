@@ -28,7 +28,7 @@ export function withPriceBasis(row: ListingRow, basis: PriceBasis): ListingRow {
 export function matchesListingQuery(row: ListingRow, query: ListingQuery): boolean {
   if (row.hidden && !query.showHidden) return false
   if (query.starredOnly && !row.starred) return false
-  if (query.analyzedOnly && row.analysisStatus !== 'done') return false
+  if (query.analyzedOnly && !row.hasAnalysis) return false
   if (!isListed(query.statuses, row.status)) return false
   if (!isListed(query.bundeslaender, row.bundesland)) return false
   if (!isListed(query.bezirke, row.bezirk)) return false

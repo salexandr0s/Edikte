@@ -92,6 +92,7 @@ describe('listing rows', () => {
     expect(rows.get(edictId(2))).toMatchObject({
       area: { source: 'ai_verified', sqm: 60, page: 3, documentId: gutachten },
       analysisStatus: 'running',
+      hasAnalysis: true,
       riskLevel: 'high',
       hasLanggutachten: true,
     })

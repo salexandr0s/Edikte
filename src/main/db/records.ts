@@ -229,6 +229,7 @@ export function buildListingRow(
       areaMismatch: choice.mismatch,
     }),
     analysisStatus: sources.analysisStatus,
+    hasAnalysis: sources.finished !== null,
     riskLevel: highestRisk(result),
     hasLanggutachten: sources.hasLanggutachten,
     starred: sources.starred,

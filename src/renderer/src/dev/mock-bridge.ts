@@ -325,6 +325,7 @@ function fakeListing(
       pricePerSqm: null,
       approximate: [],
       analysisStatus: null,
+      hasAnalysis: false,
       riskLevel: null,
       hasLanggutachten: true,
       starred: false,
