@@ -114,6 +114,29 @@ export class EdikteClient implements PageSource {
     return result
   }
 
+  /**
+   * `fetch` in the same queue and at the same pace as page requests, for
+   * document downloads. The next request waits until this response's body has
+   * been read, cancelled or has failed, or the request's signal aborts. Not
+   * counted in `requestCount`, which the sync summary reports.
+   */
+  readonly limitedFetch: typeof globalThis.fetch = (input, init) => {
+    const signal = init?.signal ?? undefined
+    let release = (): void => undefined
+    const held = new Promise<void>((resolve) => {
+      release = () => resolve()
+    })
+    const result = this.#queue.then(async () => {
+      throwIfCancelled(signal)
+      this.#ensureNotPaused()
+      await this.#waitForSlot(signal)
+      return holdUntilRead(await this.#fetch(input, init), release, signal)
+    })
+    result.catch(release)
+    this.#queue = held
+    return result
+  }
+
   async #getWithRetries(url: string, signal: AbortSignal | undefined): Promise<string> {
     for (let attempt = 1; ; attempt += 1) {
       throwIfCancelled(signal)
@@ -300,6 +323,53 @@ function tooLarge(maxBytes: number): AppError {
 
 async function cancelBody(response: Response): Promise<void> {
   await response.body?.cancel().catch(() => undefined)
+}
+
+/**
+ * The response with a body that calls `release` once it has been read to the
+ * end, cancelled or has failed, or once the signal aborts.
+ */
+function holdUntilRead(
+  response: Response,
+  release: () => void,
+  signal: AbortSignal | undefined,
+): Response {
+  const source = response.body
+  if (source === null) {
+    release()
+    return response
+  }
+  signal?.addEventListener('abort', release, { once: true })
+  const reader = source.getReader()
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        // Node types the body stream as any, so each chunk is checked.
+        const chunk: { done: boolean; value?: unknown } = await reader.read()
+        if (chunk.done) {
+          release()
+          controller.close()
+        } else if (chunk.value instanceof Uint8Array) {
+          controller.enqueue(chunk.value)
+        } else {
+          release()
+          controller.error(new AppError('site_changed', 'Response body is not binary data'))
+        }
+      } catch (error) {
+        release()
+        controller.error(error)
+      }
+    },
+    cancel(reason: unknown) {
+      release()
+      return reader.cancel(reason)
+    },
+  })
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  })
 }
 
 function cancelledError(): AppError {
