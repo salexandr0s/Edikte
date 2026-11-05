@@ -10,6 +10,7 @@ export const INVOKE_CHANNELS = [
   'sync:status',
   'listings:query',
   'listings:get',
+  'geocode:run',
   'userState:update',
   'filters:list',
   'filters:save',
@@ -43,6 +44,7 @@ export type InvokeChannel = (typeof INVOKE_CHANNELS)[number]
 export const EVENT_CHANNELS = [
   'sync:progress',
   'listings:changed',
+  'geocode:progress',
   'documents:progress',
   'analysis:progress',
   'providers:changed',

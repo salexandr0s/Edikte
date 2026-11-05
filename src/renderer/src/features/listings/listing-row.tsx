@@ -13,7 +13,7 @@ import { useFormat } from '../../lib/format'
 // table.v1: numbers right-aligned. The last row leaves its border to the frame.
 const CELL = 'border-b border-border py-3 align-top group-last/row:border-b-0'
 
-const STATUS_VARIANT: Readonly<Record<ListingStatus, BadgeVariant>> = {
+export const STATUS_VARIANT: Readonly<Record<ListingStatus, BadgeVariant>> = {
   upcoming: 'primary',
   postponed: 'warning',
   cancelled: 'danger',
@@ -273,7 +273,8 @@ function Missing({ label }: { label: string }) {
 }
 
 /** Street, then postcode and city, or the Vienna district when both are missing. */
-function addressLine(row: ListingRow, district: string | null): string | null {
+/** Street, then postcode and town, or the district when the site named no town. */
+export function addressLine(row: ListingRow, district: string | null): string | null {
   const place = [row.plz, row.city].filter((part) => part !== null && part !== '').join(' ')
   const parts = [row.street, place === '' ? district : place].filter(
     (part): part is string => part !== null && part !== '',

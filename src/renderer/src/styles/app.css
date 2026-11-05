@@ -191,9 +191,8 @@
     }
   }
   /*
-   * The dialog is centred by the `translate` property (-translate-x-1/2
-   * -translate-y-1/2), which composes with `transform`, so the keyframes
-   * must not repeat the offset: with it, the dialog lands off-centre.
+   * The dialog is centred by a flex box around it (dialog.tsx), so these
+   * keyframes carry only the motion. An offset here would move it off-centre.
    */
   @keyframes edk-dialog-in {
     from {

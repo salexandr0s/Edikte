@@ -9,7 +9,7 @@ import { ActiveFilterChips } from './active-filter-chips'
 import { AnalysisQueueStatus, AnalyzeFilteredButton } from './analysis-actions'
 import { FillAreasButton, FillProgressPanel, useFillJob } from './fill-areas'
 import { FilterDialog } from './filter-dialog'
-import { ListingResults } from './listing-results'
+import { ListingResults, type ListingView } from './listing-results'
 import { applyPatch, countActiveFilters, defaultQuery, resetFilters } from './query-helpers'
 import { SavedFilters } from './saved-filters'
 import { SyncBar } from './sync-bar'
@@ -35,6 +35,7 @@ export function ListingsScreen() {
     setQuery((current) => applyPatch(current, { priceBasis: settings.priceBasis }))
   }
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [view, setView] = useState<ListingView>('list')
   const titleId = useId()
 
   const listing = useListingPage(query)
@@ -49,7 +50,8 @@ export function ListingsScreen() {
   const reset = () => setQuery((current) => resetFilters(current, settings.priceBasis))
 
   return (
-    <div className="flex flex-col gap-5 px-6 py-6">
+    // At least the screen's height, so the map view can take what the list leaves.
+    <div className="flex min-h-full flex-col gap-5 px-6 py-6">
       <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
         <h1
           id={titleId}
@@ -103,6 +105,8 @@ export function ListingsScreen() {
         rows={userState.rows}
         tracker={tracker}
         sync={sync}
+        view={view}
+        onViewChange={setView}
         onSort={(sort) => updateQuery({ sort })}
         onReset={reset}
         onOpen={(row) => navigate({ screen: 'detail', id: row.id })}

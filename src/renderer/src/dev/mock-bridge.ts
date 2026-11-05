@@ -94,6 +94,7 @@ function toErrorShape(error: unknown): AppErrorShape {
 
 function createHandlers(state: MockState, emit: Emit): MockHandlers {
   let syncTimer: ReturnType<typeof setInterval> | null = null
+  let geocodeRunning = false
   let nextFilterId = Math.max(...state.filters.map((filter) => filter.id)) + 1
 
   const finishSync = (status: SyncRunSummary['status']) => {
@@ -172,6 +173,23 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
     },
 
     'listings:query': (query) => applyListingQuery(rowsWithUserState(), query),
+    'geocode:run': () => {
+      // One address is still unknown; the pretend lookup places it a moment later.
+      const unknown = state.rows.find((row) => row.street === 'Probegasse 21')
+      if (unknown === undefined || unknown.location !== null || geocodeRunning) {
+        return { pending: 0, running: geocodeRunning }
+      }
+      geocodeRunning = true
+      const finish = () => {
+        unknown.location = { lat: 48.2127, lng: 16.3119, precision: 'place' }
+        geocodeRunning = false
+        emit('geocode:progress', { pending: 0, running: false })
+        emit('listings:changed', { edictIds: [unknown.id] })
+      }
+      void delay(1200).then(() => emit('geocode:progress', { pending: 1, running: true }))
+      void delay(2400).then(finish)
+      return { pending: 2, running: true }
+    },
     'listings:get': ({ id }) => {
       const index = state.rows.findIndex((candidate) => candidate.id === id)
       const row = rowsWithUserState()[index]
@@ -313,6 +331,7 @@ function fakeListing(
       city: 'Wien',
       bundesland: 'wien',
       bezirk: null,
+      location: null,
       court: null,
       caseNumber: `${10 + n} E ${100 + n}/26x`,
       auctionAt: null,
@@ -346,6 +365,7 @@ function fakeListings(): ListingRow[] {
       street: 'Beispielgasse 12',
       plz: '1220',
       bezirk: 22,
+      location: { lat: 48.2321, lng: 16.4452, precision: 'address' },
       court: 'BG Donaustadt',
       auctionAt: '2026-12-03T10:00',
       schaetzwertEur: 245_000,
@@ -359,6 +379,7 @@ function fakeListings(): ListingRow[] {
       street: 'Musterstraße 3',
       plz: '1100',
       bezirk: 10,
+      location: { lat: 48.1752, lng: 16.3781, precision: 'address' },
       court: 'BG Favoriten',
       auctionAt: '2026-12-10T09:30',
       schaetzwertEur: 260_000,
@@ -379,6 +400,7 @@ function fakeListings(): ListingRow[] {
       street: 'Probeweg 7',
       plz: '1210',
       bezirk: 21,
+      location: { lat: 48.2618, lng: 16.3994, precision: 'street' },
       court: 'BG Floridsdorf',
       auctionAt: '2027-01-14T10:00',
       schaetzwertEur: 520_000,
@@ -394,6 +416,7 @@ function fakeListings(): ListingRow[] {
       street: 'Beispielgasse 30',
       plz: '1030',
       bezirk: 3,
+      location: { lat: 48.1991, lng: 16.3932, precision: 'address' },
       court: 'BG Innere Stadt Wien',
       auctionAt: '2026-12-17T11:00',
       schaetzwertEur: 310_000,
@@ -408,6 +431,7 @@ function fakeListings(): ListingRow[] {
       street: 'Musterweg 5',
       plz: '1150',
       bezirk: 15,
+      location: { lat: 48.1963, lng: 16.3204, precision: 'address' },
       court: 'BG Fünfhaus',
       auctionAt: '2027-02-04T10:00',
       schaetzwertEur: 198_000,
@@ -422,6 +446,7 @@ function fakeListings(): ListingRow[] {
       plz: '2340',
       city: 'Mödling',
       bundesland: 'noe',
+      location: { lat: 48.0862, lng: 16.2887, precision: 'address' },
       court: 'BG Mödling',
       auctionAt: '2026-12-09T09:00',
       schaetzwertEur: 480_000,
@@ -436,6 +461,8 @@ function fakeListings(): ListingRow[] {
       street: 'Beispielplatz 1',
       plz: '1020',
       bezirk: 2,
+      // The same point as Beispielgasse 30: one pin with two auctions.
+      location: { lat: 48.1991, lng: 16.3932, precision: 'address' },
       court: 'BG Leopoldstadt',
       auctionAt: '2026-12-15T10:00',
       schaetzwertEur: 350_000,
@@ -450,6 +477,8 @@ function fakeListings(): ListingRow[] {
       street: 'Probegasse 21',
       plz: '1160',
       bezirk: 16,
+      // Found by the pretend lookup that geocode:run starts.
+      location: null,
       court: 'BG Hernals',
       auctionAt: '2026-10-08T10:00',
       schaetzwertEur: 290_000,

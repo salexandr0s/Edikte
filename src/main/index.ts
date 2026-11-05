@@ -5,6 +5,7 @@ import {
   dialog,
   nativeTheme,
   powerMonitor,
+  protocol,
   session,
   type OpenDialogOptions,
 } from 'electron'
@@ -13,17 +14,19 @@ import { createDocumentStore } from './db/document-store'
 import { queryListings } from './db/listing-store'
 import { ensurePresetFilters } from './db/user-store'
 import {
+  DOCUMENT_SCHEME_PRIVILEGES,
   extractInUtilityProcess,
   installDocumentProtocol,
   openPdfWindow,
   rasterPageLocation,
-  registerDocumentScheme,
   renderPdfPages,
 } from './documents'
+import { createNominatimGeocoder, NOMINATIM_PROVIDER } from './geocode'
 import { createEventEmitter } from './ipc/events'
 import { createIpcRouter } from './ipc/handle'
 import { registerIpcHandlers } from './ipc/register'
 import { log } from './log'
+import { installTileProtocol, TILE_SCHEME_PRIVILEGES } from './map'
 import { resolveAppPaths } from './paths'
 import { EdikteClient, userAgent } from './scraper/client'
 import { createSafeStorageEncryption } from './secure/safe-storage'
@@ -36,6 +39,7 @@ import {
 } from './security'
 import { createAnalysisService, type AnalysisService } from './services/analysis'
 import { createDocumentService, type DocumentService } from './services/documents'
+import { createGeocodeService, type GeocodeService } from './services/geocode'
 import { createProviderService, type ProviderService } from './services/providers'
 import { createSettingsService } from './services/settings'
 import { createSyncService, type SyncService } from './services/sync'
@@ -52,8 +56,9 @@ const smokeTest = process.env.EDIKTE_SMOKE_TEST === '1'
 // the self-check run this way; requests the user starts still go out.
 const offline = smokeTest || process.env.EDIKTE_OFFLINE === '1'
 app.enableSandbox()
-// The PDF window's scheme must be registered before the app is ready.
-registerDocumentScheme()
+// Electron honours one such call, and only before the app is ready: the PDF
+// window's scheme and the map tile scheme go in together.
+protocol.registerSchemesAsPrivileged([DOCUMENT_SCHEME_PRIVILEGES, TILE_SCHEME_PRIVILEGES])
 
 const devServerUrl = app.isPackaged ? null : (process.env.ELECTRON_RENDERER_URL ?? null)
 const rendererIndexFile = path.join(import.meta.dirname, '../renderer/index.html')
@@ -63,6 +68,7 @@ const SHUTDOWN_LIMIT_MS = 5000
 
 interface Services {
   sync: SyncService
+  geocode: GeocodeService
   providers: ProviderService
   documents: DocumentService
   analysis: AnalysisService
@@ -97,6 +103,10 @@ function start(): void {
   database = db
   ensurePresetFilters(db)
   installDocumentProtocol(paths.documents)
+  installTileProtocol(session.defaultSession, {
+    tilesDir: paths.tiles,
+    userAgent: userAgent(app.getVersion()),
+  })
 
   const emit = createEventEmitter(() => mainWindow)
   // One client for every request to the site, so all of them share one rate limit.
@@ -115,6 +125,15 @@ function start(): void {
       powerMonitor.on('resume', listener)
       return () => powerMonitor.off('resume', listener)
     },
+  })
+  // Addresses are looked up when the map view asks for them, never on their own.
+  const geocode = createGeocodeService({
+    db,
+    geocoder: createNominatimGeocoder({ userAgent: userAgent(app.getVersion()) }),
+    provider: NOMINATIM_PROVIDER,
+    emit,
+    readSettings: () => settings.read(),
+    offline,
   })
   const providers = createProviderService({
     db,
@@ -148,12 +167,21 @@ function start(): void {
     documentsDir: paths.documents,
     renderPdf: (options) => renderPdfPages({ ...options, location: rasterLocation }),
   })
-  services = { sync, providers, documents, analysis }
+  services = { sync, geocode, providers, documents, analysis }
 
   const router = createIpcRouter((event) =>
     isTrustedSender(event, mainWindow?.webContents ?? null, trust),
   )
-  registerIpcHandlers(router, { db, paths, settings, sync, providers, documents, analysis })
+  registerIpcHandlers(router, {
+    db,
+    paths,
+    settings,
+    sync,
+    geocode,
+    providers,
+    documents,
+    analysis,
+  })
 
   mainWindow = createMainWindow()
   if (smokeTest) runSmokeCheck(mainWindow)
@@ -225,13 +253,18 @@ function fail(error: unknown): void {
 }
 
 /**
- * Stops sign-ins, the sync, analyses and downloads, waits a few seconds for
- * them to stop writing, then closes the database. Queued analyses stay queued.
+ * Stops sign-ins, the sync, address lookups, analyses and downloads, waits a
+ * few seconds for them to stop writing, then closes the database. Queued
+ * analyses stay queued.
  */
 async function stopServices(db: AppDatabase, running: Services | null): Promise<void> {
   if (running !== null) {
     running.providers.dispose()
-    const stopping = Promise.allSettled([running.sync.dispose(), running.analysis.shutdown()])
+    const stopping = Promise.allSettled([
+      running.sync.dispose(),
+      running.geocode.dispose(),
+      running.analysis.shutdown(),
+    ])
     // In the same tick, after analysis.shutdown() has begun: a job whose download
     // stops here keeps its row queued for the next start instead of failing.
     running.documents.shutdown()

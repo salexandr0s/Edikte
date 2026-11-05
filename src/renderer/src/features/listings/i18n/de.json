@@ -229,5 +229,33 @@
       "cancelled": "Analysen abgebrochen",
       "cancelFailed": "Die Analysen konnten nicht abgebrochen werden."
     }
+  },
+  "map": {
+    "view": {
+      "label": "Ansicht",
+      "list": "Liste",
+      "map": "Karte"
+    },
+    "region": "Karte der Versteigerungen",
+    "loading": "Karte wird geladen …",
+    "loadFailed": "Die Karte konnte nicht geladen werden.",
+    "tilesFailed": "Die Karte konnte nicht von basemap.at geladen werden.",
+    "retryTiles": "Erneut versuchen",
+    "showAll": "Alle anzeigen",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "lookingUp_one": "Adressen werden gesucht, noch {{count}}",
+    "lookingUp_other": "Adressen werden gesucht, noch {{count}}",
+    "missing_one": "{{count}} Versteigerung ohne Position auf der Karte",
+    "missing_other": "{{count}} Versteigerungen ohne Position auf der Karte",
+    "missingHint": "Der Adressdienst kennt diese Adressen nicht, oder sie wurden noch nicht gesucht.",
+    "pin_one": "{{price}}, {{count}} Versteigerung",
+    "pin_other": "{{price}}, {{count}} Versteigerungen",
+    "from": "ab {{value}}",
+    "approximate": "Position ungefähr, nur der Ort ist bekannt",
+    "atLocation_one": "{{count}} Versteigerung an dieser Adresse",
+    "atLocation_other": "{{count}} Versteigerungen an dieser Adresse",
+    "open": "{{title}} öffnen",
+    "attribution": "Karte: basemap.at (CC BY 4.0). Adressen: OpenStreetMap-Mitwirkende (ODbL)."
   }
 }

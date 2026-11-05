@@ -14,6 +14,7 @@ import {
   type AreaValue,
   type DocumentInfo,
   type KurzgutachtenFacts,
+  type ListingLocation,
   type ListingRow,
 } from '@shared/domain'
 import type { AnalysisStatus, PriceBasis, RiskLevel } from '@shared/enums'
@@ -161,6 +162,7 @@ export interface ListingSources {
   analysisStatus: AnalysisStatus | null
   finished: FinishedAnalysis | null
   estimates: ReadonlyArray<Pick<AreaEstimateRow, 'documentId' | 'kind' | 'sqm' | 'page' | 'quote'>>
+  location: ListingLocation | null
 }
 
 export function toFinishedAnalysis(
@@ -217,6 +219,7 @@ export function buildListingRow(
     city: edict.city,
     bundesland: edict.bundesland,
     bezirk: edict.bezirk,
+    location: sources.location,
     court: edict.court,
     caseNumber: edict.caseNumber,
     auctionAt: edict.auctionAt,

@@ -68,6 +68,7 @@ describe('buildListingRow', () => {
     analysisStatus: 'done',
     finished: { result: analysisResult({ ownership }), evidence: [], documentId: null },
     estimates: [],
+    location: null,
   })
 
   it('marks part ownership only outside Wohnungseigentum', () => {
@@ -112,6 +113,7 @@ describe('buildListingRow', () => {
       analysisStatus: null,
       finished: null,
       estimates: [],
+      location: null,
     }
     const reasons = (title: string, categoryLabel = 'Eigentumswohnung') =>
       buildListingRow(

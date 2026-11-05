@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, inArray, isNull, max, ne, or } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, isNull, max, ne, or } from 'drizzle-orm'
 import type {
   ListingDetail,
+  ListingLocation,
   ListingPage,
   ListingQuery,
   ListingRow,
@@ -22,7 +23,15 @@ import {
   type EdictRow,
   type ListingEdict,
 } from './records'
-import { analyses, areaEstimates, documentPages, documents, edicts, userState } from './schema'
+import {
+  analyses,
+  areaEstimates,
+  documentPages,
+  documents,
+  edictLocations,
+  edicts,
+  userState,
+} from './schema'
 import { readSettings } from './settings-store'
 
 // The listing read model. A query loads each source table once and joins in
@@ -95,6 +104,7 @@ export function getListing(db: AppDatabase, id: string): ListingDetail {
       analysisStatus: latest?.status ?? null,
       finished: latestDone === undefined ? null : toFinishedAnalysis(latestDone),
       estimates: estimateRows,
+      location: loadLocations(db, [id]).get(id) ?? null,
     },
     readSettings(db).priceBasis,
   )
@@ -220,6 +230,10 @@ function loadListingRows(
       .all()
       .map((analysis) => [analysis.edictId, toFinishedAnalysis(analysis)]),
   )
+  const locations = loadLocations(
+    db,
+    rows.map((row) => row.id),
+  )
   const cases = new Map<string, [ListingEdict, ...ListingEdict[]]>()
   for (const edict of rows) {
     const group = cases.get(edict.caseKey)
@@ -236,10 +250,32 @@ function loadListingRows(
       analysisStatus: statuses.get(edict.id) ?? null,
       finished: finished.get(edict.id) ?? null,
       estimates: estimates.get(edict.id) ?? [],
+      location: locations.get(edict.id) ?? null,
     }
     const { row } = buildListingRow(edict, sources, basis)
     return { ...row, status: decider.status, noticeType: decider.noticeType }
   })
+}
+
+/** Positions the geocoder found, by edict ID; edicts it looked up without a hit are left out. */
+function loadLocations(db: AppDatabase, edictIds: readonly string[]): Map<string, ListingLocation> {
+  const found = new Map<string, ListingLocation>()
+  if (edictIds.length === 0) return found
+  const rows = db
+    .select({
+      edictId: edictLocations.edictId,
+      lat: edictLocations.lat,
+      lng: edictLocations.lng,
+      precision: edictLocations.precision,
+    })
+    .from(edictLocations)
+    .where(and(inArray(edictLocations.edictId, [...edictIds]), isNotNull(edictLocations.lat)))
+    .all()
+  for (const row of rows) {
+    if (row.lat === null || row.lng === null || row.precision === null) continue
+    found.set(row.edictId, { lat: row.lat, lng: row.lng, precision: row.precision })
+  }
+  return found
 }
 
 /** Notices of a case whose auction is still ahead or was moved or called off. */

@@ -7,6 +7,7 @@ import {
   DocumentInfoSchema,
   DocumentProgressSchema,
   FillPlanSchema,
+  GeocodeProgressSchema,
   ListingDetailSchema,
   ListingPageSchema,
   ListingQuerySchema,
@@ -65,6 +66,8 @@ export const ipcContract = {
     request: z.object({ id: EdictIdSchema }).strict(),
     response: ListingDetailSchema,
   },
+  /** Looks up map positions for addresses that have none yet; returns at once. */
+  'geocode:run': { request: none, response: GeocodeProgressSchema },
 
   'userState:update': {
     request: z
@@ -165,6 +168,7 @@ export const eventContract = {
   'sync:progress': SyncStatusSchema,
   /** Listings changed in the database; null means "refetch everything". */
   'listings:changed': z.object({ edictIds: z.array(z.string()).nullable() }),
+  'geocode:progress': GeocodeProgressSchema,
   'documents:progress': DocumentProgressSchema,
   'analysis:progress': AnalysisProgressSchema,
   'providers:changed': ProviderListSchema,

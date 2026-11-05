@@ -36,6 +36,19 @@ export const AreaValueSchema = z.object({
 })
 export type AreaValue = z.infer<typeof AreaValueSchema>
 
+/** How closely the geocoder could place an address. */
+export const LocationPrecisionSchema = z.enum(['address', 'street', 'place'])
+export type LocationPrecision = z.infer<typeof LocationPrecisionSchema>
+
+/** Where the listing's address sits on the map, from the geocoder. */
+export const ListingLocationSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  /** `address` is the house, `street` the street, `place` only the town or postcode. */
+  precision: LocationPrecisionSchema,
+})
+export type ListingLocation = z.infer<typeof ListingLocationSchema>
+
 // ── Listings ───────────────────────────────────────────────────────────────
 
 /** One row of the listings table. `id` is the site's edict ID. */
@@ -55,6 +68,8 @@ export const ListingRowSchema = z.object({
   city: z.string().nullable(),
   bundesland: BundeslandSchema.nullable(),
   bezirk: BezirkSchema.nullable(),
+  /** Null until the address has been looked up, or when the geocoder did not find it. */
+  location: ListingLocationSchema.nullable(),
   court: z.string().nullable(),
   caseNumber: z.string().nullable(),
   auctionAt: LocalDateTimeSchema.nullable(),
@@ -123,6 +138,14 @@ export const ListingPageSchema = z.object({
   totalInScope: z.number().int().nonnegative(),
 })
 export type ListingPage = z.infer<typeof ListingPageSchema>
+
+/** State of the address lookups that give listings their map positions. */
+export const GeocodeProgressSchema = z.object({
+  /** Addresses in the synced scope still waiting for a lookup. */
+  pending: z.number().int().nonnegative(),
+  running: z.boolean(),
+})
+export type GeocodeProgress = z.infer<typeof GeocodeProgressSchema>
 
 export const DocumentInfoSchema = z.object({
   id: z.number().int(),

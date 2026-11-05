@@ -9,6 +9,7 @@ import type { AppPaths } from '../paths'
 import { openExternalUrl } from '../security'
 import type { AnalysisService } from '../services/analysis'
 import type { DocumentService } from '../services/documents'
+import type { GeocodeService } from '../services/geocode'
 import { registerProviderHandlers, type ProviderService } from '../services/providers'
 import type { SettingsService } from '../services/settings'
 import type { SyncService } from '../services/sync'
@@ -19,6 +20,7 @@ export interface IpcServices {
   paths: AppPaths
   settings: SettingsService
   sync: SyncService
+  geocode: GeocodeService
   providers: ProviderService
   documents: DocumentService
   analysis: AnalysisService
@@ -29,7 +31,7 @@ export interface IpcServices {
  * handler answers `not_implemented` instead of leaving the renderer waiting.
  */
 export function registerIpcHandlers(router: IpcRouter, services: IpcServices): void {
-  const { db, paths, settings, sync, documents, analysis } = services
+  const { db, paths, settings, sync, geocode, documents, analysis } = services
 
   router.handle('app:getInfo', () => appInfo(paths))
   router.handle('settings:get', () => settings.read())
@@ -44,6 +46,7 @@ export function registerIpcHandlers(router: IpcRouter, services: IpcServices): v
 
   router.handle('listings:query', (query) => queryListings(db, query))
   router.handle('listings:get', ({ id }) => getListing(db, id))
+  router.handle('geocode:run', () => geocode.run())
   router.handle('userState:update', (request) => updateUserState(db, request))
   router.handle('filters:list', () => listSavedFilters(db))
   router.handle('filters:save', (request) => saveFilter(db, request))

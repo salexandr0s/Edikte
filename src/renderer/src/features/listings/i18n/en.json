@@ -229,5 +229,33 @@
       "cancelled": "Analyses cancelled",
       "cancelFailed": "The analyses could not be cancelled."
     }
+  },
+  "map": {
+    "view": {
+      "label": "View",
+      "list": "List",
+      "map": "Map"
+    },
+    "region": "Map of the auctions",
+    "loading": "Loading the map…",
+    "loadFailed": "The map could not be loaded.",
+    "tilesFailed": "The map could not be loaded from basemap.at.",
+    "retryTiles": "Try again",
+    "showAll": "Show all",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "lookingUp_one": "Looking up addresses, {{count}} left",
+    "lookingUp_other": "Looking up addresses, {{count}} left",
+    "missing_one": "{{count}} auction has no position on the map",
+    "missing_other": "{{count}} auctions have no position on the map",
+    "missingHint": "The address service does not know these addresses, or they have not been looked up yet.",
+    "pin_one": "{{price}}, {{count}} auction",
+    "pin_other": "{{price}}, {{count}} auctions",
+    "from": "from {{value}}",
+    "approximate": "Position approximate, only the town is known",
+    "atLocation_one": "{{count}} auction at this address",
+    "atLocation_other": "{{count}} auctions at this address",
+    "open": "Open {{title}}",
+    "attribution": "Map: basemap.at (CC BY 4.0). Addresses: OpenStreetMap contributors (ODbL)."
   }
 }

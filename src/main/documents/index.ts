@@ -24,7 +24,6 @@ export {
   DOCUMENT_SCHEME_PRIVILEGES,
   installDocumentProtocol,
   openPdfWindow,
-  registerDocumentScheme,
   type OpenPdfOptions,
 } from './pdf-window'
 export { DOCUMENT_SCHEME, resolveDocumentFile } from './document-protocol'

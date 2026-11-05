@@ -3,7 +3,7 @@ import { ListingQuerySchema, PRESET_WIEN_UNDER_5000, type ListingRow } from '@sh
 import { isAppError } from '@shared/errors'
 import { openDatabase, type AppDatabase } from '../../src/main/db/client'
 import { getListing, queryListings } from '../../src/main/db/listing-store'
-import { documentPages } from '../../src/main/db/schema'
+import { documentPages, edictLocations } from '../../src/main/db/schema'
 import { updateSettings } from '../../src/main/db/settings-store'
 import { updateUserState } from '../../src/main/db/user-store'
 import {
@@ -142,6 +142,47 @@ describe('listing rows', () => {
     // Wien and NÖ without the removed edict.
     expect(page.totalInScope).toBe(6)
     expect(getListing(database, edictId(7)).removedAt).toBe(T0)
+  })
+})
+
+describe('listing positions', () => {
+  it('come from the stored lookup, and only when it found the address', () => {
+    const database = open()
+    insertEdict(database, 1)
+    insertEdict(database, 2, { caseKey: 'case-2' })
+    insertEdict(database, 3, { caseKey: 'case-3' })
+    database
+      .insert(edictLocations)
+      .values([
+        {
+          edictId: edictId(1),
+          query: 'musterstraße 1|1030|wien',
+          lat: 48.2,
+          lng: 16.38,
+          precision: 'address',
+          provider: 'test',
+          geocodedAt: T0,
+        },
+        {
+          edictId: edictId(2),
+          query: 'nirgendwo|1030|wien',
+          lat: null,
+          lng: null,
+          precision: null,
+          provider: 'test',
+          geocodedAt: T0,
+        },
+      ])
+      .run()
+    const rows = rowsById(database)
+    expect(rows.get(edictId(1))?.location).toEqual({ lat: 48.2, lng: 16.38, precision: 'address' })
+    expect(rows.get(edictId(2))?.location).toBeNull()
+    expect(rows.get(edictId(3))?.location).toBeNull()
+    expect(getListing(database, edictId(1)).location).toEqual({
+      lat: 48.2,
+      lng: 16.38,
+      precision: 'address',
+    })
   })
 })
 

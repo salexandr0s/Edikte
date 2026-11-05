@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import type { CrossCheck, EvidenceItem } from '@shared/analysis-schema'
-import type { KurzgutachtenFacts, ListingQueryInput } from '@shared/domain'
+import type { KurzgutachtenFacts, ListingQueryInput, LocationPrecision } from '@shared/domain'
 import type {
   AnalysisStatus,
   AreaKind,
@@ -90,6 +90,28 @@ export const edicts = sqliteTable(
     index('edicts_scope_idx').on(table.bundesland, table.status),
     index('edicts_auction_at_idx').on(table.auctionAt),
   ],
+)
+
+/**
+ * Map position of an edict's address from the geocoder. A row without
+ * coordinates records that the address was not found, so it is not sent
+ * again until the address changes.
+ */
+export const edictLocations = sqliteTable(
+  'edict_locations',
+  {
+    edictId: text('edict_id')
+      .primaryKey()
+      .references(() => edicts.id, { onDelete: 'cascade' }),
+    /** The address as sent to the geocoder; edicts with the same query share the result. */
+    query: text('query').notNull(),
+    lat: real('lat'),
+    lng: real('lng'),
+    precision: text('precision').$type<LocationPrecision>(),
+    provider: text('provider').notNull(),
+    geocodedAt: text('geocoded_at').notNull(),
+  },
+  (table) => [index('edict_locations_query_idx').on(table.query)],
 )
 
 export const documents = sqliteTable(

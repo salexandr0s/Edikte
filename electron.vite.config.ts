@@ -15,7 +15,8 @@ const APP_CSP = [
   "script-src 'self'",
   // Radix injects <style> elements for scroll locking.
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  // Map tiles come through main's edikte-tile scheme, never straight from the web.
+  "img-src 'self' data: blob: edikte-tile:",
   "font-src 'self'",
   "connect-src 'self'",
   "object-src 'none'",

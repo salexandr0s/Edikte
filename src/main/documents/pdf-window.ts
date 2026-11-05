@@ -1,7 +1,7 @@
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
-import { BrowserWindow, protocol, session, type CustomScheme, type Session } from 'electron'
+import { BrowserWindow, session, type CustomScheme, type Session } from 'electron'
 import { AppError } from '@shared/errors'
 import {
   DOCUMENT_SCHEME,
@@ -17,18 +17,10 @@ import {
 const PDF_PARTITION = 'edikte-pdf'
 const BLOCKED_PROTOCOLS = new Set(['http:', 'https:', 'ws:', 'wss:', 'ftp:', 'file:'])
 
+/** Registered in main's single registerSchemesAsPrivileged call before the app is ready. */
 export const DOCUMENT_SCHEME_PRIVILEGES: CustomScheme = {
   scheme: DOCUMENT_SCHEME,
   privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
-}
-
-/**
- * Registers the document scheme as privileged. Call before the app is ready.
- * Electron honours only one registerSchemesAsPrivileged call, so if the app
- * registers other schemes, pass DOCUMENT_SCHEME_PRIVILEGES in that call instead.
- */
-export function registerDocumentScheme(): void {
-  protocol.registerSchemesAsPrivileged([DOCUMENT_SCHEME_PRIVILEGES])
 }
 
 /** Serves the documents folder to PDF windows. Call once, after the app is ready. */

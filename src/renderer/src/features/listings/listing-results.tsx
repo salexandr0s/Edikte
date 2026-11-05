@@ -8,19 +8,26 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   InboxIcon,
+  ListIcon,
+  MapPinIcon,
   RefreshIcon,
   SearchIcon,
 } from '../../components/ui/icons'
 import { SegmentedControl } from '../../components/ui/segmented-control'
 import { Select } from '../../components/ui/select'
 import { Spinner } from '../../components/ui/spinner'
+import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
+import { ListingMap } from './listing-map'
 import { nextSort, type AnalysisTracker, type ListingSort } from './query-helpers'
 import { ResultsTable } from './results-table'
+import { useGeocode } from './use-geocode'
 import type { ListingPageState } from './use-listing-page'
 import type { SyncControls } from './use-sync'
 
 const FRAME = 'rounded-lg border border-border bg-surface shadow-xs'
+
+export type ListingView = 'list' | 'map'
 
 interface ListingResultsProps {
   titleId: string
@@ -30,6 +37,8 @@ interface ListingResultsProps {
   rows: ListingRow[]
   tracker: AnalysisTracker
   sync: SyncControls
+  view: ListingView
+  onViewChange: (view: ListingView) => void
   onSort: (sort: ListingSort) => void
   onReset: () => void
   onOpen: (row: ListingRow) => void
@@ -37,7 +46,7 @@ interface ListingResultsProps {
   onToggleHidden: (row: ListingRow) => void
 }
 
-/** Count, sort order and table, or the empty state that explains what to do. */
+/** Count, view toggle, sort order and the table or map, or the empty state that explains what to do. */
 export function ListingResults({
   titleId,
   query,
@@ -45,6 +54,8 @@ export function ListingResults({
   rows,
   tracker,
   sync,
+  view,
+  onViewChange,
   onSort,
   onReset,
   ...rowActions
@@ -52,6 +63,8 @@ export function ListingResults({
   const { t } = useTranslation()
   const format = useFormat()
   const { page, error, loading, reload } = state
+  // Main looks addresses up only while the map is open.
+  const geocode = useGeocode(view === 'map')
 
   if (page === null) {
     if (error === null) {
@@ -96,7 +109,7 @@ export function ListingResults({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={cx('flex flex-col gap-3', view === 'map' && 'min-h-0 flex-1')}>
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <p aria-live="polite" className="text-sm text-fg-muted tabular-nums">
@@ -108,7 +121,10 @@ export function ListingResults({
           </p>
           {loading && <Spinner className="size-3.5 text-fg-muted" />}
         </div>
-        <SortControl sort={query.sort} onSort={onSort} />
+        <div className="flex flex-wrap items-center gap-3">
+          {view === 'list' && <SortControl sort={query.sort} onSort={onSort} />}
+          <ViewToggle view={view} onViewChange={onViewChange} />
+        </div>
       </div>
 
       {error !== null && (
@@ -138,6 +154,8 @@ export function ListingResults({
             </Button>
           }
         />
+      ) : view === 'map' ? (
+        <ListingMap rows={rows} geocode={geocode} onOpen={rowActions.onOpen} />
       ) : (
         <ResultsTable
           labelledBy={titleId}
@@ -151,6 +169,39 @@ export function ListingResults({
         />
       )}
     </div>
+  )
+}
+
+/** List or map, side by side as icons. */
+function ViewToggle({
+  view,
+  onViewChange,
+}: {
+  view: ListingView
+  onViewChange: (view: ListingView) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <SegmentedControl
+      aria-label={t('map.view.label')}
+      size="sm"
+      value={view}
+      onValueChange={onViewChange}
+      segments={[
+        {
+          value: 'list',
+          label: <ListIcon />,
+          'aria-label': t('map.view.list'),
+          title: t('map.view.list'),
+        },
+        {
+          value: 'map',
+          label: <MapPinIcon />,
+          'aria-label': t('map.view.map'),
+          title: t('map.view.map'),
+        },
+      ]}
+    />
   )
 }
 

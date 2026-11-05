@@ -98,6 +98,7 @@ export function listingRow(id: string, area: number | null): ListingRow {
     city: null,
     bundesland: 'wien',
     bezirk: null,
+    location: null,
     court: null,
     caseNumber: null,
     auctionAt: null,

@@ -27,6 +27,7 @@ function row(name: string, fields: Partial<ListingRow> = {}): ListingRow {
     city: 'Wien',
     bundesland: 'wien',
     bezirk: 22,
+    location: null,
     court: null,
     caseNumber: null,
     auctionAt: '2026-12-01T10:00',

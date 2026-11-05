@@ -36,6 +36,7 @@ function row(id: string, analysisStatus: ListingRow['analysisStatus']): ListingR
     city: null,
     bundesland: 'wien',
     bezirk: null,
+    location: null,
     court: null,
     caseNumber: null,
     auctionAt: null,
