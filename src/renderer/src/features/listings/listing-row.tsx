@@ -21,7 +21,7 @@ export const STATUS_VARIANT: Readonly<Record<ListingStatus, BadgeVariant>> = {
   closed: 'outline',
 }
 
-const RISK_VARIANT: Readonly<Record<RiskLevel, BadgeVariant>> = {
+export const RISK_VARIANT: Readonly<Record<RiskLevel, BadgeVariant>> = {
   low: 'success',
   medium: 'warning',
   high: 'danger',

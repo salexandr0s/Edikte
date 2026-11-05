@@ -208,6 +208,23 @@ export function PlusIcon(props: IconProps) {
   )
 }
 
+export function MinusIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 8h10" />
+    </Icon>
+  )
+}
+
+/** Four corner brackets: fit everything into the view. */
+export function FitIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 6V3h3M10 3h3v3M13 10v3h-3M6 13H3v-3" />
+    </Icon>
+  )
+}
+
 export function SparklesIcon(props: IconProps) {
   return (
     <Icon {...props}>

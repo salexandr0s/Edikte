@@ -253,9 +253,9 @@
     "pin_other": "{{price}}, {{count}} auctions",
     "from": "from {{value}}",
     "approximate": "Position approximate, only the town is known",
+    "approximateShort": "Approximate position",
     "atLocation_one": "{{count}} auction at this address",
     "atLocation_other": "{{count}} auctions at this address",
-    "open": "Open {{title}}",
     "attribution": "Map: basemap.at (CC BY 4.0). Addresses: OpenStreetMap contributors (ODbL)."
   }
 }
