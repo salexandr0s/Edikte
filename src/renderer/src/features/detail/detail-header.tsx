@@ -3,7 +3,13 @@ import { useTranslation } from 'react-i18next'
 import type { ListingDetail } from '@shared/domain'
 import { bezirkName } from '@shared/wien-bezirke'
 import { Button } from '../../components/ui/button'
-import { AlertIcon, ChevronLeftIcon, ExternalLinkIcon, StarIcon } from '../../components/ui/icons'
+import {
+  AlertIcon,
+  ChevronLeftIcon,
+  ExternalLinkIcon,
+  MapPinIcon,
+  StarIcon,
+} from '../../components/ui/icons'
 import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
 import { cx } from '../../lib/cx'
@@ -16,7 +22,7 @@ import { useOpenExternal } from './use-detail-actions'
 export function BackToListButton({ onBack }: { onBack: () => void }) {
   const { t } = useTranslation()
   return (
-    <Button variant="ghost" size="sm" className="-ml-3" onClick={onBack}>
+    <Button variant="ghost" size="sm" className="-ml-3 text-fg-muted" onClick={onBack}>
       <ChevronLeftIcon />
       {t('detail.backToList')}
     </Button>
@@ -49,7 +55,7 @@ export function DetailHeader({ detail, onBack }: DetailHeaderProps) {
           <StarToggle caseKey={detail.caseKey} starred={detail.starred} />
           <Button variant="outline" size="sm" onClick={() => void openExternal(detail.url)}>
             {t('common.openOnSite')}
-            <ExternalLinkIcon />
+            <ExternalLinkIcon className="text-fg-muted" />
           </Button>
         </div>
       </div>
@@ -71,11 +77,12 @@ export function DetailHeader({ detail, onBack }: DetailHeaderProps) {
         >
           {detail.title}
         </h1>
-        <p className="text-base text-fg-muted">
-          {location === '' ? t('common.notStated') : location}
+        <p className="flex items-center gap-2 text-base text-fg-muted">
+          <MapPinIcon className="shrink-0" />
+          <span>{location === '' ? t('common.notStated') : location}</span>
         </p>
         {detail.removedAt !== null && (
-          <p className="flex items-center gap-2 text-sm text-warning-text">
+          <p className="flex items-center gap-2 rounded-md border border-warning-subtle bg-warning-subtle/40 px-4 py-3 text-sm text-warning-text">
             <AlertIcon />
             {t('detail.removed', { date: format.timestamp(detail.removedAt) })}
           </p>
@@ -118,10 +125,10 @@ function StarToggle({ caseKey, starred }: { caseKey: string; starred: boolean })
       variant="outline"
       size="sm"
       aria-pressed={shown}
-      className={cx(shown && 'bg-bg-muted')}
+      className={cx(shown && 'border-warning-subtle bg-warning-subtle/40')}
       onClick={() => void toggle()}
     >
-      <StarIcon filled={shown} className={cx(shown && 'text-warning-text')} />
+      <StarIcon filled={shown} className={shown ? 'text-warning-text' : 'text-fg-muted'} />
       {t('detail.star')}
     </Button>
   )

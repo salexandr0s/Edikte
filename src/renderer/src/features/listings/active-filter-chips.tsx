@@ -29,13 +29,13 @@ export function ActiveFilterChips({ query, onChange, onReset }: ActiveFilterChip
           return (
             <li
               key={filter.key}
-              className="inline-flex h-8 max-w-full items-center gap-1 rounded-full border border-border bg-bg-muted pr-1 pl-3 text-sm text-fg"
+              className="inline-flex h-8 max-w-full items-center gap-1 rounded-full border border-border bg-fill-muted pr-1 pl-3 text-sm text-fg"
             >
               <span className="truncate">{label}</span>
               <button
                 type="button"
                 aria-label={t('filters.active.remove', { label })}
-                className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-fg-muted transition-colors duration-120 hover:bg-fill-muted-hover hover:text-fg"
                 onClick={() => onChange(clearFilter(filter.key))}
               >
                 <CloseIcon />

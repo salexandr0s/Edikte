@@ -3,6 +3,7 @@ import { Button } from '../../../components/ui/button'
 import { Card } from '../../../components/ui/card'
 import { RefreshIcon } from '../../../components/ui/icons'
 import { Spinner } from '../../../components/ui/spinner'
+import { cx } from '../../../lib/cx'
 import { useFormat } from '../../../lib/format'
 import { lastChecked } from './provider-logic'
 import { ProviderRow } from './provider-row'
@@ -49,9 +50,15 @@ export function ProvidersCard() {
         </p>
       )}
       {providers.list !== null && (
-        <ul className="mt-2 divide-y divide-border">
+        <ul className="mt-5 flex flex-col gap-3">
           {providers.list.map((status) => (
-            <li key={status.id} className="py-5 last:pb-0">
+            <li
+              key={status.id}
+              className={cx(
+                'rounded-md border p-4 transition-colors duration-160',
+                status.selected ? 'border-accent-subtle bg-accent-soft' : 'border-border',
+              )}
+            >
               <ProviderRow status={status} apply={providers.apply} />
             </li>
           ))}

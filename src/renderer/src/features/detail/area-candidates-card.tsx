@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { ListingDetail } from '@shared/domain'
 import { Badge } from '../../components/ui/badge'
+import { CheckCircleIcon } from '../../components/ui/icons'
 import { Card } from '../../components/ui/card'
 import { useFormat } from '../../lib/format'
 import { areaMismatch, isSameArea } from './detail-helpers'
@@ -48,6 +49,7 @@ export function AreaCandidatesCard({ detail }: { detail: ListingDetail }) {
                     </Badge>
                     {chosen !== null && isSameArea(candidate, chosen) && (
                       <Badge variant="primary" size="sm">
+                        <CheckCircleIcon className="size-3" />
                         {t('detail.areas.chosen')}
                       </Badge>
                     )}

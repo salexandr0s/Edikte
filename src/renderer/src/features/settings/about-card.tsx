@@ -29,7 +29,7 @@ export function AboutCard() {
   return (
     <Card title={t('settings.about.title')}>
       <div className="flex flex-col gap-3 text-sm text-fg">
-        <p className="font-medium">{t('shell.version', { version: info.version })}</p>
+        <p className="font-medium tabular-nums">{t('shell.version', { version: info.version })}</p>
         <p>{t('settings.about.notAffiliated')}</p>
         <p>{t('settings.about.source')}</p>
         <p>{t('settings.about.personalUse')}</p>

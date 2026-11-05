@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { AnalysisRecord } from '@shared/analysis-schema'
 import type { AppErrorCode } from '@shared/errors'
 import { Button } from '../../../components/ui/button'
-import { AlertIcon } from '../../../components/ui/icons'
+import { AlertIcon, SparklesIcon } from '../../../components/ui/icons'
 import { ProgressBar } from '../../../components/ui/progress-bar'
 import { Spinner } from '../../../components/ui/spinner'
 import { useToast } from '../../../components/ui/toast'
@@ -23,12 +23,21 @@ interface StartProps {
 export function NoAnalysis({ canAnalyze, requesting, onAnalyze }: StartProps) {
   const { t } = useTranslation()
   return (
-    <div className="flex flex-col items-start gap-4">
-      <p className="text-sm text-fg-muted">
-        {canAnalyze ? t('analysis.intro') : t('analysis.noGutachten')}
-      </p>
+    <div className="flex flex-col items-start gap-4 rounded-md bg-bg-muted p-5">
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text"
+        >
+          <SparklesIcon />
+        </span>
+        <p className="pt-2 text-sm text-fg-muted">
+          {canAnalyze ? t('analysis.intro') : t('analysis.noGutachten')}
+        </p>
+      </div>
       {canAnalyze && (
         <Button loading={requesting} onClick={onAnalyze}>
+          <SparklesIcon />
           {t('analysis.start')}
         </Button>
       )}
@@ -66,7 +75,7 @@ export function PendingAnalysis({ view }: { view: PendingView }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 rounded-md bg-bg-muted p-5">
       <div aria-live="polite" className="flex flex-col gap-1">
         <p className="flex items-center gap-2 text-sm font-medium">
           <Spinner />

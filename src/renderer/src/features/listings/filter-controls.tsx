@@ -2,13 +2,10 @@ import { ToggleGroup } from 'radix-ui'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LocalDateSchema } from '@shared/domain'
-import { Field, Input } from '../../components/ui/field'
+import { Field, Input, Legend } from '../../components/ui/field'
 import { CheckIcon } from '../../components/ui/icons'
 import { cx } from '../../lib/cx'
 import { parseWholeNumber } from './query-helpers'
-
-const LABEL = 'text-sm font-medium text-fg'
-const LEGEND = cx(LABEL, 'mb-2')
 
 export interface ChipOption<T extends string | number> {
   value: T
@@ -28,8 +25,10 @@ interface ChipGroupProps<T extends string | number> {
 
 // The check mark shows the state without relying on colour.
 const CHIP = cx(
-  'inline-flex h-8 items-center gap-1 rounded-full border border-border bg-surface px-3 text-sm text-fg transition-colors hover:bg-bg-muted',
-  'aria-pressed:border-accent-text aria-pressed:bg-bg-muted aria-pressed:text-accent-text',
+  'inline-flex h-8 items-center gap-1 rounded-full border border-border bg-surface px-3 text-sm text-fg shadow-xs transition-[background-color,border-color,color,box-shadow] duration-120 select-none',
+  'hover:border-border-strong hover:bg-surface-hover',
+  'aria-pressed:border-accent-fill aria-pressed:bg-accent-soft aria-pressed:text-accent-text aria-pressed:shadow-none',
+  'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring-soft',
 )
 
 /** Multiple choice as toggle chips: Tab enters, arrow keys move, Space toggles. */
@@ -43,7 +42,7 @@ export function ChipGroup<T extends string | number>({
   const labelId = useId()
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <span id={labelId} className={cx(LABEL, hideLabel && 'sr-only')}>
+      <span id={labelId} className={cx('text-sm font-medium text-fg', hideLabel && 'sr-only')}>
         {label}
       </span>
       <ToggleGroup.Root
@@ -60,63 +59,21 @@ export function ChipGroup<T extends string | number>({
         }
         className="flex flex-wrap gap-1.5"
       >
-        {options.map((option) => (
-          <ToggleGroup.Item
-            key={option.value}
-            value={String(option.value)}
-            aria-label={option.fullLabel}
-            title={option.fullLabel}
-            className={CHIP}
-          >
-            {selected.includes(option.value) && <CheckIcon />}
-            {option.label}
-          </ToggleGroup.Item>
-        ))}
-      </ToggleGroup.Root>
-    </div>
-  )
-}
-
-interface SegmentedChoiceProps<T extends string> {
-  label: string
-  options: readonly { value: T; label: string }[]
-  value: T
-  onChange: (value: T) => void
-}
-
-// Like the shell's navigation: the chosen segment stands out as a raised surface.
-const SEGMENT =
-  'inline-flex h-8 items-center rounded-sm px-3 text-sm text-fg-muted transition-colors hover:text-fg data-[state=on]:bg-surface-elevated data-[state=on]:font-medium data-[state=on]:text-fg data-[state=on]:shadow-xs'
-
-/** Single choice as a segmented control: arrow keys move, Space or Enter chooses. */
-export function SegmentedChoice<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: SegmentedChoiceProps<T>) {
-  const labelId = useId()
-  return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <span id={labelId} className={LABEL}>
-        {label}
-      </span>
-      <ToggleGroup.Root
-        type="single"
-        aria-labelledby={labelId}
-        value={value}
-        // Pressing the chosen segment again reports ""; one option stays chosen.
-        onValueChange={(next) => {
-          const option = options.find((candidate) => candidate.value === next)
-          if (option !== undefined) onChange(option.value)
-        }}
-        className="inline-flex gap-0.5 self-start rounded-md border border-border bg-bg-muted p-0.5"
-      >
-        {options.map((option) => (
-          <ToggleGroup.Item key={option.value} value={option.value} className={SEGMENT}>
-            {option.label}
-          </ToggleGroup.Item>
-        ))}
+        {options.map((option) => {
+          const on = selected.includes(option.value)
+          return (
+            <ToggleGroup.Item
+              key={option.value}
+              value={String(option.value)}
+              aria-label={option.fullLabel}
+              title={option.fullLabel}
+              className={cx(CHIP, on && 'pl-2.5')}
+            >
+              {on && <CheckIcon className="size-3.5 animate-check-in" strokeWidth={2} />}
+              {option.label}
+            </ToggleGroup.Item>
+          )
+        })}
       </ToggleGroup.Root>
     </div>
   )
@@ -124,6 +81,8 @@ export function SegmentedChoice<T extends string>({
 
 interface NumberFilterProps {
   label: string
+  /** Keeps the label for screen readers only; the placeholder shows it instead. */
+  hideLabel?: boolean
   value: number | null
   onChange: (value: number | null) => void
   /** Maximums must be above zero (ListingQuerySchema). */
@@ -137,6 +96,7 @@ interface NumberFilterProps {
  */
 export function NumberFilter({
   label,
+  hideLabel = false,
   value,
   onChange,
   positive = false,
@@ -176,7 +136,7 @@ export function NumberFilter({
   }
 
   return (
-    <Field label={label} error={error} className={className}>
+    <Field label={label} hideLabel={hideLabel} error={error} className={className}>
       {(control) => (
         <Input
           {...control}
@@ -184,6 +144,7 @@ export function NumberFilter({
           inputMode="numeric"
           autoComplete="off"
           spellCheck={false}
+          placeholder={hideLabel ? label : undefined}
           value={text}
           onChange={(event) => change(event.target.value)}
         />
@@ -204,19 +165,22 @@ interface RangeFilterProps extends Range<number> {
   onChange: (range: Range<number>) => void
 }
 
+/** Two number fields side by side, "From" and "To" as placeholders. */
 export function RangeFilter({ label, help, className, min, max, onChange }: RangeFilterProps) {
   const { t } = useTranslation()
   return (
     <fieldset className={cx('flex min-w-0 flex-col gap-2', className)}>
-      <legend className={LEGEND}>{label}</legend>
-      <div className="grid grid-cols-2 gap-3">
+      <Legend>{label}</Legend>
+      <div className="grid grid-cols-2 gap-2">
         <NumberFilter
           label={t('filters.from')}
+          hideLabel
           value={min}
           onChange={(value) => onChange({ min: value, max })}
         />
         <NumberFilter
           label={t('filters.to')}
+          hideLabel
           value={max}
           positive
           onChange={(value) => onChange({ min, max: value })}
@@ -244,32 +208,22 @@ export function DateRangeFilter({ label, className, min, max, onChange }: DateRa
   const read = (value: string) => (LocalDateSchema.safeParse(value).success ? value : null)
   return (
     <fieldset className={cx('flex min-w-0 flex-col gap-2', className)}>
-      <legend className={LEGEND}>{label}</legend>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label={t('filters.from')}>
-          {(control) => (
-            <Input
-              {...control}
-              type="date"
-              size="sm"
-              value={min ?? ''}
-              max={max ?? undefined}
-              onChange={(event) => onChange({ min: read(event.target.value), max })}
-            />
-          )}
-        </Field>
-        <Field label={t('filters.to')}>
-          {(control) => (
-            <Input
-              {...control}
-              type="date"
-              size="sm"
-              value={max ?? ''}
-              min={min ?? undefined}
-              onChange={(event) => onChange({ min, max: read(event.target.value) })}
-            />
-          )}
-        </Field>
+      <Legend>{label}</Legend>
+      <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
+        <DateBound
+          label={t('filters.from')}
+          value={min}
+          max={max}
+          onChange={(value) => onChange({ min: value, max })}
+          read={read}
+        />
+        <DateBound
+          label={t('filters.to')}
+          value={max}
+          min={min}
+          onChange={(value) => onChange({ min, max: value })}
+          read={read}
+        />
       </div>
       {min !== null && max !== null && min > max && (
         <p role="alert" className="text-sm text-danger-text">
@@ -277,5 +231,39 @@ export function DateRangeFilter({ label, className, min, max, onChange }: DateRa
         </p>
       )}
     </fieldset>
+  )
+}
+
+function DateBound({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+  read,
+}: {
+  label: string
+  value: string | null
+  min?: string | null
+  max?: string | null
+  onChange: (value: string | null) => void
+  read: (value: string) => string | null
+}) {
+  const id = useId()
+  return (
+    <>
+      <label htmlFor={id} className="text-xs text-fg-muted">
+        {label}
+      </label>
+      <Input
+        id={id}
+        type="date"
+        size="sm"
+        value={value ?? ''}
+        min={min ?? undefined}
+        max={max ?? undefined}
+        onChange={(event) => onChange(read(event.target.value))}
+      />
+    </>
   )
 }

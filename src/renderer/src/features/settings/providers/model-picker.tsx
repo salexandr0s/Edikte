@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { AppErrorCode } from '@shared/errors'
 import type { ModelOption, ProviderId, ProviderStatus } from '@shared/providers'
 import { Button } from '../../../components/ui/button'
-import { Field, Input, Select } from '../../../components/ui/field'
+import { Field, Input } from '../../../components/ui/field'
+import { Select } from '../../../components/ui/select'
 import { Spinner } from '../../../components/ui/spinner'
 import { errorCode, invoke } from '../../../lib/bridge'
 import { modelChoice } from './provider-logic'
@@ -100,15 +101,15 @@ export function ModelPicker({ status, action }: ModelPickerProps) {
               {...control}
               value={pendingModel ?? choice.value}
               disabled={busy}
-              onChange={(event) => void save(event.target.value)}
-            >
-              {result.options.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {optionLabel(option)}
-                </option>
-              ))}
-              {choice.extra !== null && <option value={choice.extra}>{choice.extra}</option>}
-            </Select>
+              onValueChange={(model) => void save(model)}
+              options={[
+                ...result.options.map((option) => ({
+                  value: option.id,
+                  label: optionLabel(option),
+                })),
+                ...(choice.extra === null ? [] : [{ value: choice.extra, label: choice.extra }]),
+              ]}
+            />
           )}
         </Field>
       )}

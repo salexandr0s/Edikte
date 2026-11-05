@@ -2,6 +2,7 @@ import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LanguageSettingSchema, type Settings } from '@shared/domain'
 import { Card } from '../../components/ui/card'
+import { RadioGroup } from '../../components/ui/radio-group'
 import { useApp } from '../../lib/app-context'
 import { SaveStatus, useSettingsSaver } from './settings-saver'
 
@@ -13,36 +14,29 @@ interface LanguageOptionsProps {
   onChange: (language: LanguageSetting) => void
 }
 
-/** System, German or English as radio buttons; Settings and the first-run screen use it. */
+/** System, German or English as option cards; Settings and the first-run screen use it. */
 export function LanguageOptions({ value, disabled, onChange }: LanguageOptionsProps) {
   const { t } = useTranslation()
-  const name = useId()
-  const helpId = `${name}-help`
+  const helpId = useId()
   return (
-    <fieldset aria-describedby={helpId}>
-      <legend className="sr-only">{t('language.label')}</legend>
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-2">
-          {LanguageSettingSchema.options.map((option) => (
-            <label key={option} className="flex items-center gap-2 text-sm text-fg">
-              <input
-                type="radio"
-                name={name}
-                value={option}
-                checked={value === option}
-                disabled={disabled}
-                onChange={() => onChange(option)}
-                className="size-4 shrink-0 accent-accent-fill disabled:cursor-not-allowed disabled:opacity-55"
-              />
-              {t(`language.${option}`)}
-            </label>
-          ))}
-        </div>
-        <p id={helpId} className="text-xs text-fg-muted">
-          {t('settings.languageHelp')}
-        </p>
-      </div>
-    </fieldset>
+    <div className="flex flex-col gap-3">
+      <RadioGroup
+        label={t('language.label')}
+        hideLabel
+        variant="cards"
+        aria-describedby={helpId}
+        options={LanguageSettingSchema.options.map((option) => ({
+          value: option,
+          label: t(`language.${option}`),
+        }))}
+        value={value}
+        disabled={disabled}
+        onValueChange={onChange}
+      />
+      <p id={helpId} className="text-xs text-fg-muted">
+        {t('settings.languageHelp')}
+      </p>
+    </div>
   )
 }
 

@@ -87,6 +87,7 @@ export function KeyFigures({ detail }: { detail: ListingDetail }) {
               : `${approximate ? '≈ ' : ''}${format.eurPerSqm(perSqm)}`
           }
           muted={perSqm === null}
+          accent={perSqm !== null}
           note={
             area === null
               ? t('detail.numbers.noAreaHint')
@@ -129,9 +130,11 @@ interface FigureProps {
   note?: ReactNode
   /** For a missing value: smaller and muted, so the gap does not shout. */
   muted?: boolean
+  /** Colours the value: the number the listing is judged by. */
+  accent?: boolean
 }
 
-function Figure({ label, value, note, muted = false }: FigureProps) {
+function Figure({ label, value, note, muted = false, accent = false }: FigureProps) {
   return (
     <div className="flex min-w-0 flex-col gap-1 px-5 py-4">
       <dt className="text-xs text-fg-muted">{label}</dt>
@@ -141,7 +144,9 @@ function Figure({ label, value, note, muted = false }: FigureProps) {
             'wrap-break-word',
             muted
               ? 'text-base font-medium text-fg-muted'
-              : 'text-2xl font-semibold tracking-tight text-fg tabular-nums',
+              : accent
+                ? 'text-2xl font-semibold tracking-tight text-accent-text tabular-nums'
+                : 'text-2xl font-semibold tracking-tight text-fg tabular-nums',
           )}
         >
           {value}

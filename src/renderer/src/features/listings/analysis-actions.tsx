@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { ListingRow } from '@shared/domain'
 import { useAnalysisGate } from '../../components/analysis-gate'
 import { Button } from '../../components/ui/button'
+import { SparklesIcon } from '../../components/ui/icons'
 import { Spinner } from '../../components/ui/spinner'
 import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
@@ -39,15 +40,21 @@ export function AnalysisQueueStatus({ rows, tracker }: AnalysisActionsProps) {
   }
 
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <Spinner className="text-accent-text" />
-      <span role="status">
+    <div className="flex h-8 items-center gap-2 rounded-full bg-accent-soft py-0.5 pr-1 pl-3 text-sm text-accent-text">
+      <Spinner className="size-3.5" />
+      <span role="status" className="font-medium">
         {t('batch.analysis.queue', {
           running: t('batch.analysis.running', { count: running }),
           waiting: t('batch.analysis.waiting', { count: waiting }),
         })}
       </span>
-      <Button variant="ghost" size="sm" loading={cancelling} onClick={() => void cancelAll()}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 rounded-full px-2 text-xs text-accent-text hover:bg-accent-subtle"
+        loading={cancelling}
+        onClick={() => void cancelAll()}
+      >
         {t('batch.analysis.cancelAll')}
       </Button>
     </div>
@@ -84,6 +91,7 @@ export function AnalyzeFilteredButton({ rows, tracker }: AnalysisActionsProps) {
 
   return (
     <Button variant="outline" size="sm" loading={requesting} onClick={() => void analyze()}>
+      <SparklesIcon className="text-accent-text" />
       {t('batch.analysis.button')}
     </Button>
   )

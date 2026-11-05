@@ -11,15 +11,13 @@ import {
 import { WIEN_BEZIRKE } from '@shared/wien-bezirke'
 import { Button } from '../../components/ui/button'
 import { Dialog } from '../../components/ui/dialog'
-import { Checkbox, Input } from '../../components/ui/field'
+import { Checkbox } from '../../components/ui/checkbox'
+import { Input } from '../../components/ui/field'
+import { CloseIcon, SearchIcon } from '../../components/ui/icons'
+import { SegmentedControl } from '../../components/ui/segmented-control'
 import { Spinner } from '../../components/ui/spinner'
-import {
-  ChipGroup,
-  DateRangeFilter,
-  NumberFilter,
-  RangeFilter,
-  SegmentedChoice,
-} from './filter-controls'
+import { SwitchRow } from '../../components/ui/switch'
+import { ChipGroup, DateRangeFilter, NumberFilter, RangeFilter } from './filter-controls'
 import { showsBezirke } from './query-helpers'
 
 interface FilterDialogProps {
@@ -82,20 +80,38 @@ export function FilterDialog({
             maxLength={200}
             placeholder={t('filters.searchPlaceholder')}
             value={query.text}
+            leading={<SearchIcon />}
+            trailing={
+              query.text !== '' ? (
+                <button
+                  type="button"
+                  aria-label={t('filters.clearSearch')}
+                  className="flex size-7 items-center justify-center rounded-sm text-fg-muted transition-colors duration-120 hover:bg-fill-muted hover:text-fg focus-visible:ring-3 focus-visible:ring-ring-soft focus-visible:outline-none"
+                  onClick={() => onChange({ text: '' })}
+                >
+                  <CloseIcon className="size-3.5" />
+                </button>
+              ) : undefined
+            }
             onChange={(event) => onChange({ text: event.target.value })}
           />
         </FilterSection>
 
         <FilterSection title={t('filters.sections.price')}>
-          <SegmentedChoice
-            label={t('filters.priceBasis')}
-            options={PriceBasisSchema.options.map((value) => ({
-              value,
-              label: t(`priceBasis.${value}`),
-            }))}
-            value={query.priceBasis}
-            onChange={(priceBasis) => onChange({ priceBasis })}
-          />
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-fg">{t('filters.priceBasis')}</span>
+            <SegmentedControl
+              aria-label={t('filters.priceBasis')}
+              size="sm"
+              className="self-start"
+              segments={PriceBasisSchema.options.map((value) => ({
+                value,
+                label: t(`priceBasis.${value}`),
+              }))}
+              value={query.priceBasis}
+              onValueChange={(priceBasis) => onChange({ priceBasis })}
+            />
+          </div>
           <RangeFilter
             className="max-w-sm"
             label={t('filters.price')}
@@ -115,7 +131,7 @@ export function FilterDialog({
             label={t('filters.includeWithoutArea')}
             description={t('filters.includeWithoutAreaHelp')}
             checked={query.includeWithoutArea}
-            onChange={(event) => onChange({ includeWithoutArea: event.target.checked })}
+            onCheckedChange={(includeWithoutArea) => onChange({ includeWithoutArea })}
           />
         </FilterSection>
 
@@ -201,23 +217,26 @@ export function FilterDialog({
             selected={query.riskLevels}
             onChange={(riskLevels) => onChange({ riskLevels })}
           />
-          <Checkbox
+          <SwitchRow
+            className="max-w-sm"
             label={t('filters.analyzedOnly')}
             checked={query.analyzedOnly}
-            onChange={(event) => onChange({ analyzedOnly: event.target.checked })}
+            onCheckedChange={(analyzedOnly) => onChange({ analyzedOnly })}
           />
         </FilterSection>
 
         <FilterSection title={t('filters.sections.marks')}>
-          <Checkbox
+          <SwitchRow
+            className="max-w-sm"
             label={t('filters.starredOnly')}
             checked={query.starredOnly}
-            onChange={(event) => onChange({ starredOnly: event.target.checked })}
+            onCheckedChange={(starredOnly) => onChange({ starredOnly })}
           />
-          <Checkbox
+          <SwitchRow
+            className="max-w-sm"
             label={t('filters.showHidden')}
             checked={query.showHidden}
-            onChange={(event) => onChange({ showHidden: event.target.checked })}
+            onCheckedChange={(showHidden) => onChange({ showHidden })}
           />
         </FilterSection>
       </div>

@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../components/ui/button'
 import { EmptyState } from '../../components/ui/empty-state'
+import { AlertCircleIcon, SearchIcon } from '../../components/ui/icons'
+import { Skeleton } from '../../components/ui/skeleton'
 import { useApp } from '../../lib/app-context'
 import { AnalysisCard } from './analysis/analysis-card'
 import { AreaCandidatesCard } from './area-candidates-card'
@@ -39,12 +41,14 @@ export function DetailScreen({ id }: { id: string }) {
           <DetailSkeleton label={t('common.loading')} />
         ) : state.code === 'not_found' ? (
           <EmptyState
+            icon={<SearchIcon />}
             title={t('detail.notFoundTitle')}
             description={t('errors.not_found')}
             action={<Button onClick={back}>{t('detail.backToList')}</Button>}
           />
         ) : (
           <EmptyState
+            icon={<AlertCircleIcon />}
             title={t('detail.loadFailed')}
             description={t(`errors.${state.code}`)}
             action={<Button onClick={retry}>{t('common.retry')}</Button>}
@@ -80,31 +84,39 @@ export function DetailScreen({ id }: { id: string }) {
   )
 }
 
-const BLOCK = 'rounded-md bg-bg-muted'
-const FRAME = 'rounded-lg border border-border'
+const FRAME = 'rounded-lg border border-border bg-surface'
 
 /** The page's outline while the listing loads, so nothing jumps when it arrives. */
 function DetailSkeleton({ label }: { label: string }) {
   return (
-    <div role="status" className="flex flex-col gap-6 motion-safe:animate-pulse">
+    <div role="status" className="flex flex-col gap-6">
       <span className="sr-only">{label}</span>
       <div aria-hidden="true" className="flex flex-col gap-3">
-        <div className={`${BLOCK} h-6 w-48`} />
-        <div className={`${BLOCK} h-9 w-2/3`} />
-        <div className={`${BLOCK} h-5 w-1/2`} />
+        <Skeleton className="h-6 w-48 rounded-full" />
+        <Skeleton className="h-9 w-2/3" />
+        <Skeleton className="h-5 w-1/2" />
       </div>
       <div aria-hidden="true" className={`${FRAME} grid grid-cols-4 divide-x divide-border`}>
         {[0, 1, 2, 3].map((index) => (
           <div key={index} className="flex flex-col gap-2 px-5 py-4">
-            <div className={`${BLOCK} h-3 w-24`} />
-            <div className={`${BLOCK} h-7 w-28`} />
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-28" />
           </div>
         ))}
       </div>
       <div aria-hidden="true" className={COLUMNS}>
-        <div className={`${FRAME} h-96`} />
+        <div className={`${FRAME} flex h-96 flex-col gap-4 p-6`}>
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
         <div className="flex flex-col gap-6">
-          <div className={`${FRAME} h-48`} />
+          <div className={`${FRAME} flex h-48 flex-col gap-4 p-6`}>
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
           <div className={`${FRAME} h-64`} />
         </div>
       </div>

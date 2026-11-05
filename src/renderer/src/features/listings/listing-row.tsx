@@ -1,4 +1,3 @@
-import { Tooltip } from 'radix-ui'
 import { useTranslation } from 'react-i18next'
 import { priceForBasis } from '@shared/area'
 import type { ListingRow } from '@shared/domain'
@@ -6,10 +5,10 @@ import type { AnalysisStatus, ListingStatus, RiskLevel } from '@shared/enums'
 import { bezirkName } from '@shared/wien-bezirke'
 import { Badge, type BadgeVariant } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
-import { StarIcon } from '../../components/ui/icons'
+import { EyeIcon, EyeOffIcon, StarIcon } from '../../components/ui/icons'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip'
 import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
-import { EyeIcon, EyeOffIcon } from './listing-icons'
 
 // table.v1: numbers right-aligned. The last row leaves its border to the frame.
 const CELL = 'border-b border-border py-3 align-top group-last/row:border-b-0'
@@ -71,7 +70,12 @@ export function ListingTableRow({
     : t('listings.row.hide', { title: row.title })
 
   return (
-    <tr className="group/row transition-colors hover:bg-bg-muted">
+    <tr
+      className={cx(
+        'group/row transition-colors duration-120 hover:bg-surface-hover',
+        row.hidden && 'opacity-70',
+      )}
+    >
       <td className={cx(CELL, 'px-1')}>
         <Button
           variant="ghost"
@@ -80,11 +84,13 @@ export function ListingTableRow({
           aria-label={t('listings.row.star', { title: row.title })}
           title={t('listings.columns.star')}
           onClick={onStar}
+          className={cx(
+            row.starred
+              ? 'text-warning-text'
+              : 'text-fg-muted/60 hover:text-fg-muted group-hover/row:text-fg-muted',
+          )}
         >
-          <StarIcon
-            filled={row.starred}
-            className={row.starred ? 'text-warning-text' : 'text-fg-muted'}
-          />
+          <StarIcon filled={row.starred} />
         </Button>
       </td>
       <td className={cx(CELL, 'min-w-36 px-4')}>
@@ -98,8 +104,8 @@ export function ListingTableRow({
             // Titles come from the site in German; long compounds break with hyphens.
             lang="de"
             className={cx(
-              'line-clamp-2 rounded-sm text-left hyphens-auto font-medium underline-offset-4 hover:underline',
-              row.hidden ? 'text-fg-muted' : 'text-accent-text',
+              'line-clamp-2 rounded-sm text-left font-medium hyphens-auto transition-colors duration-120 hover:text-accent-text',
+              row.hidden ? 'text-fg-muted' : 'text-fg',
             )}
           >
             {row.title}
@@ -185,6 +191,11 @@ export function ListingTableRow({
           aria-label={hideLabel}
           title={hideLabel}
           onClick={onToggleHidden}
+          // Appears when the pointer is on the row or the button has focus; stays for hidden rows.
+          className={cx(
+            'text-fg-muted transition-opacity duration-120 group-hover/row:opacity-100 focus-visible:opacity-100',
+            !row.hidden && 'opacity-0',
+          )}
         >
           {row.hidden ? <EyeIcon /> : <EyeOffIcon />}
         </Button>
@@ -200,34 +211,27 @@ function PricePerSqm({ row }: { row: ListingRow }) {
   if (row.pricePerSqm === null) return <Missing label={t('common.notStated')} />
   const value = format.eurPerSqm(row.pricePerSqm)
   if (row.approximate.length === 0) {
-    return <span className="font-medium whitespace-nowrap tabular-nums">{value}</span>
+    return <span className="font-semibold whitespace-nowrap tabular-nums">{value}</span>
   }
   return (
-    <Tooltip.Root>
-      <Tooltip.Trigger asChild>
+    <Tooltip>
+      <TooltipTrigger asChild>
         <button
           type="button"
-          className="rounded-sm font-medium whitespace-nowrap tabular-nums underline decoration-dotted underline-offset-4"
+          className="rounded-sm font-semibold whitespace-nowrap tabular-nums underline decoration-fg-muted/60 decoration-dotted underline-offset-4"
         >
           {t('listings.row.approximateValue', { value })}
         </button>
-      </Tooltip.Trigger>
-      <Tooltip.Portal>
-        <Tooltip.Content
-          side="top"
-          align="end"
-          sideOffset={4}
-          className="z-(--edk-z-tooltip) max-w-64 rounded-md border border-border bg-surface-elevated px-3 py-2 text-xs text-fg shadow-md"
-        >
-          <p className="font-medium">{t('listings.row.approximate')}</p>
-          <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4">
-            {row.approximate.map((reason) => (
-              <li key={reason}>{t(`approximate.${reason}`)}</li>
-            ))}
-          </ul>
-        </Tooltip.Content>
-      </Tooltip.Portal>
-    </Tooltip.Root>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="end" className="max-w-64">
+        <p className="font-medium">{t('listings.row.approximate')}</p>
+        <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4 opacity-90">
+          {row.approximate.map((reason) => (
+            <li key={reason}>{t(`approximate.${reason}`)}</li>
+          ))}
+        </ul>
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -261,7 +265,7 @@ function AnalysisBadge({
 /** A dash on screen; screen readers hear why the cell is empty. */
 function Missing({ label }: { label: string }) {
   return (
-    <span className="text-fg-muted">
+    <span className="text-fg-muted/60">
       <span aria-hidden="true">–</span>
       <span className="sr-only">{label}</span>
     </span>

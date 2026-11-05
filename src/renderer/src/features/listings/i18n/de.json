@@ -72,6 +72,7 @@
     "activeCount_other": "{{count}} aktiv",
     "search": "Suche",
     "searchPlaceholder": "Titel, Straße, Gericht oder Aktenzeichen",
+    "clearSearch": "Suche leeren",
     "priceBasis": "Preisgrundlage",
     "maxPricePerSqm": "Höchstpreis pro m² (€)",
     "includeWithoutArea": "Auch Versteigerungen ohne Fläche",

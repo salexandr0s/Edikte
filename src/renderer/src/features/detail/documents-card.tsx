@@ -5,7 +5,7 @@ import { AppErrorCodeSchema } from '@shared/errors'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
-import { AlertIcon, DocumentIcon } from '../../components/ui/icons'
+import { AlertIcon, DocumentIcon, DownloadIcon } from '../../components/ui/icons'
 import { ProgressBar } from '../../components/ui/progress-bar'
 import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
@@ -112,58 +112,65 @@ function DocumentRow({ doc, progress, onDownloaded }: DocumentRowProps) {
   )
 
   return (
-    <li className="flex gap-3 py-4 first:pt-0 last:pb-0">
-      <span
-        aria-hidden="true"
-        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-bg-muted text-fg-muted"
-      >
-        <DocumentIcon />
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <p id={kindId} className="text-sm font-medium">
-              {t(`documents.kind.${doc.kind}`)}
+    <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div
+          aria-hidden="true"
+          className="flex size-9 shrink-0 items-center justify-center rounded-md bg-fill-muted text-fg-muted"
+        >
+          <DocumentIcon />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <p id={kindId} className="text-sm font-medium">
+            {t(`documents.kind.${doc.kind}`)}
+          </p>
+          {titleAddsToKind(doc.title, t(`documents.kind.${doc.kind}`, { lng: 'de' })) && (
+            <p lang="de" className="text-xs wrap-break-word text-fg-muted">
+              {doc.title}
             </p>
-            {titleAddsToKind(doc.title, t(`documents.kind.${doc.kind}`, { lng: 'de' })) && (
-              <p lang="de" className="text-xs wrap-break-word text-fg-muted">
-                {doc.title}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">
-              <Badge size="sm" variant={doc.downloaded ? 'success' : 'default'}>
-                {doc.downloaded ? t('documents.downloaded') : t('documents.notDownloaded')}
-              </Badge>
-              {meta !== '' && <span>{meta}</span>}
-            </div>
-          </div>
-          <div className="flex shrink-0 gap-2">
-            {!doc.downloaded && (
-              <Button
-                size="sm"
-                variant="secondary"
-                loading={transferring}
-                aria-describedby={kindId}
-                onClick={() => void download()}
-              >
-                {t('documents.download')}
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              loading={opening}
-              disabled={transferring}
-              aria-describedby={kindId}
-              onClick={() => void open()}
-            >
-              {t('documents.open')}
-            </Button>
+          )}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">
+            <Badge size="sm" variant={doc.downloaded ? 'success' : 'default'}>
+              {doc.downloaded ? t('documents.downloaded') : t('documents.notDownloaded')}
+            </Badge>
+            {meta !== '' && <span>{meta}</span>}
           </div>
         </div>
-        {progress !== null && <TransferProgress progress={progress} />}
-        {doc.extractError !== null && <ExtractWarning message={doc.extractError} />}
+        <div className="flex shrink-0 gap-2">
+          {!doc.downloaded && (
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={transferring}
+              aria-describedby={kindId}
+              onClick={() => void download()}
+            >
+              <DownloadIcon />
+              {t('documents.download')}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            loading={opening}
+            disabled={transferring}
+            aria-describedby={kindId}
+            onClick={() => void open()}
+          >
+            {t('documents.open')}
+          </Button>
+        </div>
       </div>
+      {progress !== null && (
+        <div className="pl-12">
+          <TransferProgress progress={progress} />
+        </div>
+      )}
+      {doc.extractError !== null && (
+        <div className="pl-12">
+          <ExtractWarning message={doc.extractError} />
+        </div>
+      )}
     </li>
   )
 }

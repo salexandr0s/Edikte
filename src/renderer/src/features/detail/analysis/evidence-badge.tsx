@@ -1,7 +1,7 @@
-import { Tooltip } from 'radix-ui'
 import { useTranslation } from 'react-i18next'
 import type { EvidenceStatus } from '@shared/analysis-schema'
 import { Badge, type BadgeVariant } from '../../../components/ui/badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 
 const VARIANTS: Readonly<Record<EvidenceStatus, BadgeVariant>> = {
   verified: 'success',
@@ -20,25 +20,16 @@ const VARIANTS: Readonly<Record<EvidenceStatus, BadgeVariant>> = {
 export function EvidenceBadge({ status }: { status: EvidenceStatus }) {
   const { t } = useTranslation()
   return (
-    <Tooltip.Root>
-      <Tooltip.Trigger asChild>
+    <Tooltip>
+      <TooltipTrigger asChild>
         <button type="button" className="rounded-full">
           <Badge size="sm" variant={VARIANTS[status]}>
             <span className="sr-only">{`${t('evidence.prefix')} `}</span>
             {t(`evidence.status.${status}.label`)}
           </Badge>
         </button>
-      </Tooltip.Trigger>
-      <Tooltip.Portal>
-        <Tooltip.Content
-          side="top"
-          sideOffset={6}
-          collisionPadding={8}
-          className="z-(--edk-z-tooltip) max-w-xs rounded-sm border border-border bg-surface-elevated px-3 py-2 text-xs text-fg shadow-md"
-        >
-          {t(`evidence.status.${status}.hint`)}
-        </Tooltip.Content>
-      </Tooltip.Portal>
-    </Tooltip.Root>
+      </TooltipTrigger>
+      <TooltipContent side="top">{t(`evidence.status.${status}.hint`)}</TooltipContent>
+    </Tooltip>
   )
 }

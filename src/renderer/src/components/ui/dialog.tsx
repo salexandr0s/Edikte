@@ -2,7 +2,6 @@ import { Dialog as RadixDialog } from 'radix-ui'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cx } from '../../lib/cx'
-import { Button } from './button'
 import { CloseIcon } from './icons'
 
 interface DialogProps {
@@ -54,18 +53,19 @@ export function Dialog({
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       {trigger !== undefined && <RadixDialog.Trigger asChild>{trigger}</RadixDialog.Trigger>}
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-(--edk-z-overlay) animate-fade-in bg-overlay backdrop-blur-(--edk-overlay-blur)" />
+        <RadixDialog.Overlay className="fixed inset-0 z-(--edk-z-overlay) bg-overlay backdrop-blur-(--edk-overlay-blur) data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
         <RadixDialog.Content
           // Without a description, Radix wants aria-describedby unset explicitly.
           {...(description === undefined ? { 'aria-describedby': undefined } : {})}
           onPointerDownOutside={dismissible ? undefined : (event) => event.preventDefault()}
           className={cx(
-            'fixed top-1/2 left-1/2 z-(--edk-z-modal) flex max-h-(--edk-modal-max-height) -translate-x-1/2 -translate-y-1/2 animate-dialog-in flex-col gap-4 rounded-lg border border-border bg-surface-elevated p-6 text-fg shadow-lg',
+            'fixed top-1/2 left-1/2 z-(--edk-z-modal) flex max-h-(--edk-modal-max-height) -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-surface-elevated text-fg shadow-xl outline-none',
+            'data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out',
             WIDTHS[size],
           )}
         >
-          <div className="flex flex-col gap-2 pr-10">
-            <RadixDialog.Title className="text-xl font-semibold tracking-tight">
+          <div className="flex min-w-0 flex-col gap-1.5 px-6 pt-6 pr-14 pb-4">
+            <RadixDialog.Title className="text-lg font-semibold tracking-tight">
               {title}
             </RadixDialog.Title>
             {description !== undefined && (
@@ -75,19 +75,25 @@ export function Dialog({
             )}
           </div>
           {children !== undefined && (
-            <div className="-mx-1 min-h-0 overflow-y-auto px-1 text-sm">{children}</div>
+            <div className="min-h-0 overflow-y-auto px-6 pb-6 text-sm">{children}</div>
           )}
           {footer !== undefined && (
-            <div className="flex flex-wrap items-center justify-end gap-3 pt-2">{footer}</div>
+            <div
+              className={cx(
+                'flex flex-wrap items-center justify-end gap-2 border-t border-border bg-bg-muted px-6 py-4',
+                children === undefined && 'mt-2',
+              )}
+            >
+              {footer}
+            </div>
           )}
-          {/* The wrapper positions the button: Button sets `relative` itself. */}
-          <div className="absolute top-4 right-4">
-            <RadixDialog.Close asChild>
-              <Button variant="ghost" size="icon-sm" aria-label={t('common.close')}>
-                <CloseIcon />
-              </Button>
-            </RadixDialog.Close>
-          </div>
+          {/* Last in the DOM, so Tab reaches it after the body and the footer. */}
+          <RadixDialog.Close
+            aria-label={t('common.close')}
+            className="absolute top-5 right-4 flex size-8 items-center justify-center rounded-sm text-fg-muted transition-colors duration-120 hover:bg-fill-muted hover:text-fg focus-visible:ring-3 focus-visible:ring-ring-soft focus-visible:outline-none"
+          >
+            <CloseIcon />
+          </RadixDialog.Close>
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>
