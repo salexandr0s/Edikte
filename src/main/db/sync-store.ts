@@ -1,4 +1,4 @@
-import { desc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { desc, eq, inArray, isNotNull, sql, type SQL } from 'drizzle-orm'
 import type { SyncRunSummary } from '@shared/domain'
 import type { Bundesland } from '@shared/enums'
 import type { AppErrorCode } from '@shared/errors'
@@ -15,6 +15,8 @@ import { documents, edicts, syncRuns, userState } from './schema'
 
 /** IDs per `UPDATE … WHERE id IN (…)`, far below SQLite's variable limit. */
 const ID_CHUNK = 500
+/** Runs read per query while looking for the newest ones that cover a scope. */
+const RUN_PAGE = 50
 
 type Transaction = Parameters<Parameters<AppDatabase['transaction']>[0]>[0]
 type SyncRunStatus = (typeof syncRuns.$inferSelect)['status']
@@ -61,19 +63,16 @@ export function loadSyncState(db: AppDatabase, scope: readonly Bundesland[]): Sy
       .all()
     for (const row of rows) known.set(row.id, row)
   }
-  const okRuns = db
-    .select({ kind: syncRuns.kind, scope: syncRuns.scope, startedAt: syncRuns.startedAt })
-    .from(syncRuns)
-    .where(eq(syncRuns.status, 'ok'))
-    .orderBy(desc(syncRuns.id))
-    .all()
-    .filter((run) => covers(run.scope, scope))
-  return {
-    known,
-    lastOkRunStartedAt: okRuns[0]?.startedAt ?? null,
-    lastOkFullRunStartedAt: okRuns.find((run) => run.kind === 'full')?.startedAt ?? null,
-    lastFinished: lastFinishedRun(db),
+  let lastOkRunStartedAt: string | null = null
+  let lastOkFullRunStartedAt: string | null = null
+  for (const run of newestCoveringRuns(db, eq(syncRuns.status, 'ok'), scope)) {
+    lastOkRunStartedAt ??= run.startedAt
+    if (run.kind === 'full') {
+      lastOkFullRunStartedAt = run.startedAt
+      break
+    }
   }
+  return { known, lastOkRunStartedAt, lastOkFullRunStartedAt, lastFinished: lastFinishedRun(db) }
 }
 
 /** The newest run with a finish time, whatever its scope or status. */
@@ -105,21 +104,37 @@ export interface SyncSchedule {
 }
 
 export function loadSyncSchedule(db: AppDatabase, scope: readonly Bundesland[]): SyncSchedule {
-  const runs = db
-    .select({
-      scope: syncRuns.scope,
-      status: syncRuns.status,
-      failureCode: syncRuns.failureCode,
-      finishedAt: syncRuns.finishedAt,
-    })
-    .from(syncRuns)
-    .where(isNotNull(syncRuns.finishedAt))
-    .orderBy(desc(syncRuns.id))
-    .all()
-    .filter((run) => covers(run.scope, scope))
-  return {
-    settledAt: runs.find(isSettled)?.finishedAt ?? null,
-    unsettledAt: runs.find((run) => !isSettled(run))?.finishedAt ?? null,
+  const schedule: SyncSchedule = { settledAt: null, unsettledAt: null }
+  for (const run of newestCoveringRuns(db, isNotNull(syncRuns.finishedAt), scope)) {
+    if (isSettled(run)) schedule.settledAt ??= run.finishedAt
+    else schedule.unsettledAt ??= run.finishedAt
+    if (schedule.settledAt !== null && schedule.unsettledAt !== null) break
+  }
+  return schedule
+}
+
+/** Runs matching `where` that covered `scope`, newest first, read a page at a time. */
+function* newestCoveringRuns(db: AppDatabase, where: SQL, scope: readonly Bundesland[]) {
+  for (let offset = 0; ; offset += RUN_PAGE) {
+    const page = db
+      .select({
+        kind: syncRuns.kind,
+        scope: syncRuns.scope,
+        status: syncRuns.status,
+        failureCode: syncRuns.failureCode,
+        startedAt: syncRuns.startedAt,
+        finishedAt: syncRuns.finishedAt,
+      })
+      .from(syncRuns)
+      .where(where)
+      .orderBy(desc(syncRuns.id))
+      .limit(RUN_PAGE)
+      .offset(offset)
+      .all()
+    for (const run of page) {
+      if (covers(run.scope, scope)) yield run
+    }
+    if (page.length < RUN_PAGE) return
   }
 }
 
