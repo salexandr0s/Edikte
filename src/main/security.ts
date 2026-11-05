@@ -2,6 +2,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { app, shell, type IpcMainInvokeEvent, type Session, type WebContents } from 'electron'
 import { AppError } from '@shared/errors'
+import { CHATGPT_ISSUER } from './ai/chatgpt/authorization'
 
 // Hosts the renderer may open in the system browser. Main-process flows such
 // as the ChatGPT sign-in open their own URLs and do not go through this list.
@@ -41,6 +42,15 @@ export async function openExternalUrl(raw: string): Promise<void> {
     throw new AppError('forbidden', 'This address cannot be opened from the app')
   }
   await shell.openExternal(new URL(raw).toString())
+}
+
+/** Opens the ChatGPT sign-in page for main's own sign-in flow; never on a renderer request. */
+export async function openSignInUrl(raw: string): Promise<void> {
+  const url = new URL(raw)
+  if (url.protocol !== 'https:' || url.host !== new URL(CHATGPT_ISSUER).host) {
+    throw new AppError('forbidden', 'Unexpected sign-in address')
+  }
+  await shell.openExternal(url.toString())
 }
 
 export interface RendererTrust {

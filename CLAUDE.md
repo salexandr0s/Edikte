@@ -57,7 +57,7 @@ Before a commit: typecheck, lint, unit tests and `format:check`. Run `test:e2e` 
 ## Tests
 
 - Unit tests run in Node. They must not import renderer modules that touch `window` or `document`.
-- The e2e test launches the built app with `EDIKTE_USER_DATA_DIR` set to a temp folder. No test may use the real data folder.
+- The e2e test launches the built app with `EDIKTE_USER_DATA_DIR` set to a temp folder and `EDIKTE_OFFLINE=1`, so it neither syncs nor starts a CLI. No test may use the real data folder.
 - Packaged builds are checked with the self-check, not Playwright: the fuses switch off the Node inspector Playwright needs. Run the app binary with `EDIKTE_SMOKE_TEST=1` and `EDIKTE_USER_DATA_DIR=<temp folder>`. Exit code 0 means the renderer loaded its data from main; 1 means a failure, logged to stderr.
 - Tests that call the live site or a live AI provider must be opt-in (`EDIKTE_LIVE=1`, `EDIKTE_LIVE_AI=<provider>`) and stay out of CI.
 

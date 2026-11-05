@@ -12,6 +12,8 @@ function launchEnv(userDataDir: string): Record<string, string> {
     if (value !== undefined && !key.startsWith('ELECTRON_')) env[key] = value
   }
   env.EDIKTE_USER_DATA_DIR = userDataDir
+  // No sync on launch and no CLI detection: the test must not reach the site or run `claude`.
+  env.EDIKTE_OFFLINE = '1'
   return env
 }
 

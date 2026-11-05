@@ -91,6 +91,8 @@ npm run dist:mac      # Mac-Pakete für die Architektur dieses Macs, in dist/
 npm run dist:win      # Windows-Installer, in dist/
 ```
 
+Mit `EDIKTE_OFFLINE=1 npm run dev` startet die App ohne automatische Aktualisierung, und die Erkennung der KI-Anbieter startet keine Befehlszeilenprogramme. Tests gegen die echte Website laufen nur mit `EDIKTE_LIVE=1`.
+
 Ein gebautes Paket prüfen Sie mit dem Selbsttest. Er startet die App mit einem leeren, temporären Datenordner und endet mit Exit-Code 0, wenn die Oberfläche ihre Daten vom Hauptprozess bekommen hat:
 
 ```sh
@@ -196,6 +198,8 @@ npm run test:e2e      # builds the app and runs the Playwright smoke test
 npm run dist:mac      # Mac packages for this Mac's architecture, in dist/
 npm run dist:win      # Windows installer, in dist/
 ```
+
+With `EDIKTE_OFFLINE=1 npm run dev`, the app starts without its automatic sync, and provider detection starts no command-line tools. Tests against the live site run only with `EDIKTE_LIVE=1`.
 
 The self-check tests a packaged build. It starts the app with an empty temporary data folder and exits with code 0 when the interface received its data from the main process:
 
