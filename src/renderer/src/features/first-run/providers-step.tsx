@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '../../components/ui/button'
 import { AlertIcon } from '../../components/ui/icons'
 import { Spinner } from '../../components/ui/spinner'
+import { cx } from '../../lib/cx'
 import { ProviderSummary } from '../settings/providers/provider-row'
 import type { ProvidersState } from '../settings/providers/use-providers'
 
@@ -26,7 +27,7 @@ export function ProvidersStep({ providers }: { providers: ProvidersState }) {
       {providers.error !== null && (
         <div
           role="alert"
-          className="flex flex-wrap items-start gap-3 rounded-md border border-border bg-bg-muted p-4"
+          className="flex flex-wrap items-start gap-3 rounded-md border border-warning-subtle bg-warning-subtle/40 p-4"
         >
           <AlertIcon className="mt-0.5 text-warning-text" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-sm">
@@ -44,9 +45,15 @@ export function ProvidersStep({ providers }: { providers: ProvidersState }) {
         </div>
       )}
       {providers.list !== null && (
-        <ul className="divide-y divide-border">
+        <ul className="flex flex-col gap-3">
           {providers.list.map((status) => (
-            <li key={status.id} className="py-4 first:pt-0 last:pb-0">
+            <li
+              key={status.id}
+              className={cx(
+                'rounded-md border p-4 transition-colors duration-160',
+                status.selected ? 'border-accent-subtle bg-accent-soft' : 'border-border',
+              )}
+            >
               <ProviderSummary status={status} apply={providers.apply} />
             </li>
           ))}

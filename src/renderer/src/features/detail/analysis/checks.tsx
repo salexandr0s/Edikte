@@ -65,7 +65,7 @@ export function ReadingGaps({
   const dropped = record.droppedPages
   if (unread.length === 0 && dropped.length === 0) return null
   return (
-    <div className="flex items-start gap-2 rounded-md border border-border bg-bg-muted p-4 text-sm">
+    <div className="flex items-start gap-2 rounded-md border border-warning-subtle bg-warning-subtle/40 p-4 text-sm">
       <AlertIcon className="mt-0.5 text-warning-text" />
       <div className="flex flex-col gap-1">
         {unread.length > 0 && <p>{t('analysis.pages.unread', { pages: pageRanges(unread) })}</p>}
@@ -82,7 +82,7 @@ export function RunDetails({ record }: { record: AnalysisRecord }) {
   const { inputTokens, outputTokens, costUsd, finishedAt } = record
   return (
     <ResultSection title={t('analysis.run.title')}>
-      <FactList columns={3}>
+      <FactList columns={3} className="rounded-md bg-bg-muted p-4">
         <Fact label={t('analysis.run.provider')}>{t(`providerName.${record.provider}`)}</Fact>
         <Fact label={t('analysis.run.model')}>{record.model}</Fact>
         <Fact label={t('analysis.run.finished')}>

@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Bundesland } from '@shared/enums'
 import { Button } from '../../components/ui/button'
-import { ChevronLeftIcon, ChevronRightIcon } from '../../components/ui/icons'
+import { ChevronLeftIcon, ChevronRightIcon, GavelIcon } from '../../components/ui/icons'
 import { useToast } from '../../components/ui/toast'
 import { useApp } from '../../lib/app-context'
 import { errorCode } from '../../lib/bridge'
@@ -70,9 +70,15 @@ export function FirstRunScreen() {
 
   return (
     <div className="mx-auto flex min-h-full max-w-3xl flex-col px-6 pt-10">
-      <header className="flex flex-col gap-2">
+      <header className="flex flex-col gap-3">
+        <span
+          aria-hidden="true"
+          className="flex size-10 items-center justify-center rounded-md bg-accent-fill text-white shadow-raised"
+        >
+          <GavelIcon className="size-5" />
+        </span>
         <h1 className="text-3xl font-semibold tracking-tight">{t('firstRun.title')}</h1>
-        <p className="text-base text-fg-muted">{t('firstRun.welcome')}</p>
+        <p className="max-w-xl text-base text-fg-muted">{t('firstRun.welcome')}</p>
       </header>
 
       <div className="mt-8">
@@ -87,7 +93,7 @@ export function FirstRunScreen() {
         className="mt-6 mb-6 flex flex-col gap-6 rounded-lg border border-border bg-surface p-6 shadow-xs"
       >
         <div className="flex flex-col gap-1">
-          <p className="text-xs font-medium text-fg-muted">
+          <p className="text-xs font-medium tracking-wider text-fg-muted uppercase">
             {t('firstRun.stepOf', { current: stepIndex + 1, total: STEPS.length })}
           </p>
           <h2
@@ -119,7 +125,7 @@ export function FirstRunScreen() {
         )}
       </section>
 
-      <div className="sticky bottom-0 z-(--edk-z-sticky) mt-auto flex items-center justify-between gap-3 border-t border-border bg-bg py-4">
+      <div className="sticky bottom-0 z-(--edk-z-sticky) mt-auto flex items-center justify-between gap-3 border-t border-border bg-bg/90 py-4 backdrop-blur-xs">
         {stepIndex > 0 ? (
           <Button variant="ghost" disabled={finishing} onClick={() => goTo(stepIndex - 1)}>
             <ChevronLeftIcon />

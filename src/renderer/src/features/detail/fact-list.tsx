@@ -16,7 +16,7 @@ interface FactListProps {
 
 /** A description list of label and value pairs, laid out in a grid. */
 export function FactList({ columns = 2, className, children }: FactListProps) {
-  return <dl className={cx('grid gap-x-6 gap-y-4', COLUMNS[columns], className)}>{children}</dl>
+  return <dl className={cx('grid gap-x-6 gap-y-5', COLUMNS[columns], className)}>{children}</dl>
 }
 
 interface FactProps {
@@ -29,8 +29,8 @@ interface FactProps {
 
 export function Fact({ label, lang, className, children }: FactProps) {
   return (
-    <div className={cx('flex min-w-0 flex-col gap-0.5', className)}>
-      <dt className="text-xs text-fg-muted">{label}</dt>
+    <div className={cx('flex min-w-0 flex-col gap-1', className)}>
+      <dt className="text-xs font-medium text-fg-muted">{label}</dt>
       <dd lang={lang} className="text-sm wrap-break-word text-fg">
         {children}
       </dd>
@@ -44,7 +44,7 @@ export function GermanQuote({ text, className }: { text: string; className?: str
     <blockquote
       lang="de"
       className={cx(
-        'border-l-2 border-border pl-3 text-xs wrap-break-word text-fg-muted',
+        'border-l-2 border-border-strong pl-3 text-xs leading-relaxed wrap-break-word text-fg-muted',
         className,
       )}
     >

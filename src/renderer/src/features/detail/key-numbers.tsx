@@ -5,6 +5,7 @@ import type { ListingDetail } from '@shared/domain'
 import { PriceBasisSchema } from '@shared/enums'
 import { Badge } from '../../components/ui/badge'
 import { Card } from '../../components/ui/card'
+import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
 import { knownZubehoer } from './detail-helpers'
 import { Fact } from './fact-list'
@@ -24,8 +25,8 @@ export function KeyNumbers({ detail }: { detail: ListingDetail }) {
 
   return (
     <Card title={t('detail.numbers.title')}>
-      <div className="flex flex-col gap-5">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-4">
+      <div className="flex flex-col gap-4">
+        <dl className="grid grid-cols-2 gap-3 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
           <Stat label={t('priceBasis.schaetzwert')} value={money(detail.schaetzwertEur)} />
           <Stat label={t('priceBasis.geringstes_gebot')} value={money(detail.geringstesGebotEur)} />
           <Stat label={t('detail.numbers.vadium')} value={money(detail.vadiumEur)} />
@@ -34,7 +35,7 @@ export function KeyNumbers({ detail }: { detail: ListingDetail }) {
           )}
         </dl>
 
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-border pt-5 lg:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-3 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
           <Stat
             label={t('detail.numbers.area')}
             value={area === null ? t('detail.numbers.noArea') : format.sqm(area.sqm)}
@@ -55,6 +56,7 @@ export function KeyNumbers({ detail }: { detail: ListingDetail }) {
             return (
               <Stat
                 key={basis}
+                accent
                 label={
                   perLand
                     ? t(`detail.numbers.perSqmLand.${basis}`)
@@ -85,7 +87,7 @@ export function KeyNumbers({ detail }: { detail: ListingDetail }) {
         )}
 
         {detail.zubehoer !== null && (
-          <dl>
+          <dl className="border-t border-border pt-4">
             {zubehoer === null ? (
               <Fact label={t('detail.numbers.zubehoer')} lang="de">
                 {detail.zubehoer}
@@ -105,16 +107,25 @@ export function KeyNumbers({ detail }: { detail: ListingDetail }) {
 interface StatProps {
   label: string
   value: string
+  /** Colours the value: the number the listing is judged by. */
+  accent?: boolean
   /** Where the value comes from, shown in small text below it. */
   children?: ReactNode
 }
 
-function Stat({ label, value, children }: StatProps) {
+function Stat({ label, value, accent = false, children }: StatProps) {
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <dt className="text-xs text-fg-muted">{label}</dt>
+    <div className="flex min-w-0 flex-col gap-1 rounded-md bg-bg-muted px-4 py-3">
+      <dt className="text-xs font-medium text-fg-muted">{label}</dt>
       <dd className="flex flex-col gap-1">
-        <span className="text-lg font-semibold tracking-tight tabular-nums">{value}</span>
+        <span
+          className={cx(
+            'text-xl font-semibold tracking-tight tabular-nums',
+            accent && 'text-accent-text',
+          )}
+        >
+          {value}
+        </span>
         {children !== undefined && (
           <span className="flex flex-wrap items-center gap-x-2 text-xs text-fg-muted">
             {children}

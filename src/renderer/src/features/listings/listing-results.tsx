@@ -3,8 +3,16 @@ import { useTranslation } from 'react-i18next'
 import { ListingSortColumnSchema, type ListingQuery, type ListingRow } from '@shared/domain'
 import { Button } from '../../components/ui/button'
 import { EmptyState } from '../../components/ui/empty-state'
-import { Select } from '../../components/ui/field'
-import { AlertIcon, RefreshIcon } from '../../components/ui/icons'
+import {
+  AlertCircleIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
+  InboxIcon,
+  RefreshIcon,
+  SearchIcon,
+} from '../../components/ui/icons'
+import { SegmentedControl } from '../../components/ui/segmented-control'
+import { Select } from '../../components/ui/select'
 import { Spinner } from '../../components/ui/spinner'
 import { useFormat } from '../../lib/format'
 import { nextSort, type AnalysisTracker, type ListingSort } from './query-helpers'
@@ -12,7 +20,7 @@ import { ResultsTable } from './results-table'
 import type { ListingPageState } from './use-listing-page'
 import type { SyncControls } from './use-sync'
 
-const FRAME = 'rounded-lg border border-border'
+const FRAME = 'rounded-lg border border-border bg-surface shadow-xs'
 
 interface ListingResultsProps {
   titleId: string
@@ -56,10 +64,12 @@ export function ListingResults({
     return (
       <EmptyState
         className={FRAME}
+        icon={<AlertCircleIcon />}
         title={t('listings.loadFailed')}
         description={t(`errors.${error}`)}
         action={
           <Button variant="outline" onClick={reload}>
+            <RefreshIcon />
             {t('common.retry')}
           </Button>
         }
@@ -72,6 +82,7 @@ export function ListingResults({
     return (
       <EmptyState
         className={FRAME}
+        icon={<InboxIcon />}
         title={t('listings.empty')}
         description={t('listings.emptyText')}
         action={
@@ -86,16 +97,16 @@ export function ListingResults({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <p aria-live="polite" className="text-sm text-fg-muted">
+          <p aria-live="polite" className="text-sm text-fg-muted tabular-nums">
             {t('listings.count', {
               count: page.totalInScope,
               shown: format.number(rows.length),
               total: format.number(page.totalInScope),
             })}
           </p>
-          {loading && <Spinner className="text-fg-muted" />}
+          {loading && <Spinner className="size-3.5 text-fg-muted" />}
         </div>
         <SortControl sort={query.sort} onSort={onSort} />
       </div>
@@ -103,9 +114,9 @@ export function ListingResults({
       {error !== null && (
         <div
           role="alert"
-          className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-bg-muted px-4 py-3 text-sm"
+          className="flex flex-wrap items-center gap-3 rounded-md border border-danger-subtle bg-danger-subtle/40 px-4 py-3 text-sm"
         >
-          <AlertIcon className="text-danger-text" />
+          <AlertCircleIcon className="text-danger-text" />
           <span className="min-w-0 flex-1">
             {t('listings.updateFailed')} {t(`errors.${error}`)}
           </span>
@@ -118,6 +129,7 @@ export function ListingResults({
       {rows.length === 0 ? (
         <EmptyState
           className={FRAME}
+          icon={<SearchIcon />}
           title={t('listings.noMatches')}
           description={t('listings.noMatchesText')}
           action={
@@ -142,7 +154,7 @@ export function ListingResults({
   )
 }
 
-/** Every sort column, including the two without a table header. */
+/** Every sort column, including the two without a table header, and the direction. */
 function SortControl({ sort, onSort }: { sort: ListingSort; onSort: (sort: ListingSort) => void }) {
   const { t } = useTranslation()
   const id = useId()
@@ -154,31 +166,35 @@ function SortControl({ sort, onSort }: { sort: ListingSort; onSort: (sort: Listi
       <Select
         id={id}
         size="sm"
+        align="end"
         className="w-auto"
         value={sort.column}
-        onChange={(event) => {
-          const column = ListingSortColumnSchema.safeParse(event.target.value)
-          if (column.success) onSort(nextSort(sort, column.data))
-        }}
-      >
-        {ListingSortColumnSchema.options.map((column) => (
-          <option key={column} value={column}>
-            {t(`listings.sort.column.${column}`)}
-          </option>
-        ))}
-      </Select>
-      <Select
+        onValueChange={(column) => onSort(nextSort(sort, column))}
+        options={ListingSortColumnSchema.options.map((column) => ({
+          value: column,
+          label: t(`listings.sort.column.${column}`),
+        }))}
+      />
+      <SegmentedControl
         aria-label={t('listings.sort.direction')}
         size="sm"
-        className="w-auto"
         value={sort.direction}
-        onChange={(event) =>
-          onSort({ column: sort.column, direction: event.target.value === 'desc' ? 'desc' : 'asc' })
-        }
-      >
-        <option value="asc">{t('listings.sort.asc')}</option>
-        <option value="desc">{t('listings.sort.desc')}</option>
-      </Select>
+        onValueChange={(direction) => onSort({ column: sort.column, direction })}
+        segments={[
+          {
+            value: 'asc',
+            label: <ArrowUpIcon />,
+            'aria-label': t('listings.sort.asc'),
+            title: t('listings.sort.asc'),
+          },
+          {
+            value: 'desc',
+            label: <ArrowDownIcon />,
+            'aria-label': t('listings.sort.desc'),
+            title: t('listings.sort.desc'),
+          },
+        ]}
+      />
     </div>
   )
 }

@@ -1,7 +1,8 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BundeslandSchema, type Bundesland } from '@shared/enums'
-import { Checkbox } from '../../components/ui/field'
+import { Checkbox } from '../../components/ui/checkbox'
+import { Legend } from '../../components/ui/field'
 
 interface BundeslandCheckboxesProps {
   legend: string
@@ -30,21 +31,21 @@ export function BundeslandCheckboxes({
 
   return (
     <fieldset aria-describedby={describedBy === '' ? undefined : describedBy}>
-      <legend className="mb-1.5 text-sm font-medium text-fg">{legend}</legend>
+      <Legend className="mb-1.5">{legend}</Legend>
       <div className="flex flex-col gap-3">
         {help !== undefined && (
           <p id={helpId} className="text-xs text-fg-muted">
             {help}
           </p>
         )}
-        <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+        <div className="grid grid-cols-3 gap-x-4 gap-y-2.5">
           {BundeslandSchema.options.map((land) => (
             <Checkbox
               key={land}
               label={t(`bundesland.${land}`)}
               checked={selected.includes(land)}
               disabled={disabled}
-              onChange={(event) => onToggle(land, event.target.checked)}
+              onCheckedChange={(checked) => onToggle(land, checked)}
             />
           ))}
         </div>

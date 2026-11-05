@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { DocumentProgress, FillPlan, ListingQuery } from '@shared/domain'
 import { Button } from '../../components/ui/button'
 import { Dialog } from '../../components/ui/dialog'
+import { DownloadIcon } from '../../components/ui/icons'
 import { ProgressBar } from '../../components/ui/progress-bar'
 import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
@@ -156,6 +157,7 @@ export function FillAreasButton({ job }: { job: FillJob }) {
         disabled={job.progress !== null}
         onClick={job.check}
       >
+        <DownloadIcon className="text-fg-muted" />
         {t('batch.fill.button')}
       </Button>
       {plan !== null && (
@@ -174,13 +176,13 @@ export function FillAreasButton({ job }: { job: FillJob }) {
             </>
           }
         >
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-2">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 rounded-md bg-bg-muted px-4 py-3">
             <dt className="text-fg-muted">{t('batch.fill.listings')}</dt>
-            <dd className="tabular-nums">{format.number(plan.listings)}</dd>
+            <dd className="text-right font-medium tabular-nums">{format.number(plan.listings)}</dd>
             <dt className="text-fg-muted">{t('batch.fill.documents')}</dt>
-            <dd className="tabular-nums">{format.number(plan.documents)}</dd>
+            <dd className="text-right font-medium tabular-nums">{format.number(plan.documents)}</dd>
             <dt className="text-fg-muted">{t('batch.fill.size')}</dt>
-            <dd className="tabular-nums">{format.fileSize(plan.totalKb)}</dd>
+            <dd className="text-right font-medium tabular-nums">{format.fileSize(plan.totalKb)}</dd>
           </dl>
           <p className="mt-4 text-fg-muted">{t('batch.fill.confirmText')}</p>
         </Dialog>
@@ -224,10 +226,13 @@ export function FillProgressPanel({ job }: { job: FillJob }) {
       {progress !== null && (
         <section
           aria-label={t('batch.fill.running')}
-          className="flex flex-col gap-2 rounded-lg border border-border bg-surface px-4 py-3"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-xs"
         >
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <span className="font-medium">{t('batch.fill.running')}</span>
+            <span className="flex items-center gap-2 font-medium">
+              <DownloadIcon className="text-accent-text" />
+              {t('batch.fill.running')}
+            </span>
             {counts !== null && (
               <span className="text-fg-muted tabular-nums">{t('batch.fill.item', counts)}</span>
             )}

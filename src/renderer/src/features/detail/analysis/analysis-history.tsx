@@ -67,7 +67,7 @@ export function AnalysisHistory({ history, latestId, viewedRunId, onView }: Anal
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col gap-2 border-t border-border pt-5"
+      className="flex flex-col gap-3 border-t border-border pt-6"
     >
       <h3 id={headingId} className="text-base font-semibold">
         {t('analysis.history.title')}
@@ -113,7 +113,7 @@ export function OlderRunNotice({
   const { t } = useTranslation()
   const format = useFormat()
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-bg-muted px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-accent-subtle bg-accent-soft px-4 py-3">
       <p className="text-sm">
         {t('analysis.history.viewing', { date: format.timestamp(runDate(run)) })}
       </p>

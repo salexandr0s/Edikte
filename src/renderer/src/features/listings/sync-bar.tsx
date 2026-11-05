@@ -26,7 +26,7 @@ export function SyncBar({ sync }: { sync: SyncControls }) {
   return (
     <div className="flex min-w-0 items-center gap-4">
       <SyncAnnouncement status={status} />
-      <div className="flex min-w-0 flex-col items-end gap-1 text-right">
+      <div className="flex min-w-0 flex-col items-end gap-1.5 text-right">
         {active ? <RunningSync status={status} /> : <LastRun sync={sync} />}
       </div>
       {active ? (
@@ -81,7 +81,9 @@ function RunningSync({ status }: { status: SyncStatus }) {
   return (
     <>
       <p className="flex flex-wrap justify-end gap-x-2 text-sm text-fg">
-        <span>{status.phase === null ? t('sync.starting') : t(`sync.phase.${status.phase}`)}</span>
+        <span className="font-medium">
+          {status.phase === null ? t('sync.starting') : t(`sync.phase.${status.phase}`)}
+        </span>
         {status.total > 0 && (
           <span className="text-fg-muted tabular-nums">
             {t('sync.progress', {

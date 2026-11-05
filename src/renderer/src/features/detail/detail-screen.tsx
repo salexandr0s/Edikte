@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../components/ui/button'
 import { EmptyState } from '../../components/ui/empty-state'
-import { ChevronLeftIcon } from '../../components/ui/icons'
+import { AlertCircleIcon, ChevronLeftIcon, SearchIcon } from '../../components/ui/icons'
+import { Skeleton } from '../../components/ui/skeleton'
 import { useApp } from '../../lib/app-context'
 import { AnalysisCard } from './analysis/analysis-card'
 import { AreaCandidatesCard } from './area-candidates-card'
@@ -38,12 +39,14 @@ export function DetailScreen({ id }: { id: string }) {
           <DetailSkeleton label={t('common.loading')} />
         ) : state.code === 'not_found' ? (
           <EmptyState
+            icon={<SearchIcon />}
             title={t('detail.notFoundTitle')}
             description={t('errors.not_found')}
             action={<Button onClick={back}>{t('detail.backToList')}</Button>}
           />
         ) : (
           <EmptyState
+            icon={<AlertCircleIcon />}
             title={t('detail.loadFailed')}
             description={t(`errors.${state.code}`)}
             action={<Button onClick={retry}>{t('common.retry')}</Button>}
@@ -78,22 +81,39 @@ export function DetailScreen({ id }: { id: string }) {
   )
 }
 
-const BLOCK = 'rounded-md bg-bg-muted'
-
 /** The page's outline while the listing loads, so nothing jumps when it arrives. */
 function DetailSkeleton({ label }: { label: string }) {
   return (
-    <div role="status" className="flex flex-col gap-6 motion-safe:animate-pulse">
+    <div role="status" className="flex flex-col gap-6">
       <span className="sr-only">{label}</span>
       <div aria-hidden="true" className="flex flex-col gap-3">
-        <div className={`${BLOCK} h-5 w-40`} />
-        <div className={`${BLOCK} h-8 w-2/3`} />
-        <div className={`${BLOCK} h-4 w-1/2`} />
+        <Skeleton className="h-6 w-40 rounded-full" />
+        <Skeleton className="h-8 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
       </div>
-      <div aria-hidden="true" className="h-40 rounded-lg border border-border" />
+      <div
+        aria-hidden="true"
+        className="grid grid-cols-4 gap-6 rounded-lg border border-border bg-surface p-6"
+      >
+        {Array.from({ length: 8 }, (_, index) => (
+          <div key={index} className="flex flex-col gap-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-4 w-28" />
+          </div>
+        ))}
+      </div>
       <div aria-hidden="true" className="grid gap-6 xl:grid-cols-5">
-        <div className="h-64 rounded-lg border border-border xl:col-span-3" />
-        <div className="h-64 rounded-lg border border-border xl:col-span-2" />
+        <div className="flex h-64 flex-col gap-4 rounded-lg border border-border bg-surface p-6 xl:col-span-3">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+        <div className="flex h-64 flex-col gap-4 rounded-lg border border-border bg-surface p-6 xl:col-span-2">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
       </div>
     </div>
   )

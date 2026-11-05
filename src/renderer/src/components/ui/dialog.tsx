@@ -1,6 +1,8 @@
 import { Dialog as RadixDialog } from 'radix-ui'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cx } from '../../lib/cx'
+import { CloseIcon } from './icons'
 
 interface DialogProps {
   open: boolean
@@ -36,34 +38,51 @@ export function Dialog({
   size = 'md',
   dismissible = true,
 }: DialogProps) {
+  const { t } = useTranslation()
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-(--edk-z-overlay) bg-overlay" />
+        <RadixDialog.Overlay className="fixed inset-0 z-(--edk-z-overlay) bg-overlay backdrop-blur-xs data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
         <RadixDialog.Content
           // Without a description, Radix wants aria-describedby unset explicitly.
           {...(description === undefined ? { 'aria-describedby': undefined } : {})}
           onPointerDownOutside={dismissible ? undefined : (event) => event.preventDefault()}
           className={cx(
-            'fixed top-1/2 left-1/2 z-(--edk-z-modal) flex max-h-(--edk-modal-max-height) -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg border border-border bg-surface-elevated p-6 text-fg shadow-lg',
+            'fixed top-1/2 left-1/2 z-(--edk-z-modal) flex max-h-(--edk-modal-max-height) -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-surface-elevated text-fg shadow-xl outline-none',
+            'data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out',
             WIDTHS[size],
           )}
         >
-          <div className="flex flex-col gap-2">
-            <RadixDialog.Title className="text-xl font-semibold tracking-tight">
-              {title}
-            </RadixDialog.Title>
-            {description !== undefined && (
-              <RadixDialog.Description className="text-sm text-fg-muted">
-                {description}
-              </RadixDialog.Description>
-            )}
+          <div className="flex items-start gap-4 px-6 pt-6 pb-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <RadixDialog.Title className="text-lg font-semibold tracking-tight">
+                {title}
+              </RadixDialog.Title>
+              {description !== undefined && (
+                <RadixDialog.Description className="text-sm text-fg-muted">
+                  {description}
+                </RadixDialog.Description>
+              )}
+            </div>
+            <RadixDialog.Close
+              aria-label={t('common.close')}
+              className="-mt-1 -mr-2 flex size-8 shrink-0 items-center justify-center rounded-sm text-fg-muted transition-colors duration-120 hover:bg-fill-muted hover:text-fg"
+            >
+              <CloseIcon />
+            </RadixDialog.Close>
           </div>
           {children !== undefined && (
-            <div className="-mx-1 min-h-0 overflow-y-auto px-1 text-sm">{children}</div>
+            <div className="min-h-0 overflow-y-auto px-6 pb-6 text-sm">{children}</div>
           )}
           {footer !== undefined && (
-            <div className="flex flex-wrap justify-end gap-3 pt-2">{footer}</div>
+            <div
+              className={cx(
+                'flex flex-wrap justify-end gap-2 border-t border-border bg-bg-muted px-6 py-4',
+                children === undefined && 'mt-2',
+              )}
+            >
+              {footer}
+            </div>
           )}
         </RadixDialog.Content>
       </RadixDialog.Portal>

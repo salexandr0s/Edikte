@@ -5,7 +5,7 @@ import { AppErrorCodeSchema } from '@shared/errors'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
-import { AlertIcon } from '../../components/ui/icons'
+import { AlertIcon, DocumentIcon, DownloadIcon } from '../../components/ui/icons'
 import { ProgressBar } from '../../components/ui/progress-bar'
 import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
@@ -114,6 +114,12 @@ function DocumentRow({ doc, progress, onDownloaded }: DocumentRowProps) {
   return (
     <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-start justify-between gap-3">
+        <div
+          aria-hidden="true"
+          className="flex size-9 shrink-0 items-center justify-center rounded-md bg-fill-muted text-fg-muted"
+        >
+          <DocumentIcon />
+        </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p id={kindId} className="text-sm font-medium">
             {t(`documents.kind.${doc.kind}`)}
@@ -139,6 +145,7 @@ function DocumentRow({ doc, progress, onDownloaded }: DocumentRowProps) {
               aria-describedby={kindId}
               onClick={() => void download()}
             >
+              <DownloadIcon />
               {t('documents.download')}
             </Button>
           )}
@@ -154,8 +161,16 @@ function DocumentRow({ doc, progress, onDownloaded }: DocumentRowProps) {
           </Button>
         </div>
       </div>
-      {progress !== null && <TransferProgress progress={progress} />}
-      {doc.extractError !== null && <ExtractWarning message={doc.extractError} />}
+      {progress !== null && (
+        <div className="pl-12">
+          <TransferProgress progress={progress} />
+        </div>
+      )}
+      {doc.extractError !== null && (
+        <div className="pl-12">
+          <ExtractWarning message={doc.extractError} />
+        </div>
+      )}
     </li>
   )
 }

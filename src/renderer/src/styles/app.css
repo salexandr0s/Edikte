@@ -106,8 +106,10 @@
   --tracking-tight: -0.01em;
   --tracking-normal: 0em;
   --tracking-wide: 0.01em;
+  --tracking-wider: 0.04em;
 
   --radius-*: initial;
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -118,6 +120,10 @@
   --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.16);
   --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.2);
+  /* Filled controls: a hairline highlight on top and a soft drop below. */
+  --shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(0, 0, 0, 0.12);
+  /* Menus, selects and tooltips: hairline edge plus a soft, wide drop. */
+  --shadow-popover: var(--edk-shadow-popover);
 
   --ease-*: initial;
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -127,6 +133,159 @@
   --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   --spacing: 4px;
+
+  /*
+   * Motion. Radix sets data-state="open|closed" on floating content and the
+   * transform origin in --radix-*-content-transform-origin; the pop keyframes
+   * scale from that corner. Reduced motion zeroes every duration below.
+   */
+  --animate-fade-in: edk-fade-in 160ms var(--ease-standard) both;
+  --animate-fade-out: edk-fade-out 120ms var(--ease-standard) both;
+  --animate-pop-in: edk-pop-in 160ms var(--ease-standard) both;
+  --animate-pop-out: edk-pop-out 120ms var(--ease-standard) both;
+  --animate-dialog-in: edk-dialog-in 220ms var(--ease-emphasized) both;
+  --animate-dialog-out: edk-dialog-out 160ms var(--ease-standard) both;
+  --animate-toast-in: edk-toast-in 220ms var(--ease-emphasized) both;
+  --animate-toast-out: edk-toast-out 160ms var(--ease-standard) both;
+  --animate-collapse-down: edk-collapse-down 220ms var(--ease-standard) both;
+  --animate-collapse-up: edk-collapse-up 160ms var(--ease-standard) both;
+  --animate-indeterminate: edk-indeterminate 1.4s var(--ease-standard) infinite;
+  --animate-shimmer: edk-shimmer 1.6s linear infinite;
+  --animate-check-in: edk-check-in 160ms var(--ease-emphasized) both;
+  --animate-soft-pulse: edk-soft-pulse 1.6s ease-in-out infinite;
+
+  @keyframes edk-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes edk-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes edk-pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(-2px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  @keyframes edk-pop-out {
+    from {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.97) translateY(-2px);
+    }
+  }
+  /* The dialog is centred with translate(-50%, -50%); the keyframes keep it. */
+  @keyframes edk-dialog-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.96) translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1) translateY(0);
+    }
+  }
+  @keyframes edk-dialog-out {
+    from {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1) translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.97) translateY(4px);
+    }
+  }
+  @keyframes edk-toast-in {
+    from {
+      opacity: 0;
+      transform: translateX(24px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+  @keyframes edk-toast-out {
+    from {
+      opacity: 1;
+      transform: translateX(var(--radix-toast-swipe-end-x, 0));
+    }
+    to {
+      opacity: 0;
+      transform: translateX(calc(100% + 24px));
+    }
+  }
+  @keyframes edk-collapse-down {
+    from {
+      height: 0;
+      opacity: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+  }
+  @keyframes edk-collapse-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+    to {
+      height: 0;
+      opacity: 0;
+    }
+  }
+  @keyframes edk-indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(300%);
+    }
+  }
+  @keyframes edk-shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+  @keyframes edk-check-in {
+    from {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes edk-soft-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
 }
 
 /* Semantic colors follow the OS appearance (Electron's nativeTheme). */
@@ -136,17 +295,29 @@
   --edk-bg-muted: var(--color-neutral-50);
   --edk-surface: var(--color-white);
   --edk-surface-elevated: var(--color-white);
+  /* Rows and ghost controls under the pointer. */
+  --edk-surface-hover: var(--color-neutral-50);
+  /* Filled neutral controls (secondary buttons, segmented tracks, chips on). */
+  --edk-fill-muted: var(--color-neutral-100);
+  --edk-fill-muted-hover: var(--color-neutral-200);
   --edk-fg: var(--color-neutral-900);
   --edk-fg-muted: var(--color-neutral-600);
   --edk-border: var(--color-neutral-200);
   --edk-border-strong: var(--color-neutral-300);
   --edk-accent: var(--color-blue-500);
   --edk-accent-hover: var(--color-blue-600);
+  /* Selected rows, chips and option cards: a tint, not a fill. */
+  --edk-accent-soft: var(--color-blue-50);
   --edk-ring: var(--color-blue-500);
+  --edk-ring-soft: color-mix(in srgb, var(--color-blue-500) 22%, transparent);
   --edk-danger: var(--color-red-500);
   --edk-warning: var(--color-amber-500);
   --edk-success: var(--color-green-500);
   --edk-overlay: rgba(0, 0, 0, 0.4);
+  --edk-tooltip: var(--color-neutral-900);
+  --edk-tooltip-fg: var(--color-neutral-50);
+  --edk-shadow-popover:
+    0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.12);
 
   /*
    * Text-safe variants (QG-ACCESS-001, WCAG AA 4.5:1). White text measures
@@ -202,11 +373,21 @@
     --edk-bg-muted: var(--color-neutral-900);
     --edk-surface: var(--color-neutral-900);
     --edk-surface-elevated: var(--color-neutral-800);
+    --edk-surface-hover: var(--color-neutral-800);
+    --edk-fill-muted: var(--color-neutral-800);
+    --edk-fill-muted-hover: var(--color-neutral-700);
     --edk-fg: var(--color-neutral-100);
     --edk-fg-muted: var(--color-neutral-400);
     --edk-border: var(--color-neutral-800);
     --edk-border-strong: var(--color-neutral-700);
-    --edk-overlay: rgba(0, 0, 0, 0.55);
+    --edk-accent-soft: color-mix(in srgb, var(--color-blue-900) 45%, var(--color-neutral-900));
+    --edk-ring-soft: color-mix(in srgb, var(--color-blue-400) 28%, transparent);
+    --edk-overlay: rgba(0, 0, 0, 0.6);
+    --edk-tooltip: var(--color-neutral-100);
+    --edk-tooltip-fg: var(--color-neutral-900);
+    --edk-shadow-popover:
+      0 0 0 1px rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.3),
+      0 16px 40px rgba(0, 0, 0, 0.55);
     --edk-accent-text: var(--color-blue-400);
     --edk-danger-text: var(--color-red-400);
     --edk-warning-text: var(--color-amber-400);
@@ -227,18 +408,23 @@
   --color-bg-muted: var(--edk-bg-muted);
   --color-surface: var(--edk-surface);
   --color-surface-elevated: var(--edk-surface-elevated);
+  --color-surface-hover: var(--edk-surface-hover);
+  --color-fill-muted: var(--edk-fill-muted);
+  --color-fill-muted-hover: var(--edk-fill-muted-hover);
   --color-fg: var(--edk-fg);
   --color-fg-muted: var(--edk-fg-muted);
   --color-border: var(--edk-border);
   --color-border-strong: var(--edk-border-strong);
   --color-accent: var(--edk-accent);
   --color-accent-hover: var(--edk-accent-hover);
+  --color-accent-soft: var(--edk-accent-soft);
   --color-accent-fill: var(--edk-accent-fill);
   --color-accent-fill-hover: var(--edk-accent-fill-hover);
   --color-accent-text: var(--edk-accent-text);
   --color-accent-subtle: var(--edk-accent-subtle);
   --color-accent-subtle-fg: var(--edk-accent-subtle-fg);
   --color-ring: var(--edk-ring);
+  --color-ring-soft: var(--edk-ring-soft);
   --color-danger: var(--edk-danger);
   --color-danger-fill: var(--edk-danger-fill);
   --color-danger-fill-hover: var(--edk-danger-fill-hover);
@@ -254,6 +440,8 @@
   --color-success-subtle: var(--edk-success-subtle);
   --color-success-subtle-fg: var(--edk-success-subtle-fg);
   --color-overlay: var(--edk-overlay);
+  --color-tooltip: var(--edk-tooltip);
+  --color-tooltip-fg: var(--edk-tooltip-fg);
 }
 
 @layer base {
@@ -269,11 +457,46 @@
     color: var(--color-fg);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
+  }
+
+  ::selection {
+    background-color: var(--edk-ring-soft);
   }
 
   :focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
+  }
+
+  /* Thin scrollbars; macOS keeps its overlay bars, Windows loses the chunky track. */
+  * {
+    scrollbar-width: thin;
+  }
+
+  /* Numbers are typed; the spinner arrows add nothing but clutter. */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    appearance: textfield;
+  }
+
+  input[type='search']::-webkit-search-cancel-button,
+  input[type='search']::-webkit-search-decoration {
+    appearance: none;
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 120ms var(--ease-standard);
+  }
+  input[type='date']:hover::-webkit-calendar-picker-indicator {
+    opacity: 1;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -284,4 +507,17 @@
       animation-duration: 0ms !important;
     }
   }
+}
+
+/* Loading placeholder: a soft sweep across a muted block. */
+@utility skeleton {
+  background-color: var(--color-fill-muted);
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--color-surface-elevated) 60%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
 }

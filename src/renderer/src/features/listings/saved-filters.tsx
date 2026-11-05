@@ -1,21 +1,30 @@
-import { DropdownMenu } from 'radix-ui'
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ListingQuery, SavedFilter } from '@shared/domain'
 import type { AppErrorCode } from '@shared/errors'
 import { Button } from '../../components/ui/button'
 import { Dialog } from '../../components/ui/dialog'
+import {
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
+  MenuSub,
+  MenuSubContent,
+  MenuSubTrigger,
+  MenuTrigger,
+} from '../../components/ui/dropdown-menu'
 import { Field, Input } from '../../components/ui/field'
-import { ChevronDownIcon, ChevronRightIcon } from '../../components/ui/icons'
+import {
+  BookmarkIcon,
+  ChevronDownIcon,
+  PlusIcon,
+  RefreshIcon,
+  TrashIcon,
+} from '../../components/ui/icons'
 import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
-
-// dropdown.v1
-const MENU =
-  'z-(--edk-z-dropdown) max-w-80 min-w-48 rounded-md border border-border bg-surface-elevated p-1 text-fg shadow-md'
-const ITEM =
-  'flex h-9 cursor-default items-center gap-2 rounded-sm px-3 text-sm outline-offset-1 select-none data-disabled:opacity-55 data-highlighted:bg-bg-muted'
-const NOTE = 'px-3 py-2 text-sm text-fg-muted'
 
 interface SavedFiltersProps {
   query: ListingQuery
@@ -57,69 +66,60 @@ export function SavedFilters({ query, onApply }: SavedFiltersProps) {
   return (
     <>
       {/* Not modal: a dialog opened from an item then gets focus without a fight. */}
-      <DropdownMenu.Root modal={false}>
-        <DropdownMenu.Trigger asChild>
-          <Button variant="outline" size="sm">
+      <Menu modal={false}>
+        <MenuTrigger asChild>
+          <Button variant="outline" size="sm" className="group">
+            <BookmarkIcon className="text-fg-muted" />
             {t('filters.saved.menu')}
-            <ChevronDownIcon />
+            <ChevronDownIcon className="size-3.5 text-fg-muted transition-transform duration-160 ease-standard group-data-[state=open]:rotate-180" />
           </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content align="start" sideOffset={4} className={MENU}>
-            {error !== null ? (
-              <>
-                <DropdownMenu.Label className={NOTE}>
-                  {t('filters.saved.loadFailed')}
-                </DropdownMenu.Label>
-                <DropdownMenu.Item className={ITEM} onSelect={reload}>
-                  {t('common.retry')}
-                </DropdownMenu.Item>
-              </>
-            ) : filters === null ? (
-              <DropdownMenu.Label className={NOTE}>{t('common.loading')}</DropdownMenu.Label>
-            ) : filters.length === 0 ? (
-              <DropdownMenu.Label className={NOTE}>{t('filters.saved.empty')}</DropdownMenu.Label>
-            ) : (
-              filters.map((filter) => (
-                <DropdownMenu.Item
-                  key={filter.id}
-                  className={ITEM}
-                  title={nameOf(filter)}
-                  onSelect={() => onApply(filter.query)}
-                >
-                  <span className="truncate">{nameOf(filter)}</span>
-                </DropdownMenu.Item>
-              ))
-            )}
-            <DropdownMenu.Separator className="my-1 h-px bg-border" />
-            <DropdownMenu.Item className={ITEM} onSelect={() => setSaving(true)}>
-              {t('filters.saved.save')}
-            </DropdownMenu.Item>
-            {userFilters.length > 0 && (
-              <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger className={ITEM}>
-                  {t('filters.saved.delete')}
-                  <ChevronRightIcon className="ml-auto" />
-                </DropdownMenu.SubTrigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.SubContent sideOffset={4} className={MENU}>
-                    {userFilters.map((filter) => (
-                      <DropdownMenu.Item
-                        key={filter.id}
-                        className={ITEM}
-                        title={filter.name}
-                        onSelect={() => setDeleting(filter)}
-                      >
-                        <span className="truncate">{filter.name}</span>
-                      </DropdownMenu.Item>
-                    ))}
-                  </DropdownMenu.SubContent>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Sub>
-            )}
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+        </MenuTrigger>
+        <MenuContent align="start">
+          {error !== null ? (
+            <>
+              <MenuLabel>{t('filters.saved.loadFailed')}</MenuLabel>
+              <MenuItem icon={<RefreshIcon />} onSelect={reload}>
+                {t('common.retry')}
+              </MenuItem>
+            </>
+          ) : filters === null ? (
+            <MenuLabel>{t('common.loading')}</MenuLabel>
+          ) : filters.length === 0 ? (
+            <MenuLabel>{t('filters.saved.empty')}</MenuLabel>
+          ) : (
+            filters.map((filter) => (
+              <MenuItem
+                key={filter.id}
+                title={nameOf(filter)}
+                onSelect={() => onApply(filter.query)}
+              >
+                {nameOf(filter)}
+              </MenuItem>
+            ))
+          )}
+          <MenuSeparator />
+          <MenuItem icon={<PlusIcon />} onSelect={() => setSaving(true)}>
+            {t('filters.saved.save')}
+          </MenuItem>
+          {userFilters.length > 0 && (
+            <MenuSub>
+              <MenuSubTrigger icon={<TrashIcon />}>{t('filters.saved.delete')}</MenuSubTrigger>
+              <MenuSubContent>
+                {userFilters.map((filter) => (
+                  <MenuItem
+                    key={filter.id}
+                    danger
+                    title={filter.name}
+                    onSelect={() => setDeleting(filter)}
+                  >
+                    {filter.name}
+                  </MenuItem>
+                ))}
+              </MenuSubContent>
+            </MenuSub>
+          )}
+        </MenuContent>
+      </Menu>
 
       {saving && (
         <SaveFilterDialog query={query} onClose={() => setSaving(false)} onSaved={reload} />
@@ -209,6 +209,7 @@ function SaveFilterDialog({ query, onClose, onSaved }: SaveFilterDialogProps) {
               value={name}
               maxLength={80}
               autoComplete="off"
+              autoFocus
               onChange={(event) => setName(event.target.value)}
             />
           )}

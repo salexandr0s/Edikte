@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next'
 import type { ListingQuery } from '@shared/domain'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
+import { FilterIcon } from '../../components/ui/icons'
 import { useApp } from '../../lib/app-context'
 import { AnalysisQueueStatus, AnalyzeFilteredButton } from './analysis-actions'
 import { FillAreasButton, FillProgressPanel, useFillJob } from './fill-areas'
 import { FilterPanel } from './filter-panel'
-import { FilterIcon } from './listing-icons'
 import { ListingResults } from './listing-results'
 import { applyPatch, countActiveFilters, defaultQuery, resetFilters } from './query-helpers'
 import { SavedFilters } from './saved-filters'
@@ -50,8 +50,8 @@ export function ListingsScreen() {
   const reset = () => setQuery((current) => resetFilters(current, settings.priceBasis))
 
   return (
-    <div className="flex flex-col gap-6 px-6 py-6">
-      <header className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+    <div className="flex flex-col gap-5 px-6 py-6">
+      <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
         <h1
           id={titleId}
           tabIndex={-1}
@@ -73,7 +73,7 @@ export function ListingsScreen() {
           <FilterIcon />
           {t('filters.title')}
           {activeFilters > 0 && (
-            <Badge size="sm" variant="primary">
+            <Badge size="sm" variant="primary" className="-mr-1">
               {t('filters.activeCount', { count: activeFilters })}
             </Badge>
           )}
@@ -93,6 +93,7 @@ export function ListingsScreen() {
           id={panelId}
           hidden={!filtersOpen}
           query={query}
+          activeCount={activeFilters}
           onChange={updateQuery}
           onReset={reset}
         />

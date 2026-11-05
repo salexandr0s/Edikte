@@ -72,6 +72,7 @@
     "activeCount_other": "{{count}} active",
     "search": "Search",
     "searchPlaceholder": "Title, street, court or case number",
+    "clearSearch": "Clear search",
     "priceBasis": "Price basis",
     "maxPricePerSqm": "Max. price per m² (€)",
     "includeWithoutArea": "Include auctions without an area",

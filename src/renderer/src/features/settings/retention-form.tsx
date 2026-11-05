@@ -34,25 +34,25 @@ export function RetentionForm({ value, saver }: RetentionFormProps) {
         error={invalid ? t('settings.data.retentionInvalid') : undefined}
       >
         {(control) => (
-          <div className="flex items-center gap-3">
-            <Input
-              {...control}
-              type="number"
-              inputMode="numeric"
-              min={RETENTION_MIN_DAYS}
-              max={RETENTION_MAX_DAYS}
-              step={1}
-              value={draft}
-              disabled={saver.saving}
-              className="min-w-0 flex-1"
-              onChange={(event) => {
-                setDraft(event.target.value)
-                setInvalid(false)
-              }}
-            />
-            <span className="shrink-0 text-sm text-fg-muted">
-              {t('settings.data.retentionUnit')}
-            </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="w-24">
+              <Input
+                {...control}
+                type="number"
+                inputMode="numeric"
+                min={RETENTION_MIN_DAYS}
+                max={RETENTION_MAX_DAYS}
+                step={1}
+                value={draft}
+                disabled={saver.saving}
+                className="tabular-nums"
+                onChange={(event) => {
+                  setDraft(event.target.value)
+                  setInvalid(false)
+                }}
+              />
+            </div>
+            <span className="text-sm text-fg-muted">{t('settings.data.retentionUnit')}</span>
             <Button type="submit" variant="secondary" disabled={!changed || saver.saving}>
               {t('common.save')}
             </Button>

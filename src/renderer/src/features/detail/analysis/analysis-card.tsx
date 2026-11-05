@@ -73,7 +73,7 @@ export function AnalysisCard({ detail, reload, reloadError }: AnalysisCardProps)
         ) : undefined
       }
     >
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-8">
         {viewedRun === null ? (
           <CurrentAnalysis
             view={view}

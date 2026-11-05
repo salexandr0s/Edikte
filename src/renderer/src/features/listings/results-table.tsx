@@ -2,9 +2,8 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ListingRow } from '@shared/domain'
 import type { PriceBasis } from '@shared/enums'
-import { ChevronDownIcon, ChevronUpIcon } from '../../components/ui/icons'
+import { ChevronDownIcon, ChevronUpIcon, SortableIcon } from '../../components/ui/icons'
 import { cx } from '../../lib/cx'
-import { SortableIcon } from './listing-icons'
 import { ListingTableRow } from './listing-row'
 import {
   currentAnalysisStatus,
@@ -18,7 +17,7 @@ import {
 // `isolate` on the frame keeps its z-index inside the table, so menus,
 // dialogs and toasts still cover it.
 const HEADER =
-  'sticky top-0 z-(--edk-z-sticky) border-b border-border bg-bg-muted py-2 text-sm font-medium whitespace-nowrap text-fg-muted'
+  'sticky top-0 z-(--edk-z-sticky) h-10 border-b border-border bg-bg-muted text-xs font-medium whitespace-nowrap text-fg-muted'
 
 interface ResultsTableProps {
   labelledBy: string
@@ -53,11 +52,14 @@ export function ResultsTable({
   )
 
   return (
-    <div className="isolate rounded-lg border border-border">
+    <div className="isolate rounded-lg border border-border bg-surface shadow-xs">
       <table
         aria-labelledby={labelledBy}
         aria-busy={busy || undefined}
-        className="w-full border-separate border-spacing-0 text-sm"
+        className={cx(
+          'w-full border-separate border-spacing-0 text-sm transition-opacity duration-160',
+          busy && 'opacity-70',
+        )}
       >
         <thead>
           <tr>
@@ -111,21 +113,27 @@ function SortHeader({ column, sort, align, onSort, children }: SortHeaderProps) 
     <th
       scope="col"
       aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : undefined}
-      className={cx(HEADER, 'px-4', align === 'right' ? 'text-right' : 'text-left')}
+      className={cx(HEADER, 'px-2', align === 'right' ? 'text-right' : 'text-left')}
     >
       <button
         type="button"
         onClick={() => onSort(nextSort(sort, column))}
         className={cx(
-          'inline-flex items-center gap-1 rounded-sm transition-colors hover:text-fg',
+          'group inline-flex h-7 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors duration-120 hover:bg-fill-muted hover:text-fg',
           active && 'text-fg',
           align === 'right' && 'flex-row-reverse',
         )}
       >
         {children}
-        {!active && <SortableIcon className="opacity-55" />}
-        {active && sort.direction === 'asc' && <ChevronUpIcon />}
-        {active && sort.direction === 'desc' && <ChevronDownIcon />}
+        {!active && (
+          <SortableIcon className="size-3.5 opacity-40 transition-opacity group-hover:opacity-80" />
+        )}
+        {active && sort.direction === 'asc' && (
+          <ChevronUpIcon className="size-3.5 text-accent-text" strokeWidth={2} />
+        )}
+        {active && sort.direction === 'desc' && (
+          <ChevronDownIcon className="size-3.5 text-accent-text" strokeWidth={2} />
+        )}
       </button>
     </th>
   )

@@ -86,7 +86,7 @@ export function NotesCard({ caseKey, initialNotes }: NotesCardProps) {
         <p id={`${id}-help`} className="text-xs text-fg-muted">
           {t('detail.notes.help')}
         </p>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <p
             id={`${id}-status`}
             aria-live="polite"

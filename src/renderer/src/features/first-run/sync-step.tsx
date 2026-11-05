@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { Bundesland } from '@shared/enums'
-import { Checkbox } from '../../components/ui/field'
+import { SwitchRow } from '../../components/ui/switch'
 import { BundeslandCheckboxes } from '../settings/bundesland-checkboxes'
 import { toggleBundesland } from '../settings/settings-logic'
 
@@ -30,11 +30,12 @@ export function SyncStep({
           onBundeslaenderChange(toggleBundesland(bundeslaender, land, checked))
         }
       />
-      <Checkbox
+      <SwitchRow
         label={t('settings.data.autoSync')}
         description={t('settings.data.autoSyncHelp')}
         checked={autoSync}
-        onChange={(event) => onAutoSyncChange(event.target.checked)}
+        onCheckedChange={onAutoSyncChange}
+        className="border-t border-border pt-6"
       />
     </div>
   )

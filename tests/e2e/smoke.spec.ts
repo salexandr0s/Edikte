@@ -45,12 +45,16 @@ test('starts the built app, reaches main and switches language', async () => {
       await expect(listingsHeading).toBeVisible({ timeout: 1_000 })
     }).toPass({ timeout: 20_000 })
 
+    // The language picker is a custom select: the trigger is a combobox, the
+    // menu lists options by their label.
     const language = window.getByRole('combobox', { name: /^(Sprache|Language)$/ })
     const heading = window.getByRole('heading', { level: 1 })
-    await language.selectOption('de')
+    await language.click()
+    await window.getByRole('option', { name: 'Deutsch' }).click()
     await expect(heading).toHaveText('Versteigerungen')
     await expect(window.locator('html')).toHaveAttribute('lang', 'de')
-    await language.selectOption('en')
+    await language.click()
+    await window.getByRole('option', { name: 'English' }).click()
     await expect(heading).toHaveText('Auctions')
     await expect(window.locator('html')).toHaveAttribute('lang', 'en')
 

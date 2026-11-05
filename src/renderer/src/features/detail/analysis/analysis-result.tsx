@@ -32,7 +32,7 @@ export function AnalysisResult({ record }: { record: AnalysisRecord }) {
   const source: ResultSource = { record }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 [&>section+section]:border-t [&>section+section]:border-border [&>section+section]:pt-6">
       <ResultSection title={t('analysis.summary')}>
         <p className="text-base leading-relaxed">
           {german ? result.summary_de : result.summary_en}
