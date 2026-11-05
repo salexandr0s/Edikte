@@ -31,8 +31,17 @@ test('starts the built app, reaches main and switches language', async () => {
     await expect(footer).toContainText(/Version \d+\.\d+\.\d+/)
     await expect(footer).toContainText(userDataDir)
 
-    // A new data folder opens on the first-run screen; finishing it saves a setting.
-    await window.getByRole('button', { name: /^(Weiter|Continue)$/ }).click()
+    // A new data folder opens on the first-run screen. Every step moves on with
+    // the same button; the last one saves the settings and shows the listings.
+    const listingsHeading = window.getByRole('heading', {
+      level: 1,
+      name: /^(Versteigerungen|Auctions)$/,
+    })
+    const next = window.getByRole('button', { name: /^(Weiter|Continue)$/ })
+    await expect(async () => {
+      if (await next.isVisible()) await next.click({ timeout: 1_000 })
+      await expect(listingsHeading).toBeVisible({ timeout: 1_000 })
+    }).toPass({ timeout: 20_000 })
 
     const language = window.getByRole('combobox', { name: /^(Sprache|Language)$/ })
     const heading = window.getByRole('heading', { level: 1 })

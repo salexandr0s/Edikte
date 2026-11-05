@@ -1,1 +1,122 @@
-{}
+{
+  "settings": {
+    "title": "Einstellungen",
+    "saving": "Wird gespeichert …",
+    "saved": "Gespeichert",
+    "saveFailed": "Die Einstellung konnte nicht gespeichert werden.",
+    "languageHelp": "Die Systemsprache richtet sich nach Ihrem Computer: Deutsch, wenn er auf Deutsch eingestellt ist, sonst Englisch.",
+    "data": {
+      "title": "Daten und Synchronisierung",
+      "bundeslaender": "Bundesländer für die Synchronisierung",
+      "bundeslaenderHelp": "Die App lädt die Versteigerungen, die für diese Bundesländer veröffentlicht werden.",
+      "bundeslaenderRequired": "Wählen Sie mindestens ein Bundesland.",
+      "autoSync": "Beim Start der App synchronisieren",
+      "autoSyncHelp": "Prüft edikte.justiz.gv.at auf neue und geänderte Versteigerungen.",
+      "priceBasis": "Standard-Preisbasis",
+      "priceBasisHelp": "Gilt für den Preis pro m² in der Liste der Versteigerungen.",
+      "retention": "Heruntergeladene Dokumente behalten",
+      "retentionUnit": "Tage nach Abschluss eines Falls",
+      "retentionHelp": "Danach löscht die App die Dateien. Möglich sind 1 bis 3650 Tage.",
+      "retentionInvalid": "Geben Sie eine ganze Zahl von 1 bis 3650 ein.",
+      "dataDir": "Datenordner",
+      "dataDirHelp": "Hier speichert die App heruntergeladene Dokumente."
+    },
+    "consent": {
+      "title": "Einwilligung zur Analyse",
+      "given": "Sie haben am {{date}} zugestimmt, dass die App den Text von Gutachten an Ihren KI-Anbieter senden darf.",
+      "givenNote": "Wenn Sie widerrufen, fragt die App vor der nächsten Analyse erneut.",
+      "withdraw": "Widerrufen",
+      "notGiven": "Vor der ersten Analyse fragt die App, ob der Text der Gutachten samt den Namen der Eigentümer an den gewählten Anbieter gehen darf."
+    },
+    "about": {
+      "title": "Über Edikte",
+      "notAffiliated": "Edikte steht in keiner Verbindung zum Bundesministerium für Justiz.",
+      "source": "Die Daten stammen aus der öffentlichen Ediktsdatei auf edikte.justiz.gv.at.",
+      "personalUse": "Die App ist für den persönlichen Gebrauch gedacht.",
+      "openSite": "edikte.justiz.gv.at öffnen"
+    }
+  },
+  "providers": {
+    "title": "KI-Anbieter",
+    "intro": "Analysen laufen über den Anbieter mit der Markierung „In Verwendung“. Jeder Anbieter arbeitet mit Ihrem eigenen Konto oder API-Schlüssel.",
+    "checkAgain": "Erneut prüfen",
+    "lastChecked": "Zuletzt geprüft: {{time}}",
+    "checkFailed": "Die letzte Prüfung dieses Anbieters ist fehlgeschlagen.",
+    "state": {
+      "ready": "Bereit",
+      "not_installed": "Nicht installiert",
+      "signed_out": "Nicht angemeldet",
+      "signing_in": "Anmeldung läuft",
+      "update_required": "Update erforderlich",
+      "identity_only": "Kein Modellzugriff",
+      "error": "Fehler",
+      "noKey": "Kein Schlüssel"
+    },
+    "description": {
+      "chatgpt": "Anmeldung mit Ihrem ChatGPT-Konto. Analysen zählen zum Nutzungslimit Ihres Plans.",
+      "claude-cli": "Edikte startet die auf diesem Computer installierte Claude CLI unter Ihrem eigenen Konto.",
+      "codex-cli": "Edikte startet die auf diesem Computer installierte Codex CLI unter Ihrem eigenen Konto.",
+      "openai-api": "Nutzt Ihren eigenen OpenAI-API-Schlüssel. OpenAI verrechnet jede Analyse über das Konto des Schlüssels.",
+      "anthropic-api": "Nutzt Ihren eigenen Anthropic-API-Schlüssel. Anthropic verrechnet jede Analyse über das Konto des Schlüssels."
+    },
+    "vendor": {
+      "openai-api": "OpenAI",
+      "anthropic-api": "Anthropic"
+    },
+    "account": "Konto",
+    "key": "Schlüssel",
+    "plan": "Plan",
+    "version": "Version",
+    "program": "Programm",
+    "source": {
+      "override": "Von Ihnen ausgewählt",
+      "known_location": "An einem üblichen Installationsort gefunden",
+      "path": "Über die PATH-Variable gefunden",
+      "login_shell": "Über Ihre Login-Shell gefunden"
+    },
+    "inUse": "In Verwendung",
+    "useForAnalysis": "Für Analysen verwenden",
+    "stopUsing": "Nicht mehr verwenden",
+    "nowUsed": "Analysen laufen jetzt über {{provider}}",
+    "noLongerUsed": "{{provider}} wird nicht mehr für Analysen verwendet",
+    "disconnected": "Verbindung zu {{provider}} getrennt",
+    "signingIn": "Warten auf die Anmeldung im Browser …",
+    "oauth": {
+      "connect": "Weiter mit ChatGPT",
+      "connectHint": "Öffnet die Anmeldeseite in Ihrem Browser.",
+      "identityOnly": "Sie sind angemeldet, aber ohne Zugriff auf Modelle. Melden Sie sich erneut an und erlauben Sie den Modellzugriff.",
+      "signInAgain": "Erneut anmelden",
+      "disconnect": "Verbindung trennen"
+    },
+    "cli": {
+      "notInstalled": "Nicht gefunden. Installieren Sie die CLI und wählen Sie dann „Erneut prüfen“, oder wählen Sie die Programmdatei aus.",
+      "updateRequired": "Diese Version ist für Edikte zu alt. Aktualisieren Sie die CLI und wählen Sie dann „Erneut prüfen“.",
+      "signIn": "Anmelden",
+      "signInHint": "Startet die Anmeldung der CLI in Ihrem Browser.",
+      "chooseFile": "Datei auswählen …",
+      "useDetected": "Gefundenen Pfad verwenden",
+      "staysSignedIn": "Die CLI selbst bleibt angemeldet."
+    },
+    "apiKey": {
+      "label": "API-Schlüssel",
+      "help": "Die App prüft den Schlüssel beim Anbieter und speichert ihn verschlüsselt auf diesem Computer. Er wird nicht wieder angezeigt.",
+      "save": "Schlüssel speichern",
+      "saved": "API-Schlüssel gespeichert",
+      "tooShort": "Das ist zu kurz für einen API-Schlüssel. Fügen Sie den ganzen Schlüssel ein.",
+      "remove": "Schlüssel entfernen",
+      "removeTitle": "{{vendor}}-API-Schlüssel entfernen?",
+      "removeText": "Die App löscht den gespeicherten Schlüssel von diesem Computer. Um {{vendor}} wieder zu nutzen, müssen Sie den Schlüssel erneut eingeben.",
+      "removed": "API-Schlüssel entfernt"
+    },
+    "model": {
+      "label": "Modell",
+      "loading": "Modelle werden geladen …",
+      "loadFailed": "Die Liste der Modelle konnte nicht geladen werden.",
+      "defaultOption": "{{label}} (Standard)",
+      "none": "Der Anbieter bietet keine Modelle zur Auswahl an.",
+      "saved": "Modell gespeichert",
+      "custom": "Andere Modell-ID",
+      "customHelp": "Für ein Modell, das nicht in der Liste steht. Die Codex CLI muss die ID kennen."
+    }
+  }
+}
