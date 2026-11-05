@@ -66,8 +66,8 @@
     "searchPlaceholder": "Titel, Straße, Gericht oder Aktenzeichen",
     "priceBasis": "Preisgrundlage",
     "maxPricePerSqm": "Höchstpreis pro m² (€)",
-    "includeWithoutArea": "Auch Versteigerungen ohne m²",
-    "includeWithoutAreaHelp": "Behält Versteigerungen ohne Flächenangabe, wenn Sie nach €/m² oder Fläche filtern.",
+    "includeWithoutArea": "Auch Versteigerungen ohne Fläche",
+    "includeWithoutAreaHelp": "Zeigt auch Versteigerungen ohne Flächenangabe, wenn Sie nach €/m² oder Fläche filtern.",
     "price": "Preis (€)",
     "priceHelp": "Gilt für die oben gewählte Preisgrundlage.",
     "area": "Fläche (m²)",
@@ -109,7 +109,7 @@
       "failed": "Der Filter konnte nicht gespeichert werden."
     },
     "delete": {
-      "title": "Filter {{name}} löschen?",
+      "title": "Filter „{{name}}“ löschen?",
       "text": "Nur der gespeicherte Filter wird entfernt. Versteigerungen, Markierungen und Notizen bleiben erhalten.",
       "deleted": "Filter gelöscht",
       "failed": "Der Filter konnte nicht gelöscht werden."
@@ -172,7 +172,7 @@
     "analysis": {
       "button": "Gefilterte analysieren",
       "nothingTitle": "Nichts Neues zu analysieren",
-      "nothingText": "Alle angezeigten Versteigerungen sind analysiert oder warten bereits.",
+      "nothingText": "Alle angezeigten Versteigerungen sind bereits analysiert oder warten auf die Analyse.",
       "queue": "Analysen: {{running}}, {{waiting}}",
       "running_one": "{{count}} läuft",
       "running_other": "{{count}} laufen",

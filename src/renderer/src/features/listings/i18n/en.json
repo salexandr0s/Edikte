@@ -66,8 +66,8 @@
     "searchPlaceholder": "Title, street, court or case number",
     "priceBasis": "Price basis",
     "maxPricePerSqm": "Max. price per m² (€)",
-    "includeWithoutArea": "Include auctions without m²",
-    "includeWithoutAreaHelp": "Keeps auctions without a stated area when you filter by €/m² or area.",
+    "includeWithoutArea": "Include auctions without an area",
+    "includeWithoutAreaHelp": "Also shows auctions without a stated area when you filter by €/m² or area.",
     "price": "Price (€)",
     "priceHelp": "Applies to the price basis chosen above.",
     "area": "Area (m²)",
@@ -109,7 +109,7 @@
       "failed": "The filter could not be saved."
     },
     "delete": {
-      "title": "Delete the filter {{name}}?",
+      "title": "Delete the filter “{{name}}”?",
       "text": "Only the saved filter is removed. Auctions, stars and notes stay as they are.",
       "deleted": "Filter deleted",
       "failed": "The filter could not be deleted."
@@ -172,7 +172,7 @@
     "analysis": {
       "button": "Analyze filtered",
       "nothingTitle": "Nothing new to analyze",
-      "nothingText": "Every auction shown is analyzed or already waiting.",
+      "nothingText": "Every auction shown is already analyzed or waiting for analysis.",
       "queue": "Analyses: {{running}}, {{waiting}}",
       "running_one": "{{count}} running",
       "running_other": "{{count}} running",

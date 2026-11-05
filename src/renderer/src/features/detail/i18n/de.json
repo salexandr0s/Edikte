@@ -73,7 +73,7 @@
     "notes": {
       "title": "Notizen",
       "label": "Ihre Notizen zu dieser Versteigerung",
-      "help": "Werden auf diesem Computer gespeichert. Die Notizen bleiben beim Fall, auch wenn die Versteigerung einen neuen Termin bekommt.",
+      "help": "Die Notizen werden nur auf diesem Computer gespeichert. Sie bleiben beim Fall, auch wenn die Versteigerung einen neuen Termin bekommt.",
       "length": "{{used}} von {{max}} Zeichen",
       "saving": "Wird gespeichert …",
       "saved": "Gespeichert",
@@ -166,7 +166,7 @@
       "rent": "Monatliche Miete"
     },
     "findings": {
-      "encumbrances": "Lasten, die der Käufer übernimmt",
+      "encumbrances": "Lasten, die nach dem Zuschlag bestehen bleiben",
       "arrears": "Rückstände",
       "defects": "Mängel",
       "none": "Keine gefunden"

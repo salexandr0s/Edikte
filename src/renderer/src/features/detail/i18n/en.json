@@ -73,7 +73,7 @@
     "notes": {
       "title": "Notes",
       "label": "Your notes on this auction",
-      "help": "Saved on this computer. The notes stay with the case when the auction gets a new date.",
+      "help": "Notes are saved on this computer only. They stay with the case when the auction gets a new date.",
       "length": "{{used}} of {{max}} characters",
       "saving": "Saving…",
       "saved": "Saved",
@@ -166,7 +166,7 @@
       "rent": "Monthly rent"
     },
     "findings": {
-      "encumbrances": "Encumbrances the buyer takes over",
+      "encumbrances": "Encumbrances that remain after the sale",
       "arrears": "Arrears",
       "defects": "Defects",
       "none": "None found"
