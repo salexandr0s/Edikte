@@ -118,10 +118,10 @@ export function createProviderHandlers(state: MockState, emit: Emit): MockHandle
       return state.providers
     },
     'providers:setModel': ({ provider, model }) => {
-      state.settings = {
-        ...state.settings,
-        models: { ...state.settings.models, [provider]: model },
-      }
+      const models = { ...state.settings.models }
+      if (model === null) delete models[provider]
+      else models[provider] = model
+      state.settings = { ...state.settings, models }
       return update(provider, { model })
     },
 

@@ -143,9 +143,13 @@ export const ipcContract = {
     request: z.object({ provider: ProviderIdSchema.nullable() }).strict(),
     response: ProviderListSchema,
   },
+  /** `model: null` goes back to the provider's default model. */
   'providers:setModel': {
     request: z
-      .object({ provider: ProviderIdSchema, model: z.string().trim().min(1).max(200) })
+      .object({
+        provider: ProviderIdSchema,
+        model: z.string().trim().min(1).max(200).nullable(),
+      })
       .strict(),
     response: ProviderStatusSchema,
   },
