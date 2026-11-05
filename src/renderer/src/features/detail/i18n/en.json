@@ -9,13 +9,13 @@
     "removed": "No longer listed on the site since {{date}}.",
     "percent": "{{value}}%",
     "facts": {
+      "title": "Auction details",
       "auction": "Auction date",
       "place": "Auction place",
       "viewing": "Viewing",
       "published": "Published",
       "court": "Court",
       "caseNumber": "Case number",
-      "propertyType": "Property type",
       "landRegister": "Land register (Grundbuch)",
       "kg": "KG {{value}}",
       "ez": "EZ {{value}}",
@@ -23,16 +23,29 @@
       "showMore": "Show all",
       "showLess": "Show less"
     },
+    "hero": {
+      "perSqm": "Price per m²",
+      "perSqmLand": "Price per m² of land",
+      "basis": {
+        "schaetzwert": "Schätzwert",
+        "geringstes_gebot": "Geringstes Gebot"
+      },
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "inDays_one": "in {{count}} day",
+      "inDays_other": "in {{count}} days",
+      "vadium": "Deposit (Vadium) {{value}}",
+      "shareOfSchaetzwert": "{{percent}} of the Schätzwert",
+      "minimumBid": "Minimum bid {{value}}"
+    },
     "numbers": {
       "title": "Key figures",
-      "vadium": "Deposit (Vadium)",
       "meistbot": "Winning bid (Meistbot)",
       "zubehoer": "Accessories (Zubehör)",
       "zubehoerValue": {
         "none": "None (kein Zubehör)",
         "notDetermined": "Not determined (nicht festgestellt)"
       },
-      "area": "Area for €/m²",
       "noArea": "Not known yet",
       "noAreaHint": "Download the Gutachten or analyze it to find the area.",
       "perSqm": {

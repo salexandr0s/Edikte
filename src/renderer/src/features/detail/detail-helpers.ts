@@ -125,6 +125,18 @@ export function analysisView(
   return record.status === 'done' ? { kind: 'done', record } : { kind: 'stopped', record }
 }
 
+/**
+ * Whole days from today to a site date (Vienna local time), by calendar day:
+ * 0 for today, 1 for tomorrow, negative once the date has passed.
+ */
+export function daysUntil(siteDate: string, now: Date): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(siteDate)
+  if (match === null) return null
+  const target = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.round((target - today) / 86_400_000)
+}
+
 /** Joins the parts that are present, e.g. an address from street, postcode and city. */
 export function joinPresent(parts: ReadonlyArray<string | null>, separator: string): string {
   return parts.filter((part): part is string => part !== null && part !== '').join(separator)

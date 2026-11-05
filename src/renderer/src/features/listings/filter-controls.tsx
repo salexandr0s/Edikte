@@ -7,7 +7,8 @@ import { CheckIcon } from '../../components/ui/icons'
 import { cx } from '../../lib/cx'
 import { parseWholeNumber } from './query-helpers'
 
-const LEGEND = 'mb-2 text-sm font-medium text-fg'
+const LABEL = 'text-sm font-medium text-fg'
+const LEGEND = cx(LABEL, 'mb-2')
 
 export interface ChipOption<T extends string | number> {
   value: T
@@ -18,6 +19,8 @@ export interface ChipOption<T extends string | number> {
 
 interface ChipGroupProps<T extends string | number> {
   label: string
+  /** Keeps the label for screen readers only, when a section title already names the group. */
+  hideLabel?: boolean
   options: readonly ChipOption<T>[]
   selected: readonly T[]
   onChange: (selected: T[]) => void
@@ -32,6 +35,7 @@ const CHIP = cx(
 /** Multiple choice as toggle chips: Tab enters, arrow keys move, Space toggles. */
 export function ChipGroup<T extends string | number>({
   label,
+  hideLabel = false,
   options,
   selected,
   onChange,
@@ -39,7 +43,7 @@ export function ChipGroup<T extends string | number>({
   const labelId = useId()
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <span id={labelId} className="text-sm font-medium text-fg">
+      <span id={labelId} className={cx(LABEL, hideLabel && 'sr-only')}>
         {label}
       </span>
       <ToggleGroup.Root
@@ -73,19 +77,71 @@ export function ChipGroup<T extends string | number>({
   )
 }
 
+interface SegmentedChoiceProps<T extends string> {
+  label: string
+  options: readonly { value: T; label: string }[]
+  value: T
+  onChange: (value: T) => void
+}
+
+// Like the shell's navigation: the chosen segment stands out as a raised surface.
+const SEGMENT =
+  'inline-flex h-8 items-center rounded-sm px-3 text-sm text-fg-muted transition-colors hover:text-fg data-[state=on]:bg-surface-elevated data-[state=on]:font-medium data-[state=on]:text-fg data-[state=on]:shadow-xs'
+
+/** Single choice as a segmented control: arrow keys move, Space or Enter chooses. */
+export function SegmentedChoice<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: SegmentedChoiceProps<T>) {
+  const labelId = useId()
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <span id={labelId} className={LABEL}>
+        {label}
+      </span>
+      <ToggleGroup.Root
+        type="single"
+        aria-labelledby={labelId}
+        value={value}
+        // Pressing the chosen segment again reports ""; one option stays chosen.
+        onValueChange={(next) => {
+          const option = options.find((candidate) => candidate.value === next)
+          if (option !== undefined) onChange(option.value)
+        }}
+        className="inline-flex gap-0.5 self-start rounded-md border border-border bg-bg-muted p-0.5"
+      >
+        {options.map((option) => (
+          <ToggleGroup.Item key={option.value} value={option.value} className={SEGMENT}>
+            {option.label}
+          </ToggleGroup.Item>
+        ))}
+      </ToggleGroup.Root>
+    </div>
+  )
+}
+
 interface NumberFilterProps {
   label: string
   value: number | null
   onChange: (value: number | null) => void
   /** Maximums must be above zero (ListingQuerySchema). */
   positive?: boolean
+  className?: string
 }
 
 /**
  * A whole number in German or English notation. The query only receives
  * valid numbers; anything else stays in the field with an error message.
  */
-export function NumberFilter({ label, value, onChange, positive = false }: NumberFilterProps) {
+export function NumberFilter({
+  label,
+  value,
+  onChange,
+  positive = false,
+  className,
+}: NumberFilterProps) {
   const { t, i18n } = useTranslation()
   const [text, setText] = useState(() => (value === null ? '' : String(value)))
   const [shown, setShown] = useState(value)
@@ -120,7 +176,7 @@ export function NumberFilter({ label, value, onChange, positive = false }: Numbe
   }
 
   return (
-    <Field label={label} error={error}>
+    <Field label={label} error={error} className={className}>
       {(control) => (
         <Input
           {...control}
@@ -144,13 +200,14 @@ interface Range<T> {
 interface RangeFilterProps extends Range<number> {
   label: string
   help?: string
+  className?: string
   onChange: (range: Range<number>) => void
 }
 
-export function RangeFilter({ label, help, min, max, onChange }: RangeFilterProps) {
+export function RangeFilter({ label, help, className, min, max, onChange }: RangeFilterProps) {
   const { t } = useTranslation()
   return (
-    <fieldset className="flex min-w-0 flex-col gap-2">
+    <fieldset className={cx('flex min-w-0 flex-col gap-2', className)}>
       <legend className={LEGEND}>{label}</legend>
       <div className="grid grid-cols-2 gap-3">
         <NumberFilter
@@ -177,17 +234,18 @@ export function RangeFilter({ label, help, min, max, onChange }: RangeFilterProp
 
 interface DateRangeFilterProps extends Range<string> {
   label: string
+  className?: string
   onChange: (range: Range<string>) => void
 }
 
 /** Dates as `YYYY-MM-DD`; a date input reports an incomplete date as "". */
-export function DateRangeFilter({ label, min, max, onChange }: DateRangeFilterProps) {
+export function DateRangeFilter({ label, className, min, max, onChange }: DateRangeFilterProps) {
   const { t } = useTranslation()
   const read = (value: string) => (LocalDateSchema.safeParse(value).success ? value : null)
   return (
-    <fieldset className="flex min-w-0 flex-col gap-2">
+    <fieldset className={cx('flex min-w-0 flex-col gap-2', className)}>
       <legend className={LEGEND}>{label}</legend>
-      <div className="grid grid-cols-1 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <Field label={t('filters.from')}>
           {(control) => (
             <Input
@@ -218,42 +276,6 @@ export function DateRangeFilter({ label, min, max, onChange }: DateRangeFilterPr
           {t('filters.errors.dateRange')}
         </p>
       )}
-    </fieldset>
-  )
-}
-
-interface RadioChoiceProps<T extends string> {
-  label: string
-  options: readonly { value: T; label: string }[]
-  value: T
-  onChange: (value: T) => void
-}
-
-export function RadioChoice<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: RadioChoiceProps<T>) {
-  const name = useId()
-  return (
-    <fieldset className="flex min-w-0 flex-col">
-      <legend className={LEGEND}>{label}</legend>
-      <div className="flex flex-col gap-2">
-        {options.map((option) => (
-          <label key={option.value} className="flex items-start gap-2 text-sm text-fg">
-            <input
-              type="radio"
-              name={name}
-              value={option.value}
-              checked={value === option.value}
-              onChange={() => onChange(option.value)}
-              className="mt-0.5 size-4 shrink-0 accent-accent-fill"
-            />
-            {option.label}
-          </label>
-        ))}
-      </div>
     </fieldset>
   )
 }

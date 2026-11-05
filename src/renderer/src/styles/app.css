@@ -8,6 +8,7 @@
  * the token scale; use only the token steps 0, 0.5, 1, 1.5, 2, 3, 4, 5, 6, 8, 10, 12, 16.
  * Controls (button.v1): h-8/px-3 small, h-10/px-4 medium, h-12/px-5 large.
  * Durations: duration-120, the default 160 and duration-220 only.
+ * Entrances: animate-fade-in and animate-dialog-in, both 160 ms.
  * Layers: z-(--edk-z-dropdown) and the other --edk-z-* values below.
  */
 
@@ -127,6 +128,30 @@
   --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   --spacing: 4px;
+
+  /* Entrances within the motion tokens: overlays fade, dialogs settle from 98 %. */
+  --animate-fade-in: edk-fade-in 160ms var(--ease-standard);
+  --animate-dialog-in: edk-dialog-in 160ms var(--ease-emphasized);
+
+  @keyframes edk-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes edk-dialog-in {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
 }
 
 /* Semantic colors follow the OS appearance (Electron's nativeTheme). */
@@ -180,12 +205,21 @@
 
   /*
    * Widths from modal.v1 and toast.v1, used as w-(--edk-modal-width-md).
-   * The contract sets no modal height; 90vh keeps the window edge visible.
+   * xl is the app's own step for the filter dialog, which lays its sections
+   * out in two columns. The contract sets no modal height; 90vh keeps the
+   * window edge visible.
    */
   --edk-modal-width-sm: min(420px, 92vw);
   --edk-modal-width-md: min(560px, 92vw);
   --edk-modal-width-lg: min(720px, 94vw);
+  --edk-modal-width-xl: min(900px, 94vw);
   --edk-modal-max-height: 90vh;
+  /*
+   * Dialog overlays blur the page behind them on top of the overlay colour,
+   * used as backdrop-blur-(--edk-overlay-blur). The contract has no blur
+   * token, so this is the one value the app uses.
+   */
+  --edk-overlay-blur: 8px;
   --edk-toast-width: min(360px, 92vw);
 
   --edk-z-dropdown: 50;

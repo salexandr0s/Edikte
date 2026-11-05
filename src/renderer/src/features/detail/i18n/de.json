@@ -9,13 +9,13 @@
     "removed": "Seit {{date}} nicht mehr auf der Website gelistet.",
     "percent": "{{value}} %",
     "facts": {
+      "title": "Angaben zur Versteigerung",
       "auction": "Versteigerungstermin",
       "place": "Ort der Versteigerung",
       "viewing": "Besichtigung",
       "published": "Veröffentlicht",
       "court": "Gericht",
       "caseNumber": "Aktenzeichen",
-      "propertyType": "Objektart",
       "landRegister": "Grundbuch",
       "kg": "KG {{value}}",
       "ez": "EZ {{value}}",
@@ -23,16 +23,29 @@
       "showMore": "Alles anzeigen",
       "showLess": "Weniger anzeigen"
     },
+    "hero": {
+      "perSqm": "Preis pro m²",
+      "perSqmLand": "Preis pro m² Grund",
+      "basis": {
+        "schaetzwert": "Schätzwert",
+        "geringstes_gebot": "Geringstes Gebot"
+      },
+      "today": "Heute",
+      "tomorrow": "Morgen",
+      "inDays_one": "in {{count}} Tag",
+      "inDays_other": "in {{count}} Tagen",
+      "vadium": "Vadium {{value}}",
+      "shareOfSchaetzwert": "{{percent}} des Schätzwerts",
+      "minimumBid": "Geringstes Gebot {{value}}"
+    },
     "numbers": {
       "title": "Eckdaten",
-      "vadium": "Vadium",
       "meistbot": "Meistbot",
       "zubehoer": "Zubehör",
       "zubehoerValue": {
         "none": "Kein Zubehör",
         "notDetermined": "Nicht festgestellt"
       },
-      "area": "Fläche für €/m²",
       "noArea": "Noch nicht bekannt",
       "noAreaHint": "Laden Sie das Gutachten herunter oder analysieren Sie es, um die Fläche zu finden.",
       "perSqm": {
