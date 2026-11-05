@@ -13,6 +13,7 @@ import {
   isTrustedSender,
 } from './security'
 import { runSmokeCheck } from './smoke-check'
+import { showStartupError } from './startup-error'
 
 // Before anything reads app paths or safeStorage: both derive from the name.
 app.setName('Edikte')
@@ -95,6 +96,8 @@ function createMainWindow(): BrowserWindow {
 
 function fail(error: unknown): void {
   log.error('app', 'Startup failed', error)
+  // The self-check reports through its exit code; a modal dialog would block it.
+  if (!smokeTest && app.isReady()) showStartupError(error)
   app.exit(1)
 }
 
