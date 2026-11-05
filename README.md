@@ -87,6 +87,7 @@ npm run lint          # ESLint
 npm run format:check  # Prettier
 npm test              # Unit-Tests (Vitest)
 npm run test:e2e      # baut die App und startet den Playwright-Smoke-Test
+npm run icons         # rendert build/icon.icns, .ico und .png aus build/icon.svg
 npm run dist:mac      # Mac-Pakete für die Architektur dieses Macs, in dist/
 npm run dist:win      # Windows-Installer, in dist/
 ```
@@ -195,6 +196,7 @@ npm run lint          # ESLint
 npm run format:check  # Prettier
 npm test              # unit tests (Vitest)
 npm run test:e2e      # builds the app and runs the Playwright smoke test
+npm run icons         # renders build/icon.icns, .ico and .png from build/icon.svg
 npm run dist:mac      # Mac packages for this Mac's architecture, in dist/
 npm run dist:win      # Windows installer, in dist/
 ```

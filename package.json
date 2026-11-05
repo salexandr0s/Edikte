@@ -23,6 +23,7 @@
     "test:watch": "vitest",
     "test:e2e": "electron-vite build && playwright test",
     "db:generate": "drizzle-kit generate",
+    "icons": "electron scripts/make-icons.mjs",
     "dist:mac": "electron-vite build && electron-builder --mac",
     "dist:win": "electron-vite build && electron-builder --win"
   },
