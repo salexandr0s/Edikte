@@ -91,6 +91,31 @@ describe('parseSearchResults', () => {
     expect(second).toMatchObject({ plz: null, city: 'Wien', street: 'Beispielgasse 2' })
   })
 
+  it('reads a search without matches as an empty list', () => {
+    expect(parseSearchResults(readFixture('search-empty.html'))).toEqual({
+      rows: [],
+      totalHits: 0,
+      skipped: [],
+    })
+    const placeholder =
+      '<input name="Hits" value="0"><input name="TotalHits" value="0"><table><tbody><tr><td colspan="4">Keine Treffer</td></tr></tbody></table>'
+    expect(parseSearchResults(placeholder).rows).toEqual([])
+  })
+
+  it('skips an unreadable row but rejects a page of them', () => {
+    const good = (digit: string) =>
+      `<tr><td></td><td><a href="alldoc/${digit.repeat(32)}!OpenDocument">Versteigerung (01.12.2026)</a></td><td>1030 Wien Musterstraße 1<br>Eigentumswohnung</td><td>Wohnung</td></tr>`
+    const bad = '<tr><td></td><td>Versteigerung</td><td></td><td></td></tr>'
+    const page = (rows: string[]) =>
+      `<input name="Hits" value="${rows.length}"><table><tbody>${rows.join('')}</tbody></table>`
+    const result = parseSearchResults(page([...['1', '2', '3', '4', '5'].map(good), bad]))
+    expect(result.rows).toHaveLength(5)
+    expect(result.skipped).toEqual(['Search result row 6 has an unknown layout'])
+    expect(errorOf(() => parseSearchResults(page([bad, bad])))).toMatchObject({
+      code: 'site_changed',
+    })
+  })
+
   it('rejects a page whose rows do not match the reported hits', () => {
     const html = readFixture('search-wien.html').replace(
       'name="Hits" value="136"',

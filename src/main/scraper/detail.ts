@@ -243,10 +243,15 @@ function readLandRegister(rawLabels: Readonly<Record<string, string>>): {
   return { grundbuch: null, ez: null }
 }
 
-/** Zuschlag pages give the winning bid in a sentence: "um das Meistbot von 292.000,00 EUR". */
+/**
+ * Zuschlag pages give the winning bid in a sentence: "um das Meistbot von
+ * 292.000,00 EUR" or "Meistbot von EUR 440.000,00".
+ */
 function meistbotFromText($: CheerioAPI, root: Elements): number | null {
   for (const element of root.children('p').toArray()) {
-    const match = /Meistbot(?:es)?\s+von\s+(\d[\d.,']*)/i.exec(normalizeSpace($(element).text()))
+    const match = /Meistbot(?:es)?\s+von\s+(?:(?:EUR|€)\s*)?(\d[\d.,']*\d|\d)/i.exec(
+      normalizeSpace($(element).text()),
+    )
     const amount = match?.[1] === undefined ? null : extractEur(match[1])
     if (amount !== null) return amount
   }
@@ -327,6 +332,7 @@ const KIND_BY_LABEL: ReadonlyArray<readonly [RegExp, DocumentKind]> = [
   [/^(?:lageplan|grundriss)/i, 'plan'],
   [/^foto/i, 'photo'],
 ]
+const ANNEX_TITLE = /^(?:beilagen?|anlagen?|anhang|anhänge)(?![a-zäöüß])/i
 const SIZE_SUFFIX = /\s*\((\d+)\s*KB\)\s*$/i
 const FORMAT_SUFFIX = /\s*\((?:pdf|jpe?g|png|tiff?|docx?)\)\s*$/i
 
@@ -343,8 +349,11 @@ function readDocuments($: CheerioAPI, rows: readonly LabelRow[]): DocumentLink[]
       const size = SIZE_SUFFIX.exec(described)?.[1]
       const title = described.replace(SIZE_SUFFIX, '').replace(FORMAT_SUFFIX, '')
       const fileName = fileNameOf(url)
-      // A lease or "Beilagen" can share the Langgutachten row.
-      const kind = rowKind === 'langgutachten' && !/gutachten/i.test(title) ? 'other' : rowKind
+      // A lease or an annex such as "Beilagen zum Langgutachten" can share the report rows.
+      const extra =
+        ANNEX_TITLE.test(title) || (rowKind === 'langgutachten' && !/gutachten/i.test(title))
+      const kind =
+        extra && (rowKind === 'langgutachten' || rowKind === 'kurzgutachten') ? 'other' : rowKind
       const parsed = DocumentLinkSchema.safeParse({
         kind,
         title: title === '' ? fileName : title,

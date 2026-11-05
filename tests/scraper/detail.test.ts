@@ -5,6 +5,7 @@ import { buildEdictRecord } from '../../src/main/scraper/edict-record'
 import { assessRunHealth, type HealthSample } from '../../src/main/scraper/health'
 import { PARSER_VERSION } from '../../src/main/scraper/parser-version'
 import { parseSearchResults } from '../../src/main/scraper/search'
+import { parseSiteDateTime } from '../../src/main/scraper/site-text'
 import { errorOf, readFixture } from './read-fixture'
 
 const DOCS = 'https://edikte.justiz.gv.at/edikte/ex/exedi3.nsf/0/'
@@ -362,7 +363,7 @@ describe('buildCaseKey', () => {
 
   it('ignores spacing, punctuation, case and the court code', () => {
     const key = buildCaseKey({ ...base, object: 'Wohnung Stiege 1, Top 25' })
-    expect(key).toBe('bg leopoldstadt|58 e 53/59m|wohnung stiege 1 top 25')
+    expect(key).toBe('bg leopoldstadt|58 e 53/59m|wohnungstiege1top25')
     expect(
       buildCaseKey({
         court: 'BG Leopoldstadt',
@@ -371,6 +372,15 @@ describe('buildCaseKey', () => {
         id: 'b',
       }),
     ).toBe(key)
+  })
+
+  it('ignores spacing in the object description', () => {
+    expect(buildCaseKey({ ...base, object: 'Top13' })).toBe(
+      buildCaseKey({ ...base, object: 'Top 13' }),
+    )
+    expect(buildCaseKey({ ...base, object: 'KG Donaufeld,EZ123' })).toBe(
+      buildCaseKey({ ...base, object: 'KG Donaufeld, EZ 123' }),
+    )
   })
 
   it('keeps different objects apart', () => {
@@ -398,7 +408,7 @@ describe('buildEdictRecord', () => {
     })
     expect(record).toMatchObject({
       status: 'sold',
-      propertyType: 'apartment',
+      propertyType: 'commercial',
       categoryCodes: ['WE', 'MAI'],
       title: 'Büro Top 4',
       street: 'Birkenallee 77',
@@ -408,7 +418,7 @@ describe('buildEdictRecord', () => {
       bundesland: 'wien',
       meistbotEur: 440000,
       relatedIds: ['fe3722c48826b19ce060c8eb8035828f'],
-      caseKey: 'bg innere stadt wien|07 e 96/58f|büro top 4',
+      caseKey: 'bg innere stadt wien|07 e 96/58f|bürotop4',
       parserVersion: PARSER_VERSION,
       firstSeenAt: '2026-11-04T22:00:00.000Z',
       removedAt: null,
@@ -420,6 +430,7 @@ describe('buildEdictRecord', () => {
 describe('assessRunHealth', () => {
   const auction = (caseNumber: string | null, schaetzwertEur: number | null): HealthSample => ({
     noticeType: 'versteigerung',
+    unknownNotice: false,
     caseNumber,
     schaetzwertEur,
   })
@@ -447,9 +458,57 @@ describe('assessRunHealth', () => {
   it('counts only auction notices', () => {
     const sold: HealthSample = {
       noticeType: 'zuschlag_ohne_ueberbot',
+      unknownNotice: false,
       caseNumber: '1 E 1/26a',
       schaetzwertEur: null,
     }
     expect(assessRunHealth([sold, sold, sold]).degraded).toBe(false)
+  })
+
+  it('flags a run where many pages have an unknown heading', () => {
+    const unknown: HealthSample = { ...auction('1 E 1/26a', 1), unknownNotice: true }
+    expect(assessRunHealth([...good(8), unknown, unknown]).degraded).toBe(false)
+    const health = assessRunHealth([...good(7), unknown, unknown, unknown])
+    expect(health).toMatchObject({ unknownNotices: 3, degraded: true })
+    expect(health.note).toContain('unknown heading')
+  })
+})
+
+describe('parseSiteDateTime', () => {
+  it.each([
+    ['am 03.12.2026 um 10:00 Uhr', '2026-12-03T10:00'],
+    ['am 03.12.2026, 10:00 Uhr', '2026-12-03T10:00'],
+    ['3.11.2026, 9.00 Uhr', '2026-11-03T09:00'],
+    ['am 03.12.2026, 10.12.2026', null],
+    ['am 03.12.2026', null],
+  ])('reads "%s"', (text, expected) => {
+    expect(parseSiteDateTime(text)).toBe(expected)
+  })
+})
+
+describe('parseDetailPage on small pages', () => {
+  const page = (...parts: string[]) =>
+    `<div id="druckbereich"><h1>Zuschlag ohne Überbot - Wohnung W 1</h1>${parts.join('')}</div>`
+  const file = (name: string, text: string) =>
+    `<a href="${DOCS}${'a'.repeat(32)}/$file/${name}">${text}</a>`
+
+  it('reads a Meistbot with the currency before the amount', () => {
+    const detail = parseDetailPage(page('<p>Zuschlag um das Meistbot von EUR 440.000,00.</p>'))
+    expect(detail.fields.meistbotEur).toBe(440000)
+  })
+
+  it('does not count an annex in the Langgutachten row as a Langgutachten', () => {
+    const detail = parseDetailPage(
+      page(
+        '<div class="row"><span>Langgutachten:</span><p>',
+        file('gutachten.pdf', 'Langgutachten (pdf) (900 KB)'),
+        file('beilagen.pdf', 'Beilagen zum Langgutachten (pdf) (7360 KB)'),
+        '</p></div>',
+      ),
+    )
+    expect(detail.documents.map((document) => [document.kind, document.title])).toEqual([
+      ['langgutachten', 'Langgutachten'],
+      ['other', 'Beilagen zum Langgutachten'],
+    ])
   })
 })

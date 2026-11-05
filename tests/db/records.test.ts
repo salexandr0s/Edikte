@@ -84,4 +84,46 @@ describe('buildListingRow', () => {
     )
     expect(flat.row.approximate).toEqual(['multiple_units', 'bundled_parking'])
   })
+
+  it('lets the analysis overrule the title and fills its gaps from it', () => {
+    const titled = edictRecord(1, { objektgroesseSqm: 60, title: 'Wohnung W 1+2' })
+    const settled = sources({
+      share: null,
+      wohnungseigentum: true,
+      unit_count: 1,
+      bundled_parking: null,
+    })
+    expect(buildListingRow(titled, settled, 'schaetzwert').row.approximate).toEqual([])
+    const open = sources({
+      share: null,
+      wohnungseigentum: null,
+      unit_count: null,
+      bundled_parking: null,
+    })
+    expect(buildListingRow(titled, open, 'schaetzwert').row.approximate).toEqual(['multiple_units'])
+  })
+
+  it('reads the title and category before any analysis', () => {
+    const unanalysed: ListingSources = {
+      starred: false,
+      hidden: false,
+      hasLanggutachten: false,
+      analysisStatus: null,
+      finished: null,
+      estimates: [],
+    }
+    const reasons = (title: string, categoryLabel = 'Eigentumswohnung') =>
+      buildListingRow(
+        edictRecord(1, { objektgroesseSqm: 60, title, categoryLabel }),
+        unanalysed,
+        'schaetzwert',
+      ).row.approximate
+    expect(reasons('Wohnung W 1+2, ER 1+2')).toEqual(['multiple_units'])
+    expect(reasons('Geschäftslokal 1-4', 'Wohnungseigentumsobjekt')).toEqual(['multiple_units'])
+    expect(reasons('Wohnung W 1 und KFZ-Abstellplatz 21', 'Wohnungseigentumsobjekt')).toEqual([
+      'bundled_parking',
+    ])
+    expect(reasons('Haus', 'Hausanteil')).toEqual(['partial_ownership'])
+    expect(reasons('Wohnung Top 5')).toEqual([])
+  })
 })

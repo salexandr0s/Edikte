@@ -23,6 +23,8 @@ interface SitePage {
   title: string
   caseNumber: string | null
   schaetzwert: string | null
+  /** Heading before the title; "Versteigerung" when not set. */
+  notice?: string
 }
 
 const idOf = (n: number) => n.toString(16).padStart(32, '0')
@@ -54,7 +56,7 @@ function listHtml(pages: readonly SitePage[]): string {
 
 function detailHtml(page: SitePage): string {
   return [
-    `<div id="druckbereich"><h1><small>Versteigerung - ${page.title}</small></h1>`,
+    `<div id="druckbereich"><h1><small>${page.notice ?? 'Versteigerung'} - ${page.title}</small></h1>`,
     labelRow('Dienststelle', 'BG Musterstadt (099)'),
     page.caseNumber === null ? '' : labelRow('Aktenzeichen', page.caseNumber),
     labelRow('Versteigerungstermin', 'am 01.12.2026 um 10:00 Uhr'),
@@ -348,6 +350,30 @@ describe('runSync', () => {
     expect(summary).toMatchObject({ status: 'failed', changed: 0 })
     expect(summary.note).toContain('site_unavailable')
     expect(store.edicts.size).toBe(0)
+  })
+
+  it('logs unknown headings and writes nothing when many pages have one', async () => {
+    const pages = Array.from({ length: 6 }, (_, index) => edict(index + 1))
+    const { site, store, sync, advance } = setup(...pages)
+    await sync()
+    advance(HOUR)
+    site.publish(...pages.map((page) => ({ ...page, notice: 'Kundmachung' })))
+    const summary = await sync()
+    expect(summary).toMatchObject({ kind: 'incremental', status: 'degraded', changed: 0 })
+    expect(summary.note).toContain('unknown heading')
+    expect(store.runs.at(-1)?.errors).toContain(`${idOf(1)}: unknown notice "Kundmachung"`)
+  })
+
+  it('reads every page again with a full run after a parser update', async () => {
+    const { store, sync, advance } = setup(edict(1))
+    await sync()
+    advance(HOUR)
+    for (const [id, stored] of store.edicts) {
+      store.edicts.set(id, { ...stored, parserVersion: PARSER_VERSION - 1 })
+    }
+    const summary = await sync()
+    expect(summary).toMatchObject({ kind: 'full', status: 'ok', fetched: 1, changed: 1 })
+    expect(store.edicts.get(idOf(1))?.parserVersion).toBe(PARSER_VERSION)
   })
 
   it('stops and writes nothing when cancelled', async () => {

@@ -170,7 +170,9 @@ export function labelLookup(
 }
 
 const DATE = /(?<![\d.])(\d{1,2})\.(\d{1,2})\.(\d{4})(?!\d)/
-const TIME_AFTER_DATE = /^\s*(?:um\s+)?(\d{1,2})[:.](\d{2})(?!\d)/
+// "um 10:00", ", 10:00" or ", 9.00" right after the date. Minutes followed by
+// ".2026" belong to another date, as in "03.12.2026, 10.12.2026".
+const TIME_AFTER_DATE = /^\s*,?\s*(?:um\s+)?(\d{1,2})[:.](\d{2})(?!\d|[.:]\d)/
 
 function toLocalDate(day: string, month: string, year: string): string | null {
   const d = Number(day)

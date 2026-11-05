@@ -181,6 +181,75 @@ describe('EdikteClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('pauses with the code of the failures that opened the breaker', async () => {
+    const { client, fetchMock } = setup({ maxAttempts: 1 })
+    fetchMock.mockRejectedValue(new TypeError('fetch failed'))
+    for (let request = 0; request < 5; request += 1) {
+      const assertion = expect(client.getText(PAGE)).rejects.toMatchObject({ code: 'network' })
+      await vi.advanceTimersByTimeAsync(1000)
+      await assertion
+    }
+    await expect(client.getText(PAGE)).rejects.toMatchObject({
+      code: 'network',
+      message: 'Requests paused after repeated failures',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(5)
+  })
+
+  it('follows redirects only to https pages of the site', async () => {
+    const { client, fetchMock } = setup()
+    const moved =
+      'https://edikte.justiz.gv.at/edikte/ex/exedi3.nsf/alldoc/fedcba9876543210fedcba9876543210!OpenDocument'
+    fetchMock
+      .mockResolvedValueOnce(status(302, { location: moved }))
+      .mockResolvedValueOnce(page('moved'))
+    const result = client.getText(PAGE)
+    await vi.advanceTimersByTimeAsync(1000)
+    await expect(result).resolves.toBe('moved')
+    expect(fetchMock.mock.calls.map(([url, init]) => [url, init?.redirect])).toEqual([
+      [PAGE, 'manual'],
+      [moved, 'manual'],
+    ])
+    for (const location of ['https://example.com/', 'http://edikte.justiz.gv.at/edikte/']) {
+      fetchMock.mockResolvedValueOnce(status(301, { location }))
+      const refused = expect(client.getText(PAGE)).rejects.toMatchObject({ code: 'site_changed' })
+      await vi.advanceTimersByTimeAsync(1000)
+      await refused
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('holds back downloads after a 429 for as long as Retry-After asks', async () => {
+    const { client, fetchMock } = setup()
+    fetchMock
+      .mockResolvedValueOnce(status(429, { 'retry-after': '5' }))
+      .mockResolvedValueOnce(page('pdf'))
+    const refused = await client.limitedFetch(PAGE)
+    await refused.body?.cancel()
+    const next = client.limitedFetch(PAGE)
+    await vi.advanceTimersByTimeAsync(4999)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await expect(next.then((response) => response.text())).resolves.toBe('pdf')
+  })
+
+  it('frees the queue when a download is cancelled as its answer arrives', async () => {
+    const { client, fetchMock } = setup()
+    const controller = new AbortController()
+    fetchMock
+      .mockImplementationOnce(() => {
+        controller.abort()
+        return Promise.resolve(page('pdf'))
+      })
+      .mockResolvedValueOnce(page('next'))
+    await client.limitedFetch(PAGE, { signal: controller.signal })
+    const next = client.limitedFetch(PAGE)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await expect(next.then((response) => response.text())).resolves.toBe('next')
+  })
+
   it('stops a request in flight', async () => {
     const { client, fetchMock } = setup()
     fetchMock.mockImplementation(hangingFetch)

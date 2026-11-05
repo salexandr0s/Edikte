@@ -19,6 +19,8 @@ import {
 import type { AnalysisStatus, PriceBasis, RiskLevel } from '@shared/enums'
 import { AppErrorCodeSchema, type AppErrorShape } from '@shared/errors'
 import { withPriceBasis } from '@shared/listing-query'
+import { approximationFromTitle } from '../scraper/object-title'
+import { categoryCodesFor } from '../scraper/site-text'
 import type { analyses, areaEstimates, documents, edicts } from './schema'
 
 // Pure mappers from table rows to the shared types. JSON columns are checked
@@ -198,7 +200,9 @@ export function buildListingRow(
   ]
   const choice = chooseArea(areaCandidates, edict.propertyType)
   const result = sources.finished?.result ?? null
+  // The analysis read the report, so the facts it states win over the title.
   const ownership = result?.ownership ?? null
+  const fromTitle = approximationFromTitle(edict.title, categoryCodesFor(edict.categoryLabel))
   const row: ListingRow = {
     id: edict.id,
     caseKey: edict.caseKey,
@@ -224,9 +228,10 @@ export function buildListingRow(
     priceBasis: basis,
     pricePerSqm: null,
     approximate: approximateReasons({
-      partialOwnership: isPartialOwnership(ownership),
-      unitCount: ownership?.unit_count ?? null,
-      bundledParking: ownership?.bundled_parking ?? null,
+      partialOwnership: analysedPartialOwnership(ownership) ?? fromTitle.partialOwnership,
+      // The title shows only that there are several units; two is the fewest that means.
+      unitCount: ownership?.unit_count ?? (fromTitle.multipleUnits ? 2 : null),
+      bundledParking: ownership?.bundled_parking ?? fromTitle.bundledParking,
       areaMismatch: choice.mismatch,
     }),
     analysisStatus: sources.analysisStatus,
@@ -288,15 +293,15 @@ export function highestRisk(result: AnalysisResult | null): RiskLevel | null {
 }
 
 /**
+ * Whether the analysis found a part share; null when it leaves that open.
  * Only a share stated as a fraction below 1, outside Wohnungseigentum, counts:
  * every Wohnungseigentum unit is a share of the building and is sold whole.
  */
-function isPartialOwnership(ownership: AnalysisResult['ownership'] | null): boolean {
-  if (ownership === null || ownership.wohnungseigentum !== false || ownership.share === null) {
-    return false
-  }
-  const match = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(ownership.share)
-  if (match === null) return false
+function analysedPartialOwnership(ownership: AnalysisResult['ownership'] | null): boolean | null {
+  if (ownership === null) return null
+  if (ownership.wohnungseigentum === true) return false
+  const match = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(ownership.share ?? '')
+  if (match === null || ownership.wohnungseigentum === null) return null
   const part = Number(match[1])
   const whole = Number(match[2])
   return whole > 0 && part < whole

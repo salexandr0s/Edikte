@@ -1,10 +1,11 @@
 import type { KurzgutachtenFacts } from '@shared/domain'
-import { CATEGORIES, STATUS_BY_NOTICE, type CategoryCode } from '@shared/edikte-codes'
-import type { Bundesland, PropertyType } from '@shared/enums'
+import { STATUS_BY_NOTICE } from '@shared/edikte-codes'
+import type { Bundesland } from '@shared/enums'
 import { bezirkFromPlz } from '@shared/wien-bezirke'
 import type { edicts } from '../db/schema'
 import { buildCaseKey } from './case-key'
 import type { ParsedDetail } from './detail'
+import { propertyTypeFor } from './object-title'
 import { PARSER_VERSION } from './parser-version'
 import type { SearchRow } from './search'
 import { detailUrl } from './site-text'
@@ -49,7 +50,7 @@ export function buildEdictRecord(input: EdictRecordInput): EdictRecord {
     caseNumber: fields.caseNumber,
     categoryLabel,
     categoryCodes,
-    propertyType: propertyTypeFor(categoryCodes),
+    propertyType: propertyTypeFor(categoryCodes, objectTitle),
     title: objectTitle ?? categoryLabel ?? detail.noticeText,
     street: fields.street ?? row?.street ?? null,
     plz,
@@ -92,15 +93,4 @@ export function buildEdictRecord(input: EdictRecordInput): EdictRecord {
     fetchedAt,
     removedAt: null,
   }
-}
-
-function propertyTypeFor(codes: readonly string[]): PropertyType {
-  for (const code of codes) {
-    if (isCategoryCode(code)) return CATEGORIES[code].propertyType
-  }
-  return 'other'
-}
-
-function isCategoryCode(code: string): code is CategoryCode {
-  return Object.hasOwn(CATEGORIES, code)
 }

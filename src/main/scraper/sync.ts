@@ -217,9 +217,18 @@ export async function runSync(options: SyncOptions): Promise<SyncRunSummary> {
 function chooseKind(state: SyncStoreState, startedAt: string, forceFull: boolean): RunKind {
   const lastFull = state.lastOkFullRunStartedAt
   if (forceFull || lastFull === null || state.lastOkRunStartedAt === null) return 'full'
+  // Only a full run lists, and so reads again, the edicts an older parser read.
+  if (hasOutdatedParse(state)) return 'full'
   return Date.parse(startedAt) - Date.parse(lastFull) >= FULL_SYNC_INTERVAL_MS
     ? 'full'
     : 'incremental'
+}
+
+function hasOutdatedParse(state: SyncStoreState): boolean {
+  for (const edict of state.known.values()) {
+    if (edict.removedAt === null && edict.parserVersion < PARSER_VERSION) return true
+  }
+  return false
 }
 
 async function executeRun(run: RunContext): Promise<RunResult> {
@@ -249,8 +258,13 @@ async function executeRun(run: RunContext): Promise<RunResult> {
     }
     const detail = page.value
     run.summary.fetched += 1
+    // An unknown heading is logged so new notice types get noticed; the list
+    // row then says which kind of notice the page is.
+    const unknownNotice = detail.noticeType === 'other'
+    if (unknownNotice) run.errors.push(`${row.id}: unknown notice "${detail.noticeText}"`)
     samples.push({
-      noticeType: detail.noticeType,
+      noticeType: unknownNotice ? row.noticeType : detail.noticeType,
+      unknownNotice,
       caseNumber: detail.fields.caseNumber,
       schaetzwertEur: detail.fields.schaetzwertEur,
     })
@@ -272,8 +286,8 @@ async function executeRun(run: RunContext): Promise<RunResult> {
   }
   let removedIds: string[] = []
   let note: string | null = null
-  if (run.kind === 'full' && !listing.complete) {
-    note = `The site list stops at ${SEARCH_MAX} entries, so no edicts were marked as removed`
+  if (run.kind === 'full' && listing.incomplete !== null) {
+    note = `${listing.incomplete}, so no edicts were marked as removed`
   } else if (run.kind === 'full') {
     const active = [...known.values()].filter(
       (edict) =>
@@ -296,22 +310,32 @@ async function executeRun(run: RunContext): Promise<RunResult> {
   }
 }
 
+/**
+ * Lists the edicts of every Bundesland in scope. `incomplete` says why the list
+ * may lack edicts that still exist: the site cut it off, or rows were unreadable.
+ */
 async function listRows(
   run: RunContext,
-): Promise<{ rows: Map<string, SearchRow>; complete: boolean }> {
+): Promise<{ rows: Map<string, SearchRow>; incomplete: string | null }> {
   const since = run.kind === 'incremental' ? incrementalSince(run.state) : undefined
   const rows = new Map<string, SearchRow>()
-  let complete = true
+  let cutOff = false
+  let skipped = 0
   for (const [index, bundesland] of run.scope.entries()) {
     run.report('list', index, run.scope.length)
     const url = buildSearchUrl({ bundesland, publishedSince: since })
     const result = parseSearchResults(await run.source.getText(url, run.signal), bundesland)
-    if (result.totalHits > result.rows.length) complete = false
+    if (result.totalHits > result.rows.length + result.skipped.length) cutOff = true
+    skipped += result.skipped.length
+    for (const message of result.skipped) run.errors.push(`List ${bundesland}: ${message}`)
     for (const row of result.rows) rows.set(row.id, row)
   }
   run.summary.listed = rows.size
   run.report('list', run.scope.length, run.scope.length)
-  return { rows, complete }
+  let incomplete: string | null = null
+  if (cutOff) incomplete = `The site list stops at ${SEARCH_MAX} entries`
+  else if (skipped > 0) incomplete = `${skipped} list rows could not be read`
+  return { rows, incomplete }
 }
 
 /** Full runs skip pages that cannot have changed; incremental runs read every listed page. */

@@ -1,5 +1,5 @@
 import { EDIKTE_HOST } from '@shared/edikte-codes'
-import { AppError, isAppError } from '@shared/errors'
+import { AppError, isAppError, type AppErrorCode } from '@shared/errors'
 import { siteUrl } from './site-text'
 
 /** What the sync runner needs from an HTTP client; tests pass a fake. */
@@ -51,6 +51,9 @@ export function userAgent(appVersion: string): string {
   return `Edikte/${appVersion} (desktop app for personal use)`
 }
 
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
+const MAX_REDIRECTS = 3
+
 class HttpStatusError extends Error {
   constructor(
     readonly status: number,
@@ -85,6 +88,8 @@ export class EdikteClient implements PageSource {
   #nextSlotAt = 0
   #consecutiveFailures = 0
   #pausedUntil = 0
+  /** Code of the failure that paused requests; paused requests fail with it. */
+  #pauseCode: AppErrorCode = 'site_unavailable'
 
   constructor(options: EdikteClientOptions) {
     const { appVersion, fetch: fetchImpl, random, ...rest } = options
@@ -130,11 +135,37 @@ export class EdikteClient implements PageSource {
       throwIfCancelled(signal)
       this.#ensureNotPaused()
       await this.#waitForSlot(signal)
-      return holdUntilRead(await this.#fetch(input, init), release, signal)
+      let response: Response
+      try {
+        response = await this.#fetch(input, init)
+      } catch (error) {
+        if (signal?.aborted !== true) this.#slowDown('network', null)
+        throw error
+      }
+      const throttled = throttleCode(response.status)
+      if (throttled !== null) {
+        this.#slowDown(throttled, retryAfterMs(response.headers.get('retry-after')))
+      } else if (response.ok) {
+        this.#consecutiveFailures = 0
+      }
+      return holdUntilRead(response, release, signal)
     })
     result.catch(release)
     this.#queue = held
     return result
+  }
+
+  /**
+   * Counts a failed download and moves the next request out by the backoff,
+   * or by Retry-After when that is longer, up to `maxRetryAfterMs`.
+   */
+  #slowDown(code: AppErrorCode, retryAfter: number | null): void {
+    this.#recordFailure(code)
+    const wait = Math.max(this.#backoffMs(this.#consecutiveFailures), retryAfter ?? 0)
+    this.#nextSlotAt = Math.max(
+      this.#nextSlotAt,
+      Date.now() + Math.min(wait, this.#settings.maxRetryAfterMs),
+    )
   }
 
   async #getWithRetries(url: string, signal: AbortSignal | undefined): Promise<string> {
@@ -148,7 +179,7 @@ export class EdikteClient implements PageSource {
         return text
       } catch (error) {
         const failure = classifyFailure(error)
-        if (failure.countsAsFailure) this.#recordFailure()
+        if (failure.countsAsFailure) this.#recordFailure(failure.error.code)
         const delay = failure.retryAfterMs ?? this.#backoffMs(attempt)
         if (
           !failure.retryable ||
@@ -171,35 +202,47 @@ export class EdikteClient implements PageSource {
       timedOut = true
       controller.abort()
     }, this.#settings.timeoutMs)
-    this.#requestCount += 1
     try {
-      const response = await this.#fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent': this.#userAgent,
-          Accept: 'text/html,application/xhtml+xml',
-          'Accept-Language': 'de-AT,de;q=0.9',
-        },
-        redirect: 'follow',
-        signal: controller.signal,
-      })
-      if (response.url !== '' && new URL(response.url).host !== EDIKTE_HOST) {
-        await cancelBody(response)
-        throw new AppError('site_changed', 'The site redirected to another host')
+      // Redirects are followed by hand, so no request leaves the site or drops https.
+      for (let target = url, hop = 0; ; hop += 1) {
+        if (hop > 0) await this.#waitForSlot(controller.signal)
+        this.#requestCount += 1
+        const response = await this.#fetch(target, {
+          method: 'GET',
+          headers: {
+            'User-Agent': this.#userAgent,
+            Accept: 'text/html,application/xhtml+xml',
+            'Accept-Language': 'de-AT,de;q=0.9',
+          },
+          redirect: 'manual',
+          signal: controller.signal,
+        })
+        if (response.url !== '' && new URL(response.url).host !== EDIKTE_HOST) {
+          await cancelBody(response)
+          throw new AppError('site_changed', 'The site redirected to another host')
+        }
+        if (REDIRECT_STATUSES.has(response.status)) {
+          await cancelBody(response)
+          if (hop >= MAX_REDIRECTS) {
+            throw new AppError('site_changed', 'The site redirected too many times')
+          }
+          target = redirectTarget(response, target)
+          continue
+        }
+        if (!response.ok) {
+          await cancelBody(response)
+          throw new HttpStatusError(
+            response.status,
+            retryAfterMs(response.headers.get('retry-after')),
+          )
+        }
+        const contentType = response.headers.get('content-type')
+        if (contentType !== null && !/html|text\//i.test(contentType)) {
+          await cancelBody(response)
+          throw new AppError('site_changed', `Unexpected content type ${contentType}`)
+        }
+        return await readBody(response, this.#settings.maxBytes)
       }
-      if (!response.ok) {
-        await cancelBody(response)
-        throw new HttpStatusError(
-          response.status,
-          retryAfterMs(response.headers.get('retry-after')),
-        )
-      }
-      const contentType = response.headers.get('content-type')
-      if (contentType !== null && !/html|text\//i.test(contentType)) {
-        await cancelBody(response)
-        throw new AppError('site_changed', `Unexpected content type ${contentType}`)
-      }
-      return await readBody(response, this.#settings.maxBytes)
     } catch (error) {
       if (signal?.aborted === true) throw cancelledError()
       if (timedOut) {
@@ -223,15 +266,17 @@ export class EdikteClient implements PageSource {
       this.#consecutiveFailures >= this.#settings.breakerThreshold &&
       Date.now() < this.#pausedUntil
     ) {
-      throw new AppError('site_unavailable', 'Requests paused after repeated failures')
+      throw new AppError(this.#pauseCode, 'Requests paused after repeated failures')
     }
   }
 
-  #recordFailure(): void {
+  /** `code` is what paused requests fail with: network or timeout when the site never answered. */
+  #recordFailure(code: AppErrorCode): void {
     this.#consecutiveFailures += 1
     // After the cooldown one probe goes through; another failure pauses again.
     if (this.#consecutiveFailures >= this.#settings.breakerThreshold) {
       this.#pausedUntil = Date.now() + this.#settings.breakerCooldownMs
+      this.#pauseCode = code
     }
   }
 
@@ -245,17 +290,10 @@ export class EdikteClient implements PageSource {
 function classifyFailure(error: unknown): AttemptFailure {
   if (error instanceof HttpStatusError) {
     const { status, retryAfterMs } = error
-    if (status === 403 || status === 429) {
+    const throttled = throttleCode(status)
+    if (throttled !== null) {
       return {
-        error: new AppError('rate_limited', `HTTP ${status} from the site`),
-        retryable: true,
-        countsAsFailure: true,
-        retryAfterMs,
-      }
-    }
-    if (status >= 500) {
-      return {
-        error: new AppError('site_unavailable', `HTTP ${status} from the site`),
+        error: new AppError(throttled, `HTTP ${status} from the site`),
         retryable: true,
         countsAsFailure: true,
         retryAfterMs,
@@ -279,6 +317,27 @@ function classifyFailure(error: unknown): AttemptFailure {
     countsAsFailure: true,
     retryAfterMs: null,
   }
+}
+
+/** Code for a status that calls for backing off; null for any other status. */
+function throttleCode(status: number): AppErrorCode | null {
+  if (status === 403 || status === 429) return 'rate_limited'
+  return status >= 500 ? 'site_unavailable' : null
+}
+
+/** Where a redirect leads; only https pages of the Edikte site are followed. */
+function redirectTarget(response: Response, from: string): string {
+  const location = response.headers.get('location')
+  let next: URL | null = null
+  try {
+    next = location === null ? null : new URL(location, from)
+  } catch {
+    next = null
+  }
+  if (next?.protocol !== 'https:' || next.host !== EDIKTE_HOST) {
+    throw new AppError('site_changed', 'The site redirected away from its https pages')
+  }
+  return next.toString()
 }
 
 /** Retry-After in seconds or as an HTTP date. */
@@ -334,12 +393,18 @@ function holdUntilRead(
   release: () => void,
   signal: AbortSignal | undefined,
 ): Response {
-  const source = response.body
-  if (source === null) {
+  let released = false
+  const finish = (): void => {
+    if (released) return
+    released = true
+    signal?.removeEventListener('abort', finish)
     release()
-    return response
   }
-  signal?.addEventListener('abort', release, { once: true })
+  const source = response.body
+  // A listener added to a signal that has already aborted would never run.
+  if (source === null || signal?.aborted === true) finish()
+  else signal?.addEventListener('abort', finish, { once: true })
+  if (source === null) return response
   const reader = source.getReader()
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -347,21 +412,21 @@ function holdUntilRead(
         // Node types the body stream as any, so each chunk is checked.
         const chunk: { done: boolean; value?: unknown } = await reader.read()
         if (chunk.done) {
-          release()
+          finish()
           controller.close()
         } else if (chunk.value instanceof Uint8Array) {
           controller.enqueue(chunk.value)
         } else {
-          release()
+          finish()
           controller.error(new AppError('site_changed', 'Response body is not binary data'))
         }
       } catch (error) {
-        release()
+        finish()
         controller.error(error)
       }
     },
     cancel(reason: unknown) {
-      release()
+      finish()
       return reader.cancel(reason)
     },
   })

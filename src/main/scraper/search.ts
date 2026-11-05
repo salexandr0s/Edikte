@@ -10,7 +10,8 @@ import {
   type CategoryCode,
 } from '@shared/edikte-codes'
 import { BundeslandSchema, NoticeTypeSchema, type Bundesland } from '@shared/enums'
-import { AppError } from '@shared/errors'
+import { AppError, isAppError } from '@shared/errors'
+import { exceedsShare } from './health'
 import {
   EDICT_ID_PATTERN,
   categoryCodesFor,
@@ -92,13 +93,21 @@ export type SearchRow = z.infer<typeof SearchRowSchema>
 
 export interface SearchResult {
   rows: SearchRow[]
-  /** Matches the site reports; more than `rows.length` means the list was cut off. */
+  /** Matches the site reports; more than the rows read and skipped means the list was cut off. */
   totalHits: number
+  /** Why each unreadable row was left out. */
+  skipped: string[]
 }
+
+/** Domino's page for a search without matches. */
+const NO_DOCUMENTS = /No documents found|Keine Dokumente gefunden/i
+/** Share of rows that may be unreadable before the page counts as changed. */
+const UNREADABLE_ROW_LIMIT = 0.2
 
 /**
  * Reads the result table of a search page. Each row is read on its own, so a
- * row without a postcode never takes one from the row above.
+ * row without a postcode never takes one from the row above. An unreadable
+ * row is skipped; many of them mean the layout changed.
  */
 export function parseSearchResults(
   html: string,
@@ -106,19 +115,39 @@ export function parseSearchResults(
 ): SearchResult {
   const $ = load(html)
   const hits = readCount($('input[name="Hits"][value]').first().attr('value'))
-  if (hits === null) throw new AppError('site_changed', 'The search page has no hit count')
+  if (hits === null) {
+    if (NO_DOCUMENTS.test($('body').text())) return { rows: [], totalHits: 0, skipped: [] }
+    throw new AppError('site_changed', 'The search page has no hit count')
+  }
   const totalHits = readCount($('input[name="TotalHits"][value]').first().attr('value')) ?? hits
-  const rows = $('table tbody tr')
+  // A page without hits may still show a placeholder row.
+  if (hits === 0) return { rows: [], totalHits, skipped: [] }
+  const tableRows = $('table tbody tr')
     .filter((_, row) => $(row).children('td').length > 0)
     .toArray()
-    .map((row, index) => parseRow($(row), index, bundesland))
-  if (rows.length !== hits) {
+  if (tableRows.length !== hits) {
     throw new AppError(
       'site_changed',
-      `The search page lists ${rows.length} rows but reports ${hits}`,
+      `The search page lists ${tableRows.length} rows but reports ${hits}`,
     )
   }
-  return { rows, totalHits }
+  const rows: SearchRow[] = []
+  const skipped: string[] = []
+  for (const [index, row] of tableRows.entries()) {
+    try {
+      rows.push(parseRow($(row), index, bundesland))
+    } catch (error) {
+      if (!isAppError(error)) throw error
+      skipped.push(error.message)
+    }
+  }
+  if (exceedsShare(skipped.length, tableRows.length, UNREADABLE_ROW_LIMIT)) {
+    throw new AppError(
+      'site_changed',
+      `${skipped.length} of ${tableRows.length} search result rows could not be read`,
+    )
+  }
+  return { rows, totalHits, skipped }
 }
 
 function readCount(value: string | undefined): number | null {
