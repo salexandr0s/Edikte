@@ -39,12 +39,23 @@ Request: "check that nothing personal is on edikte, no names, no nothing, then m
 - The history was rewritten on a fresh clone with `git filter-repo` (the text replacements and the mailmap) and pushed to a new `salexandr0s/Edikte`, public since 2026-11-06. A force push into the old repo was rejected because its three merged PRs keep the old commits reachable. The old repo stays private as `salexandr0s/Edikte-archive` with its PRs, CI runs and the original release; delete it when it is no longer needed.
 - Checked over the API after the push: every commit and the tag carry the GitHub noreply address, the handoff at HEAD and at its first commit holds no name or path, 71 commits, HEAD tree identical to the scrub commit.
 - The local checkout was reset to the new history. The old objects remain only in the local reflog and in the archive repo.
-- The tag push started the release workflow at 11:22 UTC on 2026-11-06. The first tag push, seconds after the first push into the empty repo, started nothing, so the tag was deleted and pushed again. The workflow rebuilds 0.1.0 and uploads the packages to a draft release; the draft is not published.
+- The tag push started the release workflow at 11:22 UTC on 2026-11-06. The first tag push, seconds after the first push into the empty repo, started nothing, so the tag was deleted and pushed again. The workflow rebuilt 0.1.0 and uploaded the packages to a draft release, which the user had published as the latest release (six assets) the same day.
+
+### README with screenshots
+
+Request: "can you make a nice readme for edikte? with screenshots etc". Commit cee9723.
+
+- The README keeps its two language sections and every section of the old text (installation, unsigned app, AI providers, data folder, privacy, development). New: a centred header with the app icon and the release and CI badges, the list screenshot in light and dark through a `<picture>` element, a feature list, and a grid of the detail, map, filter and settings screens with captions, each language with its own screenshots.
+- Added facts: the privacy section names Nominatim and basemap.at with the 14-day tile cache, the data folder section the `tiles` folder and the document retention (90 days after a case closes), the development section the screenshot command, and a licence line says there is none yet.
+- `scripts/readme-screenshots.mjs` (`npm run screenshots`) drives Playwright's Chromium against `npm run dev:renderer`: it finishes the three setup steps, reads the labels from the i18n files so one flow serves both languages, and captures 1280×800 at 2× into `docs/screenshots/` (12 files, 4.0 MB). The map is a JPEG at quality 85 because its PNG weighed 1.6 to 2.9 MB; the other screens are PNGs of 200 to 345 KB.
+- The images show the mock bridge's made-up sample data, and the README says so under the first image.
 
 ## Key Files Changed
 
 - `tests/scraper/fixtures/*.html` (12 files): land-register numbers renumbered.
 - `tests/scraper/detail.test.ts`, `src/main/scraper/detail.ts`: four expected EZ values, two case-key strings and one comment follow the fixtures.
+- `README.md`: rewritten around the screenshots; the old sections kept.
+- `docs/screenshots/` (12 images), `scripts/readme-screenshots.mjs`, `package.json` (`screenshots` script), `CLAUDE.md` (commands table).
 - `SESSION_HANDOFF.md`: this file.
 
 ## Verification State
@@ -52,13 +63,14 @@ Request: "check that nothing personal is on edikte, no names, no nothing, then m
 - 0d146d9: GitHub CI run 42050243497 (push to `main`, 14:58 UTC) passed: typecheck, lint, format check, unit tests and the Playwright smoke test of the built app on Linux.
 - Scrub commit: `npm run typecheck`, `npm run lint`, `npm run format:check` and `npm test` pass (the scraper suite alone: 103 passed, 1 skipped).
 - History rewrite, tried on a throwaway clone with `git filter-repo --replace-text` (26 literal lines, longest first, so a line that contains another one is replaced first) and a mailmap: no old register number, name, user name or private email is left in any commit; the rewritten fixtures, test and source equal the working tree; the tag `v0.1.0` keeps its message; 70 commits. The list and the mailmap sit in the session scratchpad under `publish/`; the list is built from `git diff HEAD` of the scrub plus the two handoff lines, so it can be rebuilt.
+- README commit cee9723: `npm run format:check` and `npm run lint` pass; the twelve images were looked at one by one; the page on GitHub shows the header, both badges, the dark list image in a dark browser, the feature list, the grid and the tables. Not run: unit tests and the e2e test, since no code under test changed; CI runs on the push.
 - Not checked: the packaged app and the map inside Electron (see the gaps).
 
 ## Remaining / Known Gaps
 
-- Publish the draft release 0.1.0 in the new repo once the release workflow is green (about nine minutes). The published 0.1.0 of the old repo stays in the archive.
 - Delete `salexandr0s/Edikte-archive` once nothing in it is needed any more.
-- No LICENSE file; `package.json` says UNLICENSED, so a public repo grants no rights. Decide whether that is intended.
+- No LICENSE file; `package.json` says UNLICENSED, so a public repo grants no rights. Decide whether that is intended. The README says so in one line.
+- Two runs of `npm run screenshots` differ by a few hundred pixels at the bottom right of the list image, so every run changes the binary files. Commit new images only when a screen changed.
 - The data check did not read every stored page for changes made on the site after 09:54. The one changed Hernals edict was found through the date query, and the incremental run does the same for all of them.
 - Map view, from the map session:
   - Run `npm run dev` and look at the map with real data. The cluster threshold (`LABEL_GAP`) and the dark basemap filter were tuned on the mock's seven pins.
@@ -73,7 +85,7 @@ Request: "check that nothing personal is on edikte, no names, no nothing, then m
   - Saving `dialog.tsx` or `toast.tsx` under the dev server throws "must be used inside …Provider" until reload.
   - The second user still needs collaborator access.
   - No live Codex analysis yet.
-- Three mock renderer dev servers (`vite --config vite.renderer.config.ts`) from earlier sessions were still running at 16:20 CET and were left alone.
+- No mock renderer dev server was running at the end of this session; the one started for the screenshots was stopped.
 
 ## Resume Commands
 
@@ -95,6 +107,7 @@ The mock app starts with the setup steps (Language, AI providers, First sync); c
 - Register numbers were renumbered rather than removed, so the parsers still see the page layout as the site renders it.
 - The history was rewritten with filter-repo rather than squashed: the commits keep their messages, and only the blobs with the old values and the author lines changed.
 - New repository rather than a force push: the merged PRs of the old repo keep the old commits reachable, so the old repo stays private as an archive.
+- README images are tracked in `docs/screenshots/` rather than uploaded elsewhere, so clones and forks render them. They come from the mock renderer, not the packaged app, so no real property, owner or data path appears in them. The map is the one JPEG, for its size.
 - From the map session (f7dfc5c to e2286ca):
   - Leaflet's controls were replaced by the app's own `Button`, `Badge`, `Tooltip` and `Spinner`, not restyled, so Leaflet's CSS needs no overrides.
   - The pin card is content-sized in a left column so the map stays visible beside it; the chosen pin is panned out from under the column.
