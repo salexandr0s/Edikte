@@ -1,6 +1,6 @@
-# Session Handoff — 2026-11-05
+# Session Handoff — 2026-11-06
 
-Project: Edikte, an Electron desktop app (macOS, Windows) for the court auctions on edikte.justiz.gv.at. Private repo https://github.com/salexandr0s/Edikte. `main` is the only local branch and matches `origin/main`. This file is tracked since this session. The repo is still private: the request to publish it waits on the history rewrite (see Remaining). It replaces the map-view handoff of the same day; that session's open points are carried below.
+Project: Edikte, an Electron desktop app (macOS, Windows) for the court auctions on edikte.justiz.gv.at. Public repo https://github.com/salexandr0s/Edikte since 2026-11-06, rebuilt from a rewritten history; the previous repo is kept private as `salexandr0s/Edikte-archive`. `main` is the only local branch and matches `origin/main`. This file is tracked since this session. It replaces the map-view handoff of the same day; that session's open points are carried below.
 
 ## Completed
 
@@ -20,8 +20,8 @@ Request: "it appears like we don't have enough data incoming". Result: no app de
 
 ### Repo cleanup
 
-- Every branch was already in `main`: `feat/initial-app` (fbb7bc9), `feat/map-view` (239a1e0), `origin/claude/keen-hamilton-27wvrh` (379e322) and `origin/feat/initial-app` are ancestors of f45e8f6. Nothing to merge.
-- Deleted the two local branches. Removed a detached worktree that a spare session had left in a temp folder (at 0ddac7d, clean, no process in it).
+- Every branch was already in `main`: `feat/initial-app` (62fb006), `feat/map-view` (ee8b9e4), `origin/claude/keen-hamilton-27wvrh` (31e9aca) and `origin/feat/initial-app` are ancestors of 0d146d9. Nothing to merge.
+- Deleted the two local branches. Removed a detached worktree that a spare session had left in a temp folder (at 263362e, clean, no process in it).
 - Moved `out/` (electron-vite output, 4.7 MB) and `dist/` (electron-builder output, 322 MB, with the mac-arm64 app built at 15:43) to the Trash. `build/` holds the tracked icons and stays.
 - Committed this file. The merged remote branches `origin/feat/initial-app` and `origin/claude/keen-hamilton-27wvrh` were deleted on GitHub afterwards; `main` is the only branch anywhere.
 
@@ -30,9 +30,16 @@ Request: "it appears like we don't have enough data incoming". Result: no app de
 Request: "check that nothing personal is on edikte, no names, no nothing, then make it public."
 
 - Searched every tracked file and all 70 commits for names, emails, user paths, the data folder, tokens and keys, and read the workflows, the release notes and assets, the PR texts, the comments and the repo description on GitHub. No secrets are stored there, and nobody else has access.
-- Found three things. The handoff commit b12c07c named the second user and carried the macOS user name in a path. The scraper fixtures carried the land-register numbers (EZ, BLNr, Grundstücksnummer) of real properties, which identify them in the public Grundbuch; `tests/scraper/detail.test.ts` and a comment in `src/main/scraper/detail.ts` repeated four of them. Streets, names, case numbers and edict IDs in the fixtures were already made up: 0 of the 136 fixture IDs match the live list or the database.
+- Found three things. The handoff commit 0271b95 named the second user and carried the macOS user name in a path. The scraper fixtures carried the land-register numbers (EZ, BLNr, Grundstücksnummer) of real properties, which identify them in the public Grundbuch; `tests/scraper/detail.test.ts` and a comment in `src/main/scraper/detail.ts` repeated four of them. Streets, names, case numbers and edict IDs in the fixtures were already made up: 0 of the 136 fixture IDs match the live list or the database.
 - Changed in this commit: the register numbers in all 12 fixtures (39 labelled fields and one unlabelled parcel in the Styria page) renumbered with `(n*7+3) mod 10^len`, so the length and the style stay and no number is kept; the four test values, the two case-key strings and the comment follow the fixtures; the two handoff lines reworded.
-- The commits carry two private author emails (66 and 3 commits), visible in the `.patch` view of a public repo. The rewrite maps them to the GitHub noreply address.
+- The commits carried two private author emails (66 and 3 commits), visible in the `.patch` view of a public repo. The rewrite maps them to the GitHub noreply address.
+
+### Published as a new repository
+
+- The history was rewritten on a fresh clone with `git filter-repo` (the text replacements and the mailmap) and pushed to a new `salexandr0s/Edikte`, public since 2026-11-06. A force push into the old repo was rejected because its three merged PRs keep the old commits reachable. The old repo stays private as `salexandr0s/Edikte-archive` with its PRs, CI runs and the original release; delete it when it is no longer needed.
+- Checked over the API after the push: every commit and the tag carry the GitHub noreply address, the handoff at HEAD and at its first commit holds no name or path, 71 commits, HEAD tree identical to the scrub commit.
+- The local checkout was reset to the new history. The old objects remain only in the local reflog and in the archive repo.
+- The tag push started the release workflow at 11:22 UTC on 2026-11-06. The first tag push, seconds after the first push into the empty repo, started nothing, so the tag was deleted and pushed again. The workflow rebuilds 0.1.0 and uploads the packages to a draft release; the draft is not published.
 
 ## Key Files Changed
 
@@ -42,16 +49,16 @@ Request: "check that nothing personal is on edikte, no names, no nothing, then m
 
 ## Verification State
 
-- f45e8f6: GitHub CI run 42050243497 (push to `main`, 14:58 UTC) passed: typecheck, lint, format check, unit tests and the Playwright smoke test of the built app on Linux.
+- 0d146d9: GitHub CI run 42050243497 (push to `main`, 14:58 UTC) passed: typecheck, lint, format check, unit tests and the Playwright smoke test of the built app on Linux.
 - Scrub commit: `npm run typecheck`, `npm run lint`, `npm run format:check` and `npm test` pass (the scraper suite alone: 103 passed, 1 skipped).
 - History rewrite, tried on a throwaway clone with `git filter-repo --replace-text` (26 literal lines, longest first, so a line that contains another one is replaced first) and a mailmap: no old register number, name, user name or private email is left in any commit; the rewritten fixtures, test and source equal the working tree; the tag `v0.1.0` keeps its message; 70 commits. The list and the mailmap sit in the session scratchpad under `publish/`; the list is built from `git diff HEAD` of the scrub plus the two handoff lines, so it can be rebuilt.
 - Not checked: the packaged app and the map inside Electron (see the gaps).
 
 ## Remaining / Known Gaps
 
-- Make the repo public once the user has chosen how to clean the history. Two routes: a new repository `salexandr0s/Edikte` pushed from the rewritten clone (the current repo renamed and kept private; the three PR pages and the CI history stay behind; the release workflow rebuilds 0.1.0 as a draft on the tag push), or a force push into the current repo (the old commits stay reachable through the three merged PRs and their commit URLs until GitHub Support purges them; the release workflow must be disabled around the tag push). Both map the author emails. Afterwards: reset the local `main` to the new history, refetch the tag, rewrite the hashes in this file.
+- Publish the draft release 0.1.0 in the new repo once the release workflow is green (about nine minutes). The published 0.1.0 of the old repo stays in the archive.
+- Delete `salexandr0s/Edikte-archive` once nothing in it is needed any more.
 - No LICENSE file; `package.json` says UNLICENSED, so a public repo grants no rights. Decide whether that is intended.
-- Commit hashes in this file name the history before the rewrite.
 - The data check did not read every stored page for changes made on the site after 09:54. The one changed Hernals edict was found through the date query, and the incremental run does the same for all of them.
 - Map view, from the map session:
   - Run `npm run dev` and look at the map with real data. The cluster threshold (`LABEL_GAP`) and the dark basemap filter were tuned on the mock's seven pins.
@@ -86,8 +93,9 @@ The mock app starts with the setup steps (Language, AI providers, First sync); c
 - The handoff is tracked from now on: the request was to commit every change, and most repos under `~/GitHub` track it.
 - The remote branches went after a second confirmation; both were merged, so nothing was lost.
 - Register numbers were renumbered rather than removed, so the parsers still see the page layout as the site renders it.
-- The history is to be rewritten with filter-repo rather than squashed: the 70 commits keep their messages, and only the blobs with the old values change.
-- From the map session (12f0057 to d051fe1):
+- The history was rewritten with filter-repo rather than squashed: the commits keep their messages, and only the blobs with the old values and the author lines changed.
+- New repository rather than a force push: the merged PRs of the old repo keep the old commits reachable, so the old repo stays private as an archive.
+- From the map session (f7dfc5c to e2286ca):
   - Leaflet's controls were replaced by the app's own `Button`, `Badge`, `Tooltip` and `Spinner`, not restyled, so Leaflet's CSS needs no overrides.
   - The pin card is content-sized in a left column so the map stays visible beside it; the chosen pin is panned out from under the column.
   - Dark mode keeps the CSS inversion of the tile pane, darkened to `brightness(0.8)` after comparing three variants.
