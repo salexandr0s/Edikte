@@ -35,7 +35,7 @@ export interface EdikteClientOptions {
 
 type Settings = Required<Omit<EdikteClientOptions, 'appVersion' | 'fetch' | 'random'>>
 
-export const CLIENT_DEFAULTS: Readonly<Settings> = {
+const CLIENT_DEFAULTS: Readonly<Settings> = {
   minIntervalMs: 1_000,
   timeoutMs: 30_000,
   maxAttempts: 4,

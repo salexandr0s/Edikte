@@ -12,11 +12,11 @@ import { SEARCH_MAX, buildSearchUrl, parseSearchResults, type SearchRow } from '
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /** A full run, the only kind that notices removed edicts, happens at most once a day. */
-export const FULL_SYNC_INTERVAL_MS = DAY_MS
+const FULL_SYNC_INTERVAL_MS = DAY_MS
 /** Full runs read a page again after this long, as an edit does not always show in the list. */
-export const REFRESH_AFTER_MS = 7 * DAY_MS
+const REFRESH_AFTER_MS = 7 * DAY_MS
 /** Share of detail pages that may fail to load or parse before a run counts as degraded. */
-export const FAILED_PAGE_LIMIT = 0.2
+const FAILED_PAGE_LIMIT = 0.2
 /** A list that would remove more than half of the known edicts, and more than this many, is not trusted. */
 const MASS_REMOVAL_MIN = 10
 const MAX_ERRORS = 100
