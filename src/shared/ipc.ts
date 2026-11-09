@@ -17,6 +17,7 @@ import {
   SyncStatusSchema,
   UserStateSchema,
 } from './domain'
+import { EDICT_ID_PATTERN } from './edict-id'
 import type { AppErrorShape } from './errors'
 import type { EventChannel, InvokeChannel } from './ipc-channels'
 import {
@@ -35,8 +36,8 @@ import {
 
 const none = z.void()
 
-/** Edict IDs are the site's 32-hex Domino document IDs, stored lowercase. */
-export const EdictIdSchema = z.string().regex(/^[0-9a-f]{32}$/)
+/** A 32-hex Domino document ID, or `mv-` and a JustizOnline record number. */
+export const EdictIdSchema = z.string().regex(EDICT_ID_PATTERN)
 
 const EdictIdsSchema = z.object({ edictIds: z.array(EdictIdSchema).min(1).max(2000) }).strict()
 const ProviderRequestSchema = z.object({ provider: ProviderIdSchema }).strict()
