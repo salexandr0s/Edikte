@@ -179,6 +179,30 @@ export const KurzgutachtenFactsSchema = z.object({
 })
 export type KurzgutachtenFacts = z.infer<typeof KurzgutachtenFactsSchema>
 
+/** The administrator of an insolvency or the deputy, as named on the notice. */
+export const InsolvencyContactSchema = z.object({
+  name: z.string().nullable(),
+  address: z.string().nullable(),
+  phone: z.string().nullable(),
+  fax: z.string().nullable(),
+  email: z.string().nullable(),
+})
+export type InsolvencyContact = z.infer<typeof InsolvencyContactSchema>
+
+/**
+ * What a sale in insolvency proceedings states beyond the property. The
+ * notice also names the debtor; the app does not store that.
+ */
+export const InsolvencyFactsSchema = z.object({
+  administrator: InsolvencyContactSchema.nullable(),
+  deputy: InsolvencyContactSchema.nullable(),
+  /** "Beschreibung", the long text of the notice. */
+  description: z.string().nullable(),
+  /** "Weiterführender Link" as published. Shown as text and never opened. */
+  link: z.string().nullable(),
+})
+export type InsolvencyFacts = z.infer<typeof InsolvencyFactsSchema>
+
 export const AreaEstimateSchema = z.object({
   id: z.number().int(),
   documentId: z.number().int(),

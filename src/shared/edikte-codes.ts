@@ -20,6 +20,25 @@ export const BUNDESLAND_SITE_CODES: Readonly<Record<Bundesland, string>> = {
   vbg: '8',
 }
 
+/** JustizOnline publishes the sales in insolvency proceedings through a JSON API. */
+export const JUSTIZONLINE_HOST = 'justizonline.gv.at'
+export const JUSTIZONLINE_ORIGIN = `https://${JUSTIZONLINE_HOST}`
+/** Root of the Ediktsdatei API. Every request and every file URL sits below it. */
+export const JUSTIZONLINE_API_PATH = '/jop/service/edi/v1/'
+
+/** Values of the `bl` filter in JustizOnline searches. */
+export const BUNDESLAND_JUSTIZONLINE_CODES: Readonly<Record<Bundesland, string>> = {
+  wien: 'WIEN',
+  noe: 'NIEDEROESTERREICH',
+  bgld: 'BURGENLAND',
+  ooe: 'OBEROESTERREICH',
+  sbg: 'SALZBURG',
+  stmk: 'STEIERMARK',
+  ktn: 'KAERNTEN',
+  tirol: 'TIROL',
+  vbg: 'VORARLBERG',
+}
+
 /** Names as the site writes them, used to read Bundesland values from pages. */
 export const BUNDESLAND_SITE_NAMES: Readonly<Record<Bundesland, string>> = {
   wien: 'Wien',

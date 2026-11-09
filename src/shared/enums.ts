@@ -15,6 +15,10 @@ export const BundeslandSchema = z.enum([
 ])
 export type Bundesland = z.infer<typeof BundeslandSchema>
 
+/** The section of the Ediktsdatei an edict was published in. */
+export const EdictSourceSchema = z.enum(['court_auction', 'insolvency_sale'])
+export type EdictSource = z.infer<typeof EdictSourceSchema>
+
 export const PropertyTypeSchema = z.enum([
   'apartment',
   'house',
