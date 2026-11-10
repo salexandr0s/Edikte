@@ -1,0 +1,508 @@
+{
+  "index": 0,
+  "edikt": {
+    "id": 990001,
+    "ediktArt": "MV",
+    "ediktsArtLabel": "Verkäufe und Verpachtungen in Insolvenzverfahren",
+    "title": "099 4 S 12/26 x",
+    "badges": [],
+    "sections": [
+      {
+        "title": "Grunddaten",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "LIST",
+            "id": "a1000000-0000-4000-8000-000000000001",
+            "items": [
+              {
+                "heading": "Dienststelle",
+                "text": "HG Musterstadt (099)",
+                "multipleTextElements": [],
+                "internalUrl": "ediktsdatei/dienststellen/099"
+              },
+              {
+                "heading": "Aktenzeichen",
+                "text": "099 4 S 12/26 x"
+              },
+              {
+                "heading": "Bekanntmachungsdatum",
+                "multipleTextElements": [],
+                "textDate": "2026-11-02T09:30:00"
+              },
+              {
+                "heading": "Letzte Änderung",
+                "multipleTextElements": [],
+                "textDate": "2026-11-05T14:02:11.123456"
+              }
+            ]
+          },
+          {
+            "type": "LIST",
+            "id": "a1000000-0000-4000-8000-000000000002",
+            "items": [
+              {
+                "heading": "Art der Bekanntmachung",
+                "text": "Liegenschaft"
+              },
+              {
+                "heading": "Art der Transaktion",
+                "text": "Veräußerung"
+              }
+            ]
+          },
+          {
+            "type": "LIST",
+            "id": "a1000000-0000-4000-8000-000000000003",
+            "items": [
+              {
+                "heading": "Name Schuldner:in",
+                "text": "Muster Immobilien GmbH"
+              },
+              {
+                "heading": "Firmenbuchnummer",
+                "text": "FN 999999 z"
+              },
+              {
+                "heading": "Adresse",
+                "text": "Erfundenweg 7"
+              },
+              {
+                "heading": "PLZ, Ort",
+                "text": "9990 Fantasiedorf"
+              },
+              {
+                "heading": "UID-Nummer",
+                "text": "ATU99999999"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Adressdaten, Beschreibung und Schätzwert",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "LIST",
+            "id": "a1000000-0000-4000-8000-000000000004",
+            "items": [
+              {
+                "heading": "Straße",
+                "text": "Beispielgasse 1"
+              },
+              {
+                "heading": "PLZ",
+                "text": "3999"
+              },
+              {
+                "heading": "Ort",
+                "text": "Musterstadt"
+              },
+              {
+                "heading": "Land",
+                "text": "Österreich"
+              },
+              {
+                "heading": "Bundesland",
+                "text": "Niederösterreich"
+              }
+            ]
+          },
+          {
+            "type": "LIST",
+            "id": "a1000000-0000-4000-8000-000000000005",
+            "items": [
+              {
+                "heading": "Kurzbeschreibung",
+                "text": "Mietshaus mit sechs Wohnungen"
+              },
+              {
+                "heading": "Kategorie(n)",
+                "text": "Mietshaus, Gemischt genutztes Haus, Luftschloss"
+              },
+              {
+                "heading": "Beschreibung",
+                "text": "Dreigeschoßiges Mietshaus mit sechs Wohnungen und Garten.\nBesichtigung nach Vereinbarung mit der Kanzlei."
+              },
+              {
+                "heading": "Grundbuchnummer",
+                "text": "09999"
+              },
+              {
+                "heading": "Grundbuchgericht",
+                "text": "BG Musterstadt"
+              },
+              {
+                "heading": "Einlagezahl",
+                "text": "123"
+              },
+              {
+                "heading": "Grundstücksnr.",
+                "text": "45/6"
+              },
+              {
+                "heading": "BLNr.",
+                "text": "7"
+              }
+            ]
+          },
+          {
+            "type": "LIST",
+            "id": "a1000000-0000-4000-8000-000000000006",
+            "items": [
+              {
+                "heading": "Grundstücksgröße",
+                "text": "9.876 m²"
+              },
+              {
+                "heading": "Objektgröße",
+                "text": "458,04 m²"
+              },
+              {
+                "heading": "Weiterführender Link",
+                "text": "https://www.example.at/beispielgasse-1"
+              },
+              {
+                "heading": "Anschlüsse",
+                "text": "Kanal, Wasser, Strom und Gas"
+              },
+              {
+                "heading": "Baubewilligung",
+                "text": "Bescheid vom 3.5.1962"
+              },
+              {
+                "heading": "Benützungsbewilligung",
+                "text": "Bescheid vom 9.9.1963"
+              },
+              {
+                "heading": "Widmung",
+                "text": "Bauland Wohngebiet"
+              },
+              {
+                "heading": "Bestandsverhältnisse",
+                "text": "Vier Wohnungen sind unbefristet vermietet."
+              },
+              {
+                "heading": "Lasten",
+                "text": "Pfandrecht im Höchstbetrag von 200.000 EUR"
+              },
+              {
+                "heading": "Wert des Objekts",
+                "text": "€\u00a01\u00a0350\u00a0000,00"
+              }
+            ]
+          },
+          {
+            "type": "LIST",
+            "id": "a1000000-0000-4000-8000-000000000007",
+            "items": [
+              {
+                "heading": "Zubehör",
+                "text": "Zubehör"
+              },
+              {
+                "heading": "Beschreibung des Zubehörs",
+                "text": "Einbauküchen in zwei Wohnungen"
+              },
+              {
+                "heading": "Wert des Zubehörs",
+                "text": "€\u00a04\u00a0000,00"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Gutachten",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "FILE_LIST",
+            "id": "a1000000-0000-4000-8000-000000000008",
+            "orientation": "VERTICAL",
+            "items": [
+              {
+                "fileName": "Gutachten",
+                "fileUrl": "service/edi/v1/edikte/990001/resources/TVZfOTkwMDAxX0dBXzAwMDFfR3V0YWNodGVuLnBkZg",
+                "fileSize": 5550123,
+                "mimeType": "application/pdf",
+                "deleted": false
+              },
+              {
+                "fileName": "Fotos zum Gutachten",
+                "fileUrl": "service/edi/v1/edikte/990001/resources/TVZfOTkwMDAxX0dBXzAwMDJfRm90b3MgenVtIEd1dGFjaHRlbi5wZGY",
+                "fileSize": 2097152,
+                "mimeType": "application/pdf",
+                "deleted": false
+              },
+              {
+                "fileName": "Beilage zum Gutachten",
+                "fileUrl": "service/edi/v1/edikte/990001/resources/TVZfOTkwMDAxX0dBXzAwMDNfQmVpbGFnZSB6dW0gR3V0YWNodGVuLnBkZg",
+                "fileSize": 28672,
+                "mimeType": "application/pdf",
+                "deleted": false
+              },
+              {
+                "fileName": "Gutachten (alte Fassung)",
+                "fileUrl": "service/edi/v1/edikte/990001/resources/TVZfOTkwMDAxX0dBXzAwMDRfR3V0YWNodGVuIGFsdGUgRmFzc3VuZy5wZGY",
+                "fileSize": 4100000,
+                "mimeType": "application/pdf",
+                "deleted": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Weitere Dokumente",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "FILE_LIST",
+            "id": "a1000000-0000-4000-8000-000000000009",
+            "orientation": "VERTICAL",
+            "items": [
+              {
+                "fileName": "Verwertungsbedingungen",
+                "fileUrl": "service/edi/v1/edikte/990001/resources/TVZfOTkwMDAxX1dEXzAwMDVfVmVyd2VydHVuZ3NiZWRpbmd1bmdlbi5wZGY",
+                "fileSize": 512000,
+                "mimeType": "application/pdf",
+                "deleted": false
+              },
+              {
+                "fileName": "Plan Erdgeschoß",
+                "fileUrl": "service/edi/v1/edikte/990001/resources/TVZfOTkwMDAxX1dEXzAwMDZfUGxhbiBFcmRnZXNjaG9zcy5wZGY",
+                "fileSize": 1048577,
+                "mimeType": "application/pdf",
+                "deleted": false
+              },
+              {
+                "fileName": "Sanierungsplan",
+                "fileUrl": "service/edi/v1/edikte/990001/resources/TVZfOTkwMDAxX1dEXzAwMDdfU2FuaWVydW5nc3BsYW4ucGRm",
+                "fileSize": 204800,
+                "mimeType": "application/pdf",
+                "deleted": false
+              },
+              {
+                "fileName": "Kaufvertrag im Entwurf",
+                "fileUrl": "service/edi/v1/edikte/990002/resources/TVZfOTkwMDAyX1dEXzAwMDhfS2F1ZnZlcnRyYWcgaW0gRW50d3VyZi5wZGY",
+                "fileSize": 81920,
+                "mimeType": "application/pdf",
+                "deleted": false
+              },
+              {
+                "fileName": "Angebotsformular",
+                "fileUrl": "service/edi/v1/edikte/990001/resources/TVZfOTkwMDAxX1dEXzAwMDlfQW5nZWJvdHNmb3JtdWxhci5kb2N4",
+                "fileSize": 40960,
+                "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "deleted": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Fotos",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "FILE_LIST",
+            "id": "a1000000-0000-4000-8000-000000000010",
+            "orientation": "VERTICAL",
+            "items": [
+              {
+                "fileName": "Lichtbildbeilage",
+                "fileUrl": "service/edi/v1/edikte/990001/resources/TVZfOTkwMDAxX0ZPXzAwMTBfTGljaHRiaWxkYmVpbGFnZS5wZGY",
+                "fileSize": 10485760,
+                "mimeType": "application/pdf",
+                "deleted": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Insolvenzverwalter:in",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "LIST",
+            "id": "a1000000-0000-4000-8000-000000000011",
+            "items": [
+              {
+                "heading": "Name",
+                "text": "Dr. Erika Beispiel",
+                "multipleTextElements": [],
+                "internalUrl": "ediktsdatei/insolvenzverwalter/990101"
+              },
+              {
+                "heading": "Anschrift",
+                "text": "Kanzleiplatz 2, 3999 Musterstadt"
+              },
+              {
+                "heading": "Telefon",
+                "text": "+43 1 555 01 00"
+              },
+              {
+                "heading": "Fax",
+                "text": "+43 1 555 01 09"
+              },
+              {
+                "heading": "E-Mail",
+                "text": "kanzlei@example.at",
+                "multipleTextElements": [],
+                "externalUrl": "mailto:kanzlei@example.at"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Stellvertreter:in",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "LIST",
+            "id": "a1000000-0000-4000-8000-000000000012",
+            "items": [
+              {
+                "heading": "Name",
+                "text": "Mag. Jonas Vorlage",
+                "multipleTextElements": [],
+                "internalUrl": "ediktsdatei/insolvenzverwalter/990102"
+              },
+              {
+                "heading": "Anschrift",
+                "text": "Kanzleiplatz 2, 3999 Musterstadt"
+              },
+              {
+                "heading": "Telefon",
+                "text": "+43 1 555 01 01"
+              },
+              {
+                "heading": "Fax",
+                "text": "-"
+              },
+              {
+                "heading": "E-Mail",
+                "text": "mailto:vertretung@example.at",
+                "multipleTextElements": [],
+                "externalUrl": "mailto:vertretung@example.at"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Änderung",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "HISTORY",
+            "id": "a1000000-0000-4000-8000-000000000013",
+            "heading": {
+              "styles": [],
+              "items": ["Änderungen der Bekanntmachung"],
+              "hints": []
+            },
+            "rows": [
+              {
+                "changeDateTime": "2026-11-05T14:02:11.123456",
+                "items": [
+                  {
+                    "fieldId": "Anhang",
+                    "operation": "DELETE"
+                  },
+                  {
+                    "fieldId": "Anhang",
+                    "operation": "ADD"
+                  },
+                  {
+                    "fieldId": "Einlagezahl",
+                    "operation": "UPDATE",
+                    "oldValue": {
+                      "stringValue": "132"
+                    },
+                    "newValue": {
+                      "numberValue": 123
+                    }
+                  },
+                  {
+                    "fieldId": "Beschreibung des Zubehörs",
+                    "operation": "ADD",
+                    "oldValue": {
+                      "stringValue": ""
+                    },
+                    "newValue": {
+                      "stringValue": "Einbauküchen in zwei Wohnungen"
+                    }
+                  },
+                  {
+                    "fieldId": "Name Schuldner:in",
+                    "operation": "UPDATE",
+                    "oldValue": {
+                      "stringValue": "Muster Immobilien GesmbH"
+                    },
+                    "newValue": {
+                      "stringValue": "Muster Immobilien GmbH"
+                    }
+                  },
+                  {
+                    "fieldId": "UID-Nummer",
+                    "operation": "ADD",
+                    "oldValue": {
+                      "stringValue": ""
+                    },
+                    "newValue": {
+                      "stringValue": "ATU99999999"
+                    }
+                  },
+                  {
+                    "operation": "UPDATE",
+                    "textDe": "Wert des Objekts <b>von</b> €\u00a01\u00a0300\u00a0000,00 <b>auf</b> €\u00a01\u00a0350\u00a0000,00 <b>geändert</b>"
+                  }
+                ]
+              },
+              {
+                "changeDateTime": "2026-11-03T08:15:00.5",
+                "items": [
+                  {
+                    "fieldId": "Beschreibung des Zubehörs",
+                    "operation": "DELETE",
+                    "oldValue": {
+                      "stringValue": "Gartenhütte"
+                    }
+                  },
+                  {
+                    "operation": "ADD",
+                    "textDe": "Weitere Dokumente hinzugefügt: Verwertungsbedingungen"
+                  },
+                  {
+                    "operation": "UPDATE",
+                    "textDe": "Adressdaten <b>von</b> Beispielgasse 2\n3999 Musterstadt <b>auf</b> Beispielgasse 1\n3999 Musterstadt <b>geändert</b>"
+                  },
+                  {
+                    "operation": "UPDATE",
+                    "textDe": "Adresse <b>von</b> Erfundenweg 5 <b>auf</b> Erfundenweg 7 <b>geändert</b>"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "formsToShow": ["MV_LIEGENSCHAFT"]
+  },
+  "total": 1,
+  "accessedTimestamp": "2026-11-09T10:15:31.123456"
+}
