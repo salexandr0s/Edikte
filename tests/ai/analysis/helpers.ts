@@ -37,6 +37,7 @@ export const houseAnswer: AnalysisResult = AnalysisResultSchema.parse(
 )
 
 export const houseEdict: EdictFacts = {
+  source: 'court_auction',
   categoryLabel: 'Einfamilienhaus',
   propertyType: 'house',
   street: 'Lindenweg 7',

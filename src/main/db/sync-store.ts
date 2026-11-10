@@ -1,6 +1,6 @@
-import { desc, eq, inArray, isNotNull, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, sql, type SQL } from 'drizzle-orm'
 import type { SyncRunSummary } from '@shared/domain'
-import type { Bundesland } from '@shared/enums'
+import type { Bundesland, EdictSource } from '@shared/enums'
 import type { AppErrorCode } from '@shared/errors'
 import type {
   EdictWrite,
@@ -23,6 +23,7 @@ type SyncRunStatus = (typeof syncRuns.$inferSelect)['status']
 
 const summaryColumns = {
   id: syncRuns.id,
+  source: syncRuns.source,
   kind: syncRuns.kind,
   status: syncRuns.status,
   startedAt: syncRuns.startedAt,
@@ -38,13 +39,21 @@ const summaryColumns = {
 /** The database side of `runSync`. */
 export function createSyncStore(db: AppDatabase): SyncStore {
   return {
-    loadState: (scope) => loadSyncState(db, scope),
+    loadState: (scope, source) => loadSyncState(db, scope, source),
     startRun: (run) => insertRun(db, run),
     commitRun: (commit) => applyCommit(db, commit),
   }
 }
 
-export function loadSyncState(db: AppDatabase, scope: readonly Bundesland[]): SyncStoreState {
+/**
+ * The edicts and runs of one source. A run compares the site's list with this
+ * state alone, so it never marks an edict of another source as removed.
+ */
+export function loadSyncState(
+  db: AppDatabase,
+  scope: readonly Bundesland[],
+  source: EdictSource,
+): SyncStoreState {
   const known = new Map<string, KnownEdict>()
   if (scope.length > 0) {
     const rows = db
@@ -59,29 +68,29 @@ export function loadSyncState(db: AppDatabase, scope: readonly Bundesland[]): Sy
         removedAt: edicts.removedAt,
       })
       .from(edicts)
-      .where(inArray(edicts.bundesland, [...scope]))
+      .where(and(eq(edicts.source, source), inArray(edicts.bundesland, [...scope])))
       .all()
     for (const row of rows) known.set(row.id, row)
   }
   let lastOkRunStartedAt: string | null = null
   let lastOkFullRunStartedAt: string | null = null
-  for (const run of newestCoveringRuns(db, eq(syncRuns.status, 'ok'), scope)) {
+  for (const run of newestCoveringRuns(db, eq(syncRuns.status, 'ok'), scope, source)) {
     lastOkRunStartedAt ??= run.startedAt
     if (run.kind === 'full') {
       lastOkFullRunStartedAt = run.startedAt
       break
     }
   }
-  return { known, lastOkRunStartedAt, lastOkFullRunStartedAt, lastFinished: lastFinishedRun(db) }
+  return { known, lastOkRunStartedAt, lastOkFullRunStartedAt }
 }
 
-/** The newest run with a finish time, whatever its scope or status. */
-export function lastFinishedRun(db: AppDatabase): SyncRunSummary | null {
+/** The newest run of a source with a finish time, whatever its scope or status. */
+export function lastFinishedRun(db: AppDatabase, source: EdictSource): SyncRunSummary | null {
   return (
     db
       .select(summaryColumns)
       .from(syncRuns)
-      .where(isNotNull(syncRuns.finishedAt))
+      .where(and(eq(syncRuns.source, source), isNotNull(syncRuns.finishedAt)))
       .orderBy(desc(syncRuns.id))
       .limit(1)
       .get() ?? null
@@ -95,7 +104,10 @@ const SITE_ANSWER_CODES: ReadonlySet<AppErrorCode> = new Set<AppErrorCode>([
   'site_changed',
 ])
 
-/** Finish times of the newest runs covering a scope, which decide when auto sync is due. */
+/**
+ * Finish times of the newest runs of one source covering a scope, which decide
+ * when auto sync is due.
+ */
 export interface SyncSchedule {
   /** The newest run that got an answer from the site: ok, degraded, or failed with a site error. */
   settledAt: string | null
@@ -103,9 +115,13 @@ export interface SyncSchedule {
   unsettledAt: string | null
 }
 
-export function loadSyncSchedule(db: AppDatabase, scope: readonly Bundesland[]): SyncSchedule {
+export function loadSyncSchedule(
+  db: AppDatabase,
+  scope: readonly Bundesland[],
+  source: EdictSource,
+): SyncSchedule {
   const schedule: SyncSchedule = { settledAt: null, unsettledAt: null }
-  for (const run of newestCoveringRuns(db, isNotNull(syncRuns.finishedAt), scope)) {
+  for (const run of newestCoveringRuns(db, isNotNull(syncRuns.finishedAt), scope, source)) {
     if (isSettled(run)) schedule.settledAt ??= run.finishedAt
     else schedule.unsettledAt ??= run.finishedAt
     if (schedule.settledAt !== null && schedule.unsettledAt !== null) break
@@ -113,8 +129,13 @@ export function loadSyncSchedule(db: AppDatabase, scope: readonly Bundesland[]):
   return schedule
 }
 
-/** Runs matching `where` that covered `scope`, newest first, read a page at a time. */
-function* newestCoveringRuns(db: AppDatabase, where: SQL, scope: readonly Bundesland[]) {
+/** Runs of `source` matching `where` that covered `scope`, newest first, read a page at a time. */
+function* newestCoveringRuns(
+  db: AppDatabase,
+  where: SQL,
+  scope: readonly Bundesland[],
+  source: EdictSource,
+) {
   for (let offset = 0; ; offset += RUN_PAGE) {
     const page = db
       .select({
@@ -126,7 +147,7 @@ function* newestCoveringRuns(db: AppDatabase, where: SQL, scope: readonly Bundes
         finishedAt: syncRuns.finishedAt,
       })
       .from(syncRuns)
-      .where(where)
+      .where(and(eq(syncRuns.source, source), where))
       .orderBy(desc(syncRuns.id))
       .limit(RUN_PAGE)
       .offset(offset)
@@ -172,7 +193,13 @@ export function closeOpenRuns(
 function insertRun(db: AppDatabase, run: SyncRunStart): number {
   return db
     .insert(syncRuns)
-    .values({ kind: run.kind, status: 'running', scope: run.scope, startedAt: run.startedAt })
+    .values({
+      source: run.source,
+      kind: run.kind,
+      status: 'running',
+      scope: run.scope,
+      startedAt: run.startedAt,
+    })
     .returning({ id: syncRuns.id })
     .get().id
 }
@@ -199,23 +226,35 @@ function applyCommit(db: AppDatabase, commit: SyncCommit): void {
       })
       .where(eq(syncRuns.id, summary.id))
       .run()
-    for (const write of commit.upserts) upsertEdict(tx, write, at)
+    if (summary.status !== 'ok') return
+    for (const write of commit.upserts) {
+      if (write.edict.source === summary.source) upsertEdict(tx, write, at)
+    }
     for (const ids of chunks(commit.seenIds)) {
-      tx.update(edicts).set({ lastSeenAt: at }).where(inArray(edicts.id, ids)).run()
+      tx.update(edicts)
+        .set({ lastSeenAt: at })
+        .where(and(eq(edicts.source, summary.source), inArray(edicts.id, ids)))
+        .run()
     }
     for (const ids of chunks(commit.unchangedIds)) {
-      tx.update(edicts).set({ lastSeenAt: at, fetchedAt: at }).where(inArray(edicts.id, ids)).run()
+      tx.update(edicts)
+        .set({ lastSeenAt: at, fetchedAt: at })
+        .where(and(eq(edicts.source, summary.source), inArray(edicts.id, ids)))
+        .run()
     }
     for (const ids of chunks(commit.removedIds)) {
-      tx.update(edicts).set({ removedAt: at }).where(inArray(edicts.id, ids)).run()
+      tx.update(edicts)
+        .set({ removedAt: at })
+        .where(and(eq(edicts.source, summary.source), inArray(edicts.id, ids)))
+        .run()
     }
   })
 }
 
 /**
  * Inserts or replaces the edict, keeping the stored firstSeenAt, and adds
- * document links it does not know yet. Known documents keep their download
- * and extraction state.
+ * document links it does not know yet. Missing links are retired; returning
+ * links keep their download and extraction state.
  */
 function upsertEdict(tx: Transaction, write: EdictWrite, at: string): void {
   const { edict } = write
@@ -235,6 +274,18 @@ function upsertEdict(tx: Transaction, write: EdictWrite, at: string): void {
       set: { ...edict, firstSeenAt: sql`${edicts.firstSeenAt}` },
     })
     .run()
+  const publishedUrls = new Set(write.documents.map((link) => link.url))
+  const storedDocuments = tx
+    .select({ id: documents.id, url: documents.url, removedAt: documents.removedAt })
+    .from(documents)
+    .where(eq(documents.edictId, edict.id))
+    .all()
+  for (const document of storedDocuments) {
+    const removedAt = publishedUrls.has(document.url) ? null : (document.removedAt ?? at)
+    if (removedAt !== document.removedAt) {
+      tx.update(documents).set({ removedAt }).where(eq(documents.id, document.id)).run()
+    }
+  }
   if (write.documents.length === 0) return
   tx.insert(documents)
     .values(

@@ -1,12 +1,38 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
+import type { EdictSource } from '@shared/enums'
 import { planPages } from '../../../src/main/ai/analysis/page-plan'
 import {
   buildContent,
   buildSystemPrompt,
   buildUserText,
   correctionNote,
+  PROMPT_VERSIONS,
 } from '../../../src/main/ai/analysis/prompt'
 import { houseEdict, housePages } from './helpers'
+
+describe('buildSystemPrompt', () => {
+  it.each([
+    ['court_auction', 2, '1c4f5f597514cae811814d64daaed0b5880fef5b29b98f458c8ad23d512d4435'],
+    ['insolvency_sale', 1, 'ad5be114587f0acc4038f50ee9cc21e2af80f3314977e8955f419e580478acd4'],
+  ] satisfies [EdictSource, number, string][])(
+    'pins the text and version of the %s instructions',
+    (source, version, sha256) => {
+      expect(PROMPT_VERSIONS[source]).toBe(version)
+      expect(createHash('sha256').update(buildSystemPrompt(source)).digest('hex')).toBe(sha256)
+    },
+  )
+
+  it('keeps auction assumptions out of the insolvency instructions', () => {
+    const prompt = buildSystemPrompt('insolvency_sale')
+    expect(prompt).toContain('sale by an insolvency administrator')
+    expect(prompt).toContain("facts from the insolvency administrator's notice")
+    expect(prompt).toContain('leases and mortgages (Pfandrechte)')
+    expect(prompt).toContain('depends on the purchase contract')
+    expect(prompt).toContain('Do not assume any is deleted by the sale.')
+    expect(prompt).not.toMatch(/auction|bidder|paid from the proceeds/)
+  })
+})
 
 describe('buildUserText', () => {
   it('starts with the edict facts and labels each page with its PDF number', () => {
@@ -52,6 +78,13 @@ describe('buildUserText', () => {
     )
   })
 
+  it('names the value from an insolvency notice without changing the other facts', () => {
+    const pages = { pageCount: 0, textPages: [], unreadPages: [], droppedPages: [] }
+    const auction = buildUserText(houseEdict, pages, [])
+    const sale = buildUserText({ ...houseEdict, source: 'insolvency_sale' }, pages, [])
+    expect(sale).toBe(auction.replace('Schätzwert (EUR)', 'Wert laut Bekanntmachung (EUR)'))
+  })
+
   it('keeps page text from opening or closing the prompt tags', () => {
     const text = buildUserText(
       houseEdict,
@@ -94,7 +127,7 @@ describe('buildContent', () => {
 
 describe('correctionNote', () => {
   it('names the schema issues, or the cut-off answer when there are none', () => {
-    expect(buildSystemPrompt(correctionNote(['areas.0.sqm: Too small']))).toMatch(
+    expect(buildSystemPrompt('court_auction', correctionNote(['areas.0.sqm: Too small']))).toMatch(
       /\n\nYour previous answer did not match the schema: areas\.0\.sqm: Too small\. Answer again/,
     )
     expect(correctionNote([])).toMatch(/^Your previous answer was cut off or was not valid JSON\./)

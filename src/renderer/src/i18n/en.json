@@ -62,6 +62,7 @@
     "document_unreadable": "The PDF could not be read. It may be damaged or protected.",
     "storage_unavailable": "The app cannot write to its data folder. Check free disk space and folder permissions.",
     "database_newer": "The data folder was created by a newer version of Edikte. Install that version to open it.",
+    "database_backup_failed": "The database backup could not be created. The database was not upgraded. Check free disk space and data-folder permissions, then start Edikte again.",
     "consent_required": "Confirm first that the appraisal report text may be sent to your AI provider.",
     "provider_not_selected": "Choose an AI provider in Settings first.",
     "provider_not_connected": "The selected AI provider is not signed in. Sign in under Settings.",
@@ -80,15 +81,20 @@
   },
   "nav": {
     "label": "Main navigation",
-    "listings": "Auctions",
+    "listings": "Listings",
     "settings": "Settings"
   },
   "toast": {
     "region": "Notifications"
   },
+  "edictSource": {
+    "court_auction": "Auctions",
+    "insolvency_sale": "Insolvency sales"
+  },
   "listingStatus": {
     "upcoming": "Upcoming",
     "postponed": "Postponed",
+    "on_offer": "On offer",
     "cancelled": "Cancelled",
     "sold": "Sold",
     "closed": "Closed"
@@ -102,6 +108,8 @@
     "zuschlag_mit_ueberbot": "Award (Zuschlag mit Überbot)",
     "zuschlag_nach_ueberbot": "Award (Zuschlag nach Überbot)",
     "meistbotsverteilung": "Distribution of proceeds (Meistbotsverteilung)",
+    "insolvenzverkauf": "Sale in insolvency proceedings (Veräußerung)",
+    "insolvenzverpachtung": "Lease in insolvency proceedings (Verpachtung)",
     "other": "Other notice"
   },
   "propertyType": {
@@ -180,8 +188,8 @@
       "accept": "Agree and continue"
     },
     "confirm": {
-      "title_one": "Analyze this auction?",
-      "title_other": "Analyze {{count}} auctions?",
+      "title_one": "Analyze this listing?",
+      "title_other": "Analyze {{count}} listings?",
       "provider": "Provider",
       "model": "Model",
       "defaultModel": "Provider default",
@@ -191,15 +199,15 @@
       "cost": "Cost",
       "estimatedCost": "About {{cost}} at list prices",
       "planCost": "Counts towards the usage limits of your {{provider}} plan",
-      "skipped_one": "One auction has no Gutachten and is skipped.",
-      "skipped_other": "{{count}} auctions have no Gutachten and are skipped.",
-      "again_one": "One auction already has an analysis and is analyzed again.",
-      "again_other": "{{count}} auctions already have an analysis and are analyzed again.",
+      "skipped_one": "One listing has no Gutachten and is skipped.",
+      "skipped_other": "{{count}} listings have no Gutachten and are skipped.",
+      "again_one": "One listing already has an analysis and is analyzed again.",
+      "again_other": "{{count}} listings already have an analysis and are analyzed again.",
       "start": "Start analysis"
     },
     "nothing": {
       "title": "Nothing to analyze",
-      "text": "None of these auctions has a Gutachten to analyze."
+      "text": "None of these listings has a Gutachten to analyze."
     }
   }
 }

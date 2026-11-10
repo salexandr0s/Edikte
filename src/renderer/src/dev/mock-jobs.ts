@@ -9,7 +9,13 @@ import type {
   ListingQuery,
   ListingRow,
 } from '@shared/domain'
-import { EDIKTE_ORIGIN, EX_DB_PATH } from '@shared/edikte-codes'
+import { insolvencyRecordNumber } from '@shared/edict-id'
+import {
+  EDIKTE_ORIGIN,
+  EX_DB_PATH,
+  JUSTIZONLINE_API_PATH,
+  JUSTIZONLINE_ORIGIN,
+} from '@shared/edikte-codes'
 import type { DocumentKind } from '@shared/enums'
 import { AppError } from '@shared/errors'
 import { applyListingQuery } from '@shared/listing-query'
@@ -67,7 +73,9 @@ export function createJobHandlers(
     return doc
   }
   const gutachtenFor = (edictId: string) =>
-    state.documents.find((doc) => doc.edictId === edictId && doc.kind === 'langgutachten')
+    state.documents.find(
+      (doc) => doc.edictId === edictId && doc.kind === 'langgutachten' && doc.removedAt === null,
+    )
 
   /** Rebuilds rows from their documents and analyses, then tells the screens. */
   const refreshRows = (edictIds: string[]) => {
@@ -90,6 +98,7 @@ export function createJobHandlers(
     )
     const row = rowFor(doc.edictId)
     const id = Math.max(0, ...state.estimates.map((estimate) => estimate.id)) + 1
+    state.estimates = state.estimates.filter((estimate) => estimate.documentId !== doc.id)
     const estimate = localEstimate(row, downloaded, id)
     if (estimate !== null) {
       state.estimates.push(estimate)
@@ -117,16 +126,19 @@ export function createJobHandlers(
     progress: Pick<DocumentProgress, 'job' | 'done' | 'total'>,
     isCancelled: () => boolean,
   ): Promise<boolean> => {
-    if (documentFor(doc.id).downloaded || downloading.has(doc.id)) return true
+    const current = documentFor(doc.id)
+    if ((current.downloaded && current.pageCount !== null) || downloading.has(doc.id)) return true
     downloading.add(doc.id)
     try {
       const base = { ...progress, documentId: doc.id, edictId: doc.edictId }
       const bytesTotal = (doc.statedSizeKb ?? 1000) * 1024
-      for (let tick = 0; tick <= DOWNLOAD_TICKS; tick++) {
-        if (isCancelled()) return false
-        const bytesDone = Math.round((bytesTotal * tick) / DOWNLOAD_TICKS)
-        emit('documents:progress', { ...base, phase: 'download', bytesDone, bytesTotal })
-        await delay(250)
+      if (!current.downloaded) {
+        for (let tick = 0; tick <= DOWNLOAD_TICKS; tick++) {
+          if (isCancelled()) return false
+          const bytesDone = Math.round((bytesTotal * tick) / DOWNLOAD_TICKS)
+          emit('documents:progress', { ...base, phase: 'download', bytesDone, bytesTotal })
+          await delay(250)
+        }
       }
       for (const phase of ['extract', 'estimate'] as const) {
         if (isCancelled()) return false
@@ -161,17 +173,23 @@ export function createJobHandlers(
     return documentFor(documentId)
   }
 
-  /** Filtered listings without any area, and their Gutachten not downloaded yet. */
+  /** Reports to download or finish reading for filtered listings without an area. */
   const fillCandidates = (query: ListingQuery): { plan: FillPlan; documents: DocumentInfo[] } => {
     const rows = applyListingQuery(visibleRows(), { ...query, includeWithoutArea: true }).rows
     const withoutArea = rows.filter((row) => row.area === null)
     const documents = withoutArea.flatMap((row) => {
       const doc = gutachtenFor(row.id)
-      return doc === undefined || doc.downloaded ? [] : [doc]
+      return doc === undefined || (doc.downloaded && doc.pageCount !== null) ? [] : [doc]
     })
-    const totalKb = documents.reduce((sum, doc) => sum + (doc.statedSizeKb ?? 0), 0)
+    const downloads = documents.filter((doc) => !doc.downloaded)
+    const totalKb = downloads.reduce((sum, doc) => sum + (doc.statedSizeKb ?? 0), 0)
     return {
-      plan: { listings: withoutArea.length, documents: documents.length, totalKb },
+      plan: {
+        listings: withoutArea.length,
+        documents: downloads.length,
+        cachedDocuments: documents.length - downloads.length,
+        totalKb,
+      },
       documents,
     }
   }
@@ -262,6 +280,7 @@ export function createJobHandlers(
         : fakeAnalysisRecord(row, id, provider, model, createdAt)
     finishRecord({
       ...finished,
+      documentId: doc?.id ?? null,
       startedAt: running.startedAt,
       finishedAt: new Date().toISOString(),
     })
@@ -312,6 +331,7 @@ export function createJobHandlers(
           (record) =>
             record.edictId === row.id &&
             record.status === 'done' &&
+            !record.stale &&
             record.promptVersion === MOCK_PROMPT_VERSION,
         ),
       ).length
@@ -394,21 +414,43 @@ const GUTACHTEN_KB = [7360, 8120, 9480, 6900, 7700, 10_240, 5200, 7010, 8800]
 
 /**
  * The Langgutachten of every listing that has one, with ID = listing number,
- * plus photos for the first listing and a plan for the house. The documents
- * of the three analyzed listings are downloaded.
+ * plus photos for the first listing and a plan for the house. The sale in
+ * insolvency proceedings that has a report also has photos and its conditions
+ * of sale. The documents of the three analyzed listings are downloaded.
  */
 export function fakeDocuments(rows: readonly ListingRow[]): DocumentInfo[] {
   const documents = rows.flatMap((row, index) => {
     if (!row.hasLanggutachten) return []
     const kb = GUTACHTEN_KB[index % GUTACHTEN_KB.length] ?? 7000
-    const doc = fakeDocument(row, index + 1, 'langgutachten', 'Langgutachten', kb)
+    // JustizOnline lists the report under a label such as "Gutachten".
+    const label = row.source === 'insolvency_sale' ? 'Gutachten' : 'Langgutachten'
+    const doc = fakeDocument(row, index + 1, 'langgutachten', label, kb)
     if (index >= 3) return [doc]
     const downloadedAt = '2026-11-04T09:10:00.000Z'
     return [{ ...doc, ...downloadedPages(doc), downloaded: true, downloadedAt }]
   })
-  const [first, , house] = rows
+  const [first, second, house] = rows
+  const sale = rows.find((row) => row.source === 'insolvency_sale' && row.hasLanggutachten)
   if (first !== undefined) documents.push(fakeDocument(first, 101, 'photo', 'Foto', 2150))
   if (house !== undefined) documents.push(fakeDocument(house, 102, 'plan', 'Plan', 840))
+  if (second !== undefined) {
+    const old = documents.find((doc) => doc.edictId === second.id && doc.kind === 'langgutachten')
+    if (old !== undefined) {
+      old.removedAt = '2026-11-05T09:00:00.000Z'
+      // Cached bytes whose first text extraction was interrupted.
+      documents.push({
+        ...fakeDocument(second, 105, 'langgutachten', 'Langgutachten neu', 7210),
+        downloaded: true,
+        downloadedAt: '2026-11-05T09:01:00.000Z',
+      })
+    }
+  }
+  if (sale !== undefined) {
+    documents.push(
+      fakeDocument(sale, 103, 'photo', 'Fotos', 3480),
+      fakeDocument(sale, 104, 'other', 'Verwertungsbedingungen', 310),
+    )
+  }
   return documents
 }
 
@@ -418,6 +460,7 @@ export function fakeEstimates(
   documents: readonly DocumentInfo[],
 ): AreaEstimate[] {
   return documents.flatMap((doc) => {
+    if (doc.removedAt !== null || doc.pageCount === null) return []
     const row = rows.find((candidate) => candidate.id === doc.edictId)
     const estimate = doc.downloaded && row !== undefined ? localEstimate(row, doc, doc.id) : null
     return estimate === null ? [] : [estimate]
@@ -438,17 +481,33 @@ function fakeDocument(
     kind,
     title: label,
     fileName,
-    url: `${EDIKTE_ORIGIN}${EX_DB_PATH}/0/${row.id}/$file/${fileName}`,
+    url: fakeDocumentUrl(row, id, fileName),
     statedSizeKb: kb,
     downloaded: false,
     downloadedAt: null,
     pageCount: null,
     scannedPages: [],
     extractError: null,
+    removedAt: null,
   }
 }
 
-/** Every second Gutachten ends with scanned appendix pages; photos and plans are all images. */
+/**
+ * Where the file would be fetched from. The auction site links a file by its
+ * name. JustizOnline lists the files of a record under the record number and
+ * gives each a token in place of a name.
+ */
+function fakeDocumentUrl(row: ListingRow, id: number, fileName: string): string {
+  const recordNumber = row.source === 'insolvency_sale' ? insolvencyRecordNumber(row.id) : null
+  if (recordNumber === null) return `${EDIKTE_ORIGIN}${EX_DB_PATH}/0/${row.id}/$file/${fileName}`
+  const files = `${JUSTIZONLINE_ORIGIN}${JUSTIZONLINE_API_PATH}edikte/${recordNumber}/resources/`
+  return `${files}mock-file-${id}`
+}
+
+/**
+ * Every second Gutachten ends with scanned appendix pages. A file of any other
+ * kind is all images.
+ */
 function downloadedPages(doc: DocumentInfo): Pick<DocumentInfo, 'pageCount' | 'scannedPages'> {
   const pageCount = doc.kind === 'langgutachten' ? 36 + ((doc.id * 5) % 18) : 6
   const firstScanned = doc.kind !== 'langgutachten' ? 1 : doc.id % 2 === 1 ? pageCount - 3 : null

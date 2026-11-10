@@ -20,6 +20,8 @@ export interface ListingPageState {
   /** Set when the latest query failed. */
   error: AppErrorCode | null
   loading: boolean
+  /** The page answers this query and no newer request is loading or failed. */
+  settled: boolean
   reload: () => void
 }
 
@@ -29,7 +31,11 @@ export interface ListingPageState {
  * response never replaces a newer one.
  */
 export function useListingPage(query: ListingQuery): ListingPageState {
-  const [answer, setAnswer] = useState<{ page: ListingPage; request: number } | null>(null)
+  const [answer, setAnswer] = useState<{
+    page: ListingPage
+    request: number
+    query: ListingQuery
+  } | null>(null)
   const [error, setError] = useState<AppErrorCode | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshes, setRefreshes] = useState(0)
@@ -51,7 +57,7 @@ export function useListingPage(query: ListingQuery): ListingPageState {
       invoke('listings:query', query).then(
         (result) => {
           if (ignore) return
-          setAnswer({ page: result, request })
+          setAnswer({ page: result, request, query })
           setError(null)
           setLoading(false)
         },
@@ -77,6 +83,7 @@ export function useListingPage(query: ListingQuery): ListingPageState {
     requestsSent: () => sent.current,
     error,
     loading,
+    settled: answer?.query === query && !loading && error === null,
     reload,
   }
 }

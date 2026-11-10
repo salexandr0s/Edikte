@@ -1,0 +1,187 @@
+{
+  "page": 2,
+  "pageSize": 100,
+  "edikte": [
+    {
+      "id": 990001,
+      "type": "MV",
+      "ediktsArtLabel": "Verkäufe und Verpachtungen in Insolvenzverfahren",
+      "aktenzeichen": "099 4 S 12/26 x",
+      "primaryInfos": {
+        "maxVisible": 2,
+        "values": [
+          {
+            "info": "3999 Musterstadt"
+          },
+          {
+            "info": "Mietshaus"
+          }
+        ]
+      },
+      "ediktSubType": "Liegenschaft",
+      "publisherInfo": "HG Musterstadt",
+      "publishedAt": "2026-11-02",
+      "updatedAt": "2026-11-05",
+      "additionalDateInformations": []
+    },
+    {
+      "id": 990002,
+      "type": "MV",
+      "ediktsArtLabel": "Verkäufe und Verpachtungen in Insolvenzverfahren",
+      "aktenzeichen": "099 5 S 34/26 y",
+      "primaryInfos": {
+        "maxVisible": 2,
+        "values": [
+          {
+            "info": "3999 Musterstadt"
+          }
+        ]
+      },
+      "ediktSubType": "Liegenschaft",
+      "publisherInfo": "HG Musterstadt",
+      "publishedAt": "2026-10-20",
+      "additionalDateInformations": []
+    },
+    {
+      "id": 990003,
+      "type": "MV",
+      "ediktsArtLabel": "Verkäufe und Verpachtungen in Insolvenzverfahren",
+      "aktenzeichen": "098 7 S 56/25 z",
+      "primaryInfos": {
+        "maxVisible": 2,
+        "values": [
+          {
+            "info": "9998 Beispieldorf"
+          }
+        ]
+      },
+      "ediktSubType": "Liegenschaft",
+      "publisherInfo": "LG Beispielstadt",
+      "publishedAt": "2026-09-14",
+      "updatedAt": "2026-09-30",
+      "additionalDateInformations": []
+    },
+    {
+      "id": "990004",
+      "type": "MV",
+      "ediktsArtLabel": "Verkäufe und Verpachtungen in Insolvenzverfahren",
+      "aktenzeichen": "098 8 S 78/25 w",
+      "primaryInfos": {
+        "maxVisible": 2,
+        "values": [
+          {
+            "info": "9998 Beispieldorf"
+          }
+        ]
+      },
+      "ediktSubType": "Liegenschaft",
+      "publisherInfo": "LG Beispielstadt",
+      "publishedAt": "2026-08-03",
+      "additionalDateInformations": []
+    }
+  ],
+  "total": 104,
+  "incompleteResult": false,
+  "accessedTimestamp": "2026-11-09T10:15:30.123456",
+  "specificFilter": {
+    "filter": [
+      {
+        "id": "suchbegriff",
+        "label": "Suchbegriff",
+        "type": "TEXT",
+        "config": {
+          "placeholder": "Suchbegriff eingeben",
+          "maxLength": 100
+        },
+        "options": [],
+        "children": []
+      },
+      {
+        "id": "aktenzeichen",
+        "label": "Aktenzeichen",
+        "type": "TEXT",
+        "config": {
+          "placeholder": "Aktenzeichen eingeben",
+          "maxLength": 50
+        },
+        "options": [],
+        "children": []
+      },
+      {
+        "id": "ort",
+        "label": "PLZ oder Ort",
+        "type": "TEXT",
+        "config": {
+          "placeholder": "PLZ oder Ort eingeben",
+          "maxLength": 50
+        },
+        "options": [],
+        "children": []
+      },
+      {
+        "id": "mvBekanntmachungType",
+        "label": "Art der Bekanntmachung",
+        "type": "MULTISELECT",
+        "options": [
+          {
+            "id": "LIEGENSCHAFT",
+            "label": "Liegenschaft"
+          },
+          {
+            "id": "UNTERNEHMEN",
+            "label": "Unternehmen"
+          },
+          {
+            "id": "VERMOEGEN",
+            "label": "Vermögen"
+          }
+        ],
+        "children": []
+      },
+      {
+        "id": "bl",
+        "label": "Bundesland",
+        "type": "MULTISELECT",
+        "options": [
+          {
+            "id": "BURGENLAND",
+            "label": "Burgenland"
+          },
+          {
+            "id": "KAERNTEN",
+            "label": "Kärnten"
+          },
+          {
+            "id": "NIEDEROESTERREICH",
+            "label": "Niederösterreich"
+          },
+          {
+            "id": "OBEROESTERREICH",
+            "label": "Oberösterreich"
+          },
+          {
+            "id": "SALZBURG",
+            "label": "Salzburg"
+          },
+          {
+            "id": "STEIERMARK",
+            "label": "Steiermark"
+          },
+          {
+            "id": "TIROL",
+            "label": "Tirol"
+          },
+          {
+            "id": "VORARLBERG",
+            "label": "Vorarlberg"
+          },
+          {
+            "id": "WIEN",
+            "label": "Wien"
+          }
+        ],
+        "children": []
+      }
+    ]
+  }
+}

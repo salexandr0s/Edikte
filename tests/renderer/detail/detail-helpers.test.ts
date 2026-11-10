@@ -26,6 +26,7 @@ function run(id: number, status: AnalysisRecord['status']): AnalysisRecord {
     promptVersion: 1,
     schemaVersion: 1,
     status,
+    stale: false,
     result: null,
     evidence: [],
     crossChecks: [],

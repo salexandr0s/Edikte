@@ -1,9 +1,19 @@
+import { eq } from 'drizzle-orm'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ListingQuerySchema, PRESET_WIEN_UNDER_5000, type ListingRow } from '@shared/domain'
 import { isAppError } from '@shared/errors'
+import { PROMPT_VERSIONS } from '../../src/main/ai/analysis/prompt'
+import { analyzedEdicts, listAnalyses } from '../../src/main/db/analysis-store'
 import { openDatabase, type AppDatabase } from '../../src/main/db/client'
+import { createDocumentStore } from '../../src/main/db/document-store'
 import { getListing, queryListings } from '../../src/main/db/listing-store'
-import { documentPages, edictLocations } from '../../src/main/db/schema'
+import {
+  analyses,
+  areaEstimates,
+  documentPages,
+  documents,
+  edictLocations,
+} from '../../src/main/db/schema'
 import { updateSettings } from '../../src/main/db/settings-store'
 import { updateUserState } from '../../src/main/db/user-store'
 import {
@@ -44,15 +54,187 @@ function errorCode(run: () => unknown): string | null {
 }
 
 describe('listing rows', () => {
+  it('uses only the active report bytes for analysis and local areas while preserving history', () => {
+    const database = open()
+    const id = insertEdict(database, 101).id
+    const original = insertDocument(database, id, { sha256: 'original-sha' })
+    insertEstimate(database, id, original, 55)
+    insertAnalysis(database, id, {
+      status: 'done',
+      documentIds: [original],
+      result: analysisResult({ risks: [risk('high')] }),
+    })
+    expect(getListing(database, id)).toMatchObject({
+      hasAnalysis: true,
+      analysisStale: false,
+      area: { sqm: 60, source: 'ai_unverified' },
+      riskLevel: 'high',
+      analysis: { documentId: original, stale: false },
+    })
+    expect(analyzedEdicts(database, [id], PROMPT_VERSIONS)).toEqual(new Set([id]))
+
+    database.update(documents).set({ removedAt: T0 }).where(eq(documents.id, original)).run()
+    const replacement = insertDocument(database, id, {
+      url: 'https://example.invalid/replacement.pdf',
+      sha256: 'replacement-sha',
+    })
+    expect(getListing(database, id)).toMatchObject({
+      hasAnalysis: false,
+      analysisStale: true,
+      area: null,
+      pricePerSqm: null,
+      riskLevel: null,
+      estimates: [],
+      areaCandidates: [],
+      analysis: { documentId: original, stale: true, result: { areas: [{ sqm: 60 }] } },
+    })
+    expect(queryListings(database, ListingQuerySchema.parse({ analyzedOnly: true })).rows).toEqual(
+      [],
+    )
+    expect(analyzedEdicts(database, [id], PROMPT_VERSIONS)).toEqual(new Set())
+    expect(listAnalyses(database, id)[0]).toMatchObject({ documentId: original, stale: true })
+
+    insertEstimate(database, id, replacement, 80)
+    insertAnalysis(database, id, {
+      status: 'done',
+      documentIds: [replacement],
+      result: analysisResult(),
+    })
+    const store = createDocumentStore(database)
+    store.clearDownloads([replacement])
+    expect(getListing(database, id)).toMatchObject({
+      hasAnalysis: true,
+      analysisStale: false,
+      area: { sqm: 60 },
+      analysis: { documentId: replacement, stale: false },
+    })
+    store.recordDownload(replacement, {
+      localPath: `${id}/replacement.pdf`,
+      sha256: 'replacement-sha',
+      bytes: 20,
+      downloadedAt: '2026-11-02T08:00:00.000Z',
+    })
+    expect(getListing(database, id).hasAnalysis).toBe(true)
+    store.recordDownload(replacement, {
+      localPath: `${id}/replacement.pdf`,
+      sha256: 'changed-sha',
+      bytes: 30,
+      downloadedAt: '2026-11-03T08:00:00.000Z',
+    })
+    expect(getListing(database, id)).toMatchObject({
+      hasAnalysis: false,
+      analysisStale: true,
+      area: null,
+      pricePerSqm: null,
+      riskLevel: null,
+      estimates: [],
+      areaCandidates: [],
+      analysis: { documentId: replacement, stale: true },
+    })
+    expect(database.select().from(areaEstimates).all()).toHaveLength(2)
+    expect(listAnalyses(database, id)).toHaveLength(2)
+    expect(analyzedEdicts(database, [id], PROMPT_VERSIONS)).toEqual(new Set())
+
+    // Re-publishing the same earlier report makes its matching history usable again.
+    database.update(documents).set({ removedAt: null }).where(eq(documents.id, original)).run()
+    expect(getListing(database, id)).toMatchObject({
+      hasAnalysis: true,
+      analysisStale: false,
+      area: { sqm: 60, documentId: original },
+      riskLevel: 'high',
+      analysis: { documentId: replacement, stale: true },
+    })
+    expect(listAnalyses(database, id).map((record) => record.stale)).toEqual([true, false])
+  })
+
+  it('keeps malformed or unknown legacy report provenance stale without losing its history', () => {
+    const database = open()
+    const id = insertEdict(database, 102).id
+    const report = insertDocument(database, id)
+    const analysis = insertAnalysis(database, id, {
+      status: 'done',
+      documentIds: [report],
+      result: analysisResult(),
+    })
+    const invalidIds = [
+      'invalid JSON',
+      JSON.stringify(['bad', report]),
+      JSON.stringify([String(report)]),
+      JSON.stringify({ 0: report }),
+      '[]',
+    ]
+    for (const rawIds of invalidIds) {
+      database.$client
+        .prepare('UPDATE analyses SET document_ids = ? WHERE id = ?')
+        .run(rawIds, analysis)
+      expect(
+        queryListings(database, ListingQuerySchema.parse({ analyzedOnly: true })).rows,
+      ).toEqual([])
+      expect(getListing(database, id).analysis).toMatchObject({ stale: true, documentId: null })
+      expect(listAnalyses(database, id)[0]).toMatchObject({ stale: true, documentId: null })
+      expect(analyzedEdicts(database, [id], PROMPT_VERSIONS)).toEqual(new Set())
+    }
+    database
+      .update(analyses)
+      .set({ documentIds: [report], documentSha256: null })
+      .where(eq(analyses.id, analysis))
+      .run()
+    expect(getListing(database, id)).toMatchObject({ hasAnalysis: false, analysisStale: true })
+  })
+
+  it('keeps the enabled source in scope and retains starred or noted removed cases', () => {
+    const database = open()
+    insertEdict(database, 1)
+    insertEdict(database, 2, {
+      id: 'mv-990001',
+      source: 'insolvency_sale',
+      caseKey: 'insolvency:990001',
+      status: 'on_offer',
+      noticeType: 'insolvenzverkauf',
+      auctionAt: null,
+    })
+    insertEdict(database, 3, { removedAt: T0 })
+    insertEdict(database, 4, { removedAt: T0 })
+    insertEdict(database, 5, { removedAt: T0 })
+    updateUserState(database, { caseKey: 'case-3', starred: true })
+    updateUserState(database, { caseKey: 'case-4', notes: 'Unterlagen prüfen' })
+    expect([...rowsById(database).keys()]).toEqual([
+      edictId(1),
+      edictId(3),
+      edictId(4),
+      'mv-990001',
+    ])
+    updateSettings(database, { syncSources: ['insolvency_sale'] })
+    expect([...rowsById(database).keys()]).toEqual(['mv-990001'])
+    expect(
+      queryListings(database, ListingQuerySchema.parse({ sources: ['court_auction'] })).rows,
+    ).toEqual([])
+    updateSettings(database, { syncSources: ['court_auction'] })
+    expect([...rowsById(database).keys()]).toEqual([edictId(1), edictId(3), edictId(4)])
+
+    // A surviving notice decides a pinned case before any removed notice does.
+    insertEdict(database, 6, {
+      caseKey: 'case-3',
+      status: 'sold',
+      noticeType: 'zuschlag_mit_ueberbot',
+    })
+    const pinned = queryListings(database, ListingQuerySchema.parse({ statuses: [] })).rows.find(
+      (row) => row.caseKey === 'case-3',
+    )
+    expect(pinned).toMatchObject({ id: edictId(6), removedAt: null, status: 'sold' })
+  })
+
   it('take the area from the edict, then the latest finished analysis, then local estimates', () => {
     const database = open()
     const verified = [{ path: 'areas.0', page: 3, status: 'verified' as const }]
     // The Objektgröße wins; the analysis differs from it by more than 10 %.
     insertEdict(database, 1, { objektgroesseSqm: 50 })
+    const firstReport = insertDocument(database, edictId(1))
     insertAnalysis(database, edictId(1), {
       status: 'done',
       result: analysisResult(),
       evidence: verified,
+      documentIds: [firstReport],
     })
     // A verified AI area; the risk comes from the finished run, the status from a newer one.
     insertEdict(database, 2)
@@ -66,10 +248,12 @@ describe('listing rows', () => {
     insertAnalysis(database, edictId(2), { status: 'running' })
     // The evidence check did not find the quote.
     insertEdict(database, 3)
+    const unverifiedReport = insertDocument(database, edictId(3))
     insertAnalysis(database, edictId(3), {
       status: 'done',
       result: analysisResult(),
       evidence: [{ path: 'areas.0', page: 3, status: 'quote_not_found' }],
+      documentIds: [unverifiedReport],
     })
     insertEdict(database, 4)
     insertEstimate(database, edictId(4), insertDocument(database, edictId(4)), 40)
@@ -80,7 +264,11 @@ describe('listing rows', () => {
     })
     // A stored result that fails the schema gives neither area nor risk.
     insertEdict(database, 6)
-    insertAnalysis(database, edictId(6), { status: 'done', result: { areas: 'broken' } })
+    insertAnalysis(database, edictId(6), {
+      status: 'done',
+      result: { areas: 'broken' },
+      documentIds: [insertDocument(database, edictId(6))],
+    })
 
     const rows = rowsById(database)
     expect(rows.get(edictId(1))).toMatchObject({
@@ -312,6 +500,31 @@ describe('listing cases', () => {
 })
 
 describe('listing detail', () => {
+  it('hides retired files unless downloaded and reports only published Gutachten as available', () => {
+    const database = open()
+    insertEdict(database, 1)
+    const retained = insertDocument(database, edictId(1), {
+      removedAt: T0,
+      localPath: `${edictId(1)}/gutachten.pdf`,
+    })
+    insertDocument(database, edictId(1), {
+      url: 'https://example.invalid/retired.pdf',
+      removedAt: T0,
+    })
+    const published = insertDocument(database, edictId(1), {
+      kind: 'plan',
+      url: 'https://example.invalid/plan.pdf',
+    })
+    expect(getListing(database, edictId(1))).toMatchObject({
+      hasLanggutachten: false,
+      documents: [
+        { id: retained, removedAt: T0, downloaded: true },
+        { id: published, removedAt: null },
+      ],
+    })
+    expect(rowsById(database).get(edictId(1))?.hasLanggutachten).toBe(false)
+  })
+
   it('collects documents, estimates, the latest analysis, user state and related edicts', () => {
     const database = open()
     insertEdict(database, 1, {

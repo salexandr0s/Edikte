@@ -8,4 +8,6 @@ import { renderer } from './electron.vite.config'
 export default defineConfig({
   ...renderer,
   root: resolve(import.meta.dirname, 'src/renderer'),
+  // Keep the browser's optimized dependencies separate from Electron and test servers.
+  cacheDir: resolve(import.meta.dirname, 'node_modules/.vite-renderer'),
 })

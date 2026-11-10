@@ -59,7 +59,7 @@ export function AreasSection({ result, source }: FactsProps) {
                   {area.label}
                 </span>
                 <span className="text-xs text-fg-muted">{t(`areaKind.${area.kind}`)}</span>
-                {index === result.primary_area_index && (
+                {!source.record.stale && index === result.primary_area_index && (
                   <Badge size="sm" variant="primary">
                     {t('analysis.primaryArea')}
                   </Badge>

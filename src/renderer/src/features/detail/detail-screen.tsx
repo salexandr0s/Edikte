@@ -11,6 +11,7 @@ import { BackToListButton, DetailHeader } from './detail-header'
 import { DocumentsCard } from './documents-card'
 import { EdictLabelsCard } from './edict-labels-card'
 import { KeyFigures } from './key-figures'
+import { InsolvencyCard } from './insolvency-card'
 import { KurzgutachtenCard } from './kurzgutachten-card'
 import { NotesCard } from './notes-card'
 import { RelatedCard } from './related-card'
@@ -66,12 +67,15 @@ export function DetailScreen({ id }: { id: string }) {
       <div className={COLUMNS}>
         <div className="flex min-w-0 flex-col gap-6">
           <AnalysisCard detail={detail} reload={reload} reloadError={reloadError} />
-          {detail.kurzgutachten !== null && <KurzgutachtenCard facts={detail.kurzgutachten} />}
+          {detail.kurzgutachten !== null && (
+            <KurzgutachtenCard facts={detail.kurzgutachten} source={detail.source} />
+          )}
           <AreaCandidatesCard detail={detail} />
         </div>
         <div className="flex min-w-0 flex-col gap-6">
           <DocumentsCard documents={detail.documents} />
           <AuctionFacts detail={detail} />
+          {detail.insolvency !== null && <InsolvencyCard facts={detail.insolvency} />}
           {/* A new case gets a new card; the old one still saves its last text. */}
           <NotesCard key={detail.caseKey} caseKey={detail.caseKey} initialNotes={detail.notes} />
           {detail.related.length > 0 && <RelatedCard related={detail.related} />}

@@ -1,4 +1,4 @@
-import type { Bundesland, ListingStatus, NoticeType, PropertyType } from './enums'
+import type { Bundesland, EdictSource, ListingStatus, NoticeType, PropertyType } from './enums'
 
 // Site knowledge ported from immoradar packages/source-edikte/src/constants.ts.
 
@@ -18,6 +18,25 @@ export const BUNDESLAND_SITE_CODES: Readonly<Record<Bundesland, string>> = {
   ktn: '6',
   tirol: '7',
   vbg: '8',
+}
+
+/** JustizOnline publishes the sales in insolvency proceedings through a JSON API. */
+export const JUSTIZONLINE_HOST = 'justizonline.gv.at'
+export const JUSTIZONLINE_ORIGIN = `https://${JUSTIZONLINE_HOST}`
+/** Root of the Ediktsdatei API. Every request and every file URL sits below it. */
+export const JUSTIZONLINE_API_PATH = '/jop/service/edi/v1/'
+
+/** Values of the `bl` filter in JustizOnline searches. */
+export const BUNDESLAND_JUSTIZONLINE_CODES: Readonly<Record<Bundesland, string>> = {
+  wien: 'WIEN',
+  noe: 'NIEDEROESTERREICH',
+  bgld: 'BURGENLAND',
+  ooe: 'OBEROESTERREICH',
+  sbg: 'SALZBURG',
+  stmk: 'STEIERMARK',
+  ktn: 'KAERNTEN',
+  tirol: 'TIROL',
+  vbg: 'VORARLBERG',
 }
 
 /** Names as the site writes them, used to read Bundesland values from pages. */
@@ -105,7 +124,7 @@ export function noticeTypeForText(text: string): NoticeType {
   return 'other'
 }
 
-export const STATUS_BY_NOTICE: Readonly<Record<NoticeType, ListingStatus>> = {
+const STATUS_BY_NOTICE: Readonly<Record<NoticeType, ListingStatus>> = {
   versteigerung: 'upcoming',
   schriftliche_anbote: 'upcoming',
   verschiebung: 'postponed',
@@ -114,7 +133,18 @@ export const STATUS_BY_NOTICE: Readonly<Record<NoticeType, ListingStatus>> = {
   zuschlag_mit_ueberbot: 'sold',
   zuschlag_nach_ueberbot: 'sold',
   meistbotsverteilung: 'closed',
+  insolvenzverkauf: 'on_offer',
+  insolvenzverpachtung: 'on_offer',
   other: 'upcoming',
+}
+
+/**
+ * The status a notice gives its listing. A sale in insolvency proceedings is
+ * on offer whatever its notice type, so a kind of transaction the app does not
+ * know never shows as an upcoming auction.
+ */
+export function statusFor(source: EdictSource, noticeType: NoticeType): ListingStatus {
+  return source === 'insolvency_sale' ? 'on_offer' : STATUS_BY_NOTICE[noticeType]
 }
 
 function normalizeLabel(text: string): string {

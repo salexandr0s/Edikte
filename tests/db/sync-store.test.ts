@@ -1,6 +1,7 @@
 import { asc } from 'drizzle-orm'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SyncRunSummary } from '@shared/domain'
+import type { Bundesland } from '@shared/enums'
 import type { AppErrorCode } from '@shared/errors'
 import { openDatabase, type AppDatabase } from '../../src/main/db/client'
 import { documents, edicts, userState } from '../../src/main/db/schema'
@@ -9,10 +10,11 @@ import {
   createSyncStore,
   lastFinishedRun,
   loadSyncSchedule,
+  loadSyncState,
 } from '../../src/main/db/sync-store'
 import type { DocumentLink } from '../../src/main/scraper/detail'
-import type { SyncCommit } from '../../src/main/scraper/sync'
-import { edictId, edictRecord } from './listing-fixtures'
+import type { SyncCommit, SyncRunStart, SyncStore } from '../../src/main/scraper/sync'
+import { edictId, edictRecord, insertEdict } from './listing-fixtures'
 
 const T1 = '2026-11-04T08:00:00.000Z'
 const T2 = '2026-11-04T14:00:00.000Z'
@@ -49,6 +51,7 @@ function commit(
   return {
     failureCode: null,
     summary: {
+      source: 'court_auction',
       ...run,
       status,
       finishedAt: run.startedAt,
@@ -71,16 +74,26 @@ function commit(
 
 const seenAt = (at: string) => ({ firstSeenAt: at, lastSeenAt: at, fetchedAt: at })
 
+/** Starts a run of the court auctions, the source of every run in these tests. */
+function startRun(store: SyncStore, run: Omit<SyncRunStart, 'source'>) {
+  return store.startRun({ source: 'court_auction', ...run })
+}
+
+/** The schedule of the court auctions over `scope`. */
+function loadSchedule(database: AppDatabase, scope: readonly Bundesland[]) {
+  return loadSyncSchedule(database, scope, 'court_auction')
+}
+
 describe('sync store', () => {
   it('writes runs and edicts, keeping firstSeenAt and the state of known documents', async () => {
     const database = open()
     const store = createSyncStore(database)
-    const empty = await store.loadState(['wien'])
+    const empty = await store.loadState(['wien'], 'court_auction')
     expect(empty.known.size).toBe(0)
-    expect(empty.lastFinished).toBeNull()
+    expect(lastFinishedRun(database, 'court_auction')).toBeNull()
 
     const first = { id: 0, kind: 'full' as const, startedAt: T1 }
-    first.id = await store.startRun({ kind: 'full', scope: ['wien'], startedAt: T1 })
+    first.id = await startRun(store, { kind: 'full', scope: ['wien'], startedAt: T1 })
     await store.commitRun(
       commit(first, {
         upserts: [
@@ -93,7 +106,7 @@ describe('sync store', () => {
     database.update(documents).set({ localPath: 'abc/gutachten.pdf', downloadedAt: T1 }).run()
 
     const second = { id: 0, kind: 'incremental' as const, startedAt: T2 }
-    second.id = await store.startRun({ kind: 'incremental', scope: ['wien'], startedAt: T2 })
+    second.id = await startRun(store, { kind: 'incremental', scope: ['wien'], startedAt: T2 })
     const corrected = edictRecord(1, { ...seenAt(T2), title: 'Wohnung Top 1 (berichtigt)' })
     await store.commitRun(
       commit(second, {
@@ -103,13 +116,13 @@ describe('sync store', () => {
     )
 
     const third = { id: 0, kind: 'full' as const, startedAt: T3 }
-    third.id = await store.startRun({ kind: 'full', scope: ['wien'], startedAt: T3 })
+    third.id = await startRun(store, { kind: 'full', scope: ['wien'], startedAt: T3 })
     await store.commitRun(commit(third, { seenIds: [edictId(1)], removedIds: [edictId(2)] }))
 
     // A degraded run records its summary and writes nothing.
     const fourth = { id: 0, kind: 'full' as const, startedAt: T4 }
-    fourth.id = await store.startRun({ kind: 'full', scope: ['wien'], startedAt: T4 })
-    await store.commitRun(commit(fourth, {}, 'degraded'))
+    fourth.id = await startRun(store, { kind: 'full', scope: ['wien'], startedAt: T4 })
+    await store.commitRun(commit(fourth, { removedIds: [edictId(1)] }, 'degraded'))
 
     const stored = new Map(
       database
@@ -132,23 +145,95 @@ describe('sync store', () => {
       ['plan.pdf', null],
     ])
 
-    const state = await store.loadState(['wien'])
+    const state = await store.loadState(['wien'], 'court_auction')
     expect([...state.known.keys()].sort()).toEqual([edictId(1), edictId(2)])
     expect(state.known.get(edictId(2))?.removedAt).toBe(T3)
-    expect(state).toMatchObject({
-      lastOkRunStartedAt: T3,
-      lastOkFullRunStartedAt: T3,
-      lastFinished: { id: fourth.id, status: 'degraded' },
+    expect(state).toMatchObject({ lastOkRunStartedAt: T3, lastOkFullRunStartedAt: T3 })
+    expect(lastFinishedRun(database, 'court_auction')).toMatchObject({
+      id: fourth.id,
+      status: 'degraded',
     })
     // No ok run covered Niederösterreich.
-    expect((await store.loadState(['wien', 'noe'])).lastOkRunStartedAt).toBeNull()
+    expect((await store.loadState(['wien', 'noe'], 'court_auction')).lastOkRunStartedAt).toBeNull()
+  })
+
+  it('keeps the edicts and runs of the two sources apart', async () => {
+    const database = open()
+    const store = createSyncStore(database)
+    insertEdict(database, 1)
+    // A sale in insolvency proceedings in the same Bundesland, with made-up values.
+    insertEdict(database, 2, {
+      id: 'mv-990001',
+      source: 'insolvency_sale',
+      noticeType: 'insolvenzverkauf',
+      status: 'on_offer',
+      url: 'https://justizonline.gv.at/jop/web/ediktsdatei/suche/990001',
+      auctionAt: null,
+    })
+    const id = await startRun(store, { kind: 'full', scope: ['wien'], startedAt: T1 })
+    await store.commitRun(
+      commit(
+        { id, kind: 'full', startedAt: T1 },
+        {
+          removedIds: ['mv-990001'],
+          unchangedIds: ['mv-990001'],
+        },
+      ),
+    )
+
+    const auctions = loadSyncState(database, ['wien'], 'court_auction')
+    expect([...auctions.known.keys()]).toEqual([edictId(1)])
+    expect(auctions).toMatchObject({ lastOkRunStartedAt: T1, lastOkFullRunStartedAt: T1 })
+    const sales = loadSyncState(database, ['wien'], 'insolvency_sale')
+    expect([...sales.known.keys()]).toEqual(['mv-990001'])
+    expect(sales).toMatchObject({ lastOkRunStartedAt: null, lastOkFullRunStartedAt: null })
+    expect(sales.known.get('mv-990001')).toMatchObject({
+      removedAt: null,
+      fetchedAt: '2026-11-01T08:00:00.000Z',
+    })
+  })
+
+  it('retires missing document links and restores returning links without losing downloads', async () => {
+    const database = open()
+    const store = createSyncStore(database)
+    const sync = async (at: string, fileNames: string[]) => {
+      const id = await startRun(store, { kind: 'full', scope: ['wien'], startedAt: at })
+      await store.commitRun(
+        commit(
+          { id, kind: 'full', startedAt: at },
+          {
+            upserts: [{ edict: edictRecord(1, seenAt(at)), documents: fileNames.map(link) }],
+          },
+        ),
+      )
+    }
+    await sync(T1, ['old.pdf', 'kept.pdf'])
+    database.update(documents).set({ localPath: 'retained.pdf', downloadedAt: T1 }).run()
+    await sync(T2, ['kept.pdf', 'new.pdf'])
+    expect(database.select().from(documents).orderBy(asc(documents.id)).all()).toMatchObject([
+      { fileName: 'old.pdf', removedAt: T2, localPath: 'retained.pdf' },
+      { fileName: 'kept.pdf', removedAt: null },
+      { fileName: 'new.pdf', removedAt: null },
+    ])
+    await sync(T3, [])
+    expect(database.select().from(documents).orderBy(asc(documents.id)).all()).toMatchObject([
+      { fileName: 'old.pdf', removedAt: T2 },
+      { fileName: 'kept.pdf', removedAt: T3 },
+      { fileName: 'new.pdf', removedAt: T3 },
+    ])
+    await sync(T4, ['old.pdf'])
+    expect(database.select().from(documents).orderBy(asc(documents.id)).all()).toMatchObject([
+      { fileName: 'old.pdf', removedAt: null, localPath: 'retained.pdf', downloadedAt: T1 },
+      { fileName: 'kept.pdf', removedAt: T3 },
+      { fileName: 'new.pdf', removedAt: T3 },
+    ])
   })
 
   it('moves star, hide and notes to a new case key, merging cases that now share one', async () => {
     const database = open()
     const store = createSyncStore(database)
     const sync = async (startedAt: string, caseKeys: [string, string]): Promise<void> => {
-      const id = await store.startRun({ kind: 'full', scope: ['wien'], startedAt })
+      const id = await startRun(store, { kind: 'full', scope: ['wien'], startedAt })
       const upserts = caseKeys.map((caseKey, index) => ({
         edict: edictRecord(index + 1, { ...seenAt(startedAt), caseKey }),
         documents: [],
@@ -175,14 +260,17 @@ describe('sync store', () => {
     const database = open()
     const store = createSyncStore(database)
     const ok = { id: 0, kind: 'full' as const, startedAt: T1 }
-    ok.id = await store.startRun({ kind: 'full', scope: ['wien', 'noe'], startedAt: T1 })
+    ok.id = await startRun(store, { kind: 'full', scope: ['wien', 'noe'], startedAt: T1 })
     await store.commitRun(commit(ok))
-    await store.startRun({ kind: 'incremental', scope: ['wien'], startedAt: T2 })
+    await startRun(store, { kind: 'incremental', scope: ['wien'], startedAt: T2 })
 
     closeOpenRuns(database, { status: 'cancelled', note: 'Closed', finishedAt: null })
-    expect(lastFinishedRun(database)).toMatchObject({ status: 'cancelled', finishedAt: T2 })
-    expect(loadSyncSchedule(database, ['wien'])).toEqual({ settledAt: T1, unsettledAt: T2 })
-    expect(loadSyncSchedule(database, ['wien', 'ooe'])).toEqual({
+    expect(lastFinishedRun(database, 'court_auction')).toMatchObject({
+      status: 'cancelled',
+      finishedAt: T2,
+    })
+    expect(loadSchedule(database, ['wien'])).toEqual({ settledAt: T1, unsettledAt: T2 })
+    expect(loadSchedule(database, ['wien', 'ooe'])).toEqual({
       settledAt: null,
       unsettledAt: null,
     })
@@ -196,22 +284,22 @@ describe('sync store', () => {
       status: SyncRunSummary['status'],
       failureCode: AppErrorCode | null,
     ): Promise<void> => {
-      const id = await store.startRun({ kind: 'full', scope: ['wien'], startedAt })
+      const id = await startRun(store, { kind: 'full', scope: ['wien'], startedAt })
       await store.commitRun(commit({ id, kind: 'full', startedAt }, { failureCode }, status))
     }
 
     await finish(T1, 'ok', null)
     await finish(T2, 'failed', 'network')
-    expect(loadSyncSchedule(database, ['wien'])).toEqual({ settledAt: T1, unsettledAt: T2 })
+    expect(loadSchedule(database, ['wien'])).toEqual({ settledAt: T1, unsettledAt: T2 })
     await finish(T3, 'failed', 'site_unavailable')
-    expect(loadSyncSchedule(database, ['wien'])).toEqual({ settledAt: T3, unsettledAt: T2 })
-    await store.startRun({ kind: 'incremental', scope: ['wien'], startedAt: T4 })
+    expect(loadSchedule(database, ['wien'])).toEqual({ settledAt: T3, unsettledAt: T2 })
+    await startRun(store, { kind: 'incremental', scope: ['wien'], startedAt: T4 })
     closeOpenRuns(database, {
       status: 'failed',
       note: 'Not saved',
       finishedAt: T4,
       failureCode: 'storage_unavailable',
     })
-    expect(loadSyncSchedule(database, ['wien'])).toEqual({ settledAt: T3, unsettledAt: T4 })
+    expect(loadSchedule(database, ['wien'])).toEqual({ settledAt: T3, unsettledAt: T4 })
   })
 })

@@ -8,18 +8,20 @@
     "data": {
       "title": "Daten und Synchronisierung",
       "bundeslaender": "Bundesländer für die Synchronisierung",
-      "bundeslaenderHelp": "Die App lädt die Versteigerungen, die für diese Bundesländer veröffentlicht werden.",
+      "bundeslaenderHelp": "Die App lädt die Objekte, die für diese Bundesländer veröffentlicht werden.",
       "bundeslaenderRequired": "Wählen Sie mindestens ein Bundesland.",
       "autoSync": "Automatisch synchronisieren",
-      "autoSyncHelp": "Prüft edikte.justiz.gv.at alle 6 Stunden auf neue und geänderte Versteigerungen, solange die App geöffnet ist, und beim Start, wenn die letzte Prüfung länger zurückliegt.",
+      "autoSyncHelp": "Prüft die gewählten Quellen alle 6 Stunden auf neue und geänderte Objekte, solange die App geöffnet ist, und beim Start, wenn die letzte Prüfung länger zurückliegt.",
       "priceBasis": "Standard-Preisgrundlage",
-      "priceBasisHelp": "Gilt für den Preis pro m² in der Liste der Versteigerungen.",
+      "priceBasisHelp": "Gilt für den Preis pro m² bei Versteigerungen. Insolvenzverkäufe verwenden immer den Schätzwert.",
       "retention": "Heruntergeladene Dokumente behalten",
       "retentionUnit": "Tage nach Abschluss eines Falls",
       "retentionHelp": "Danach löscht die App die Dateien. Möglich sind 1 bis 3650 Tage.",
       "retentionInvalid": "Geben Sie eine ganze Zahl von 1 bis 3650 ein.",
       "dataDir": "Datenordner",
-      "dataDirHelp": "Hier speichert die App heruntergeladene Dokumente."
+      "dataDirHelp": "Hier speichert die App heruntergeladene Dokumente.",
+      "sources": "Quellen",
+      "sourcesRequired": "Wählen Sie mindestens eine Quelle."
     },
     "consent": {
       "title": "Einwilligung zur Analyse",
@@ -31,9 +33,10 @@
     "about": {
       "title": "Über Edikte",
       "notAffiliated": "Edikte steht in keiner Verbindung zum Bundesministerium für Justiz.",
-      "source": "Die Daten stammen aus der öffentlichen Ediktsdatei auf edikte.justiz.gv.at.",
+      "source": "Die Daten stammen aus der öffentlichen Ediktsdatei auf edikte.justiz.gv.at und justizonline.gv.at.",
       "personalUse": "Die App ist für den persönlichen Gebrauch gedacht.",
-      "openSite": "edikte.justiz.gv.at öffnen"
+      "openSite": "edikte.justiz.gv.at öffnen",
+      "openJustizOnline": "JustizOnline öffnen"
     }
   },
   "providers": {

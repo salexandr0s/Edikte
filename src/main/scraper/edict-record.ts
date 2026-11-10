@@ -1,5 +1,5 @@
 import type { KurzgutachtenFacts } from '@shared/domain'
-import { STATUS_BY_NOTICE } from '@shared/edikte-codes'
+import { statusFor } from '@shared/edikte-codes'
 import type { Bundesland } from '@shared/enums'
 import { bezirkFromPlz } from '@shared/wien-bezirke'
 import type { edicts } from '../db/schema'
@@ -37,6 +37,7 @@ export function buildEdictRecord(input: EdictRecordInput): EdictRecord {
   const plz = fields.plz ?? row?.plz ?? null
   return {
     id,
+    source: 'court_auction',
     caseKey: buildCaseKey({
       court: fields.court,
       caseNumber: fields.caseNumber,
@@ -44,7 +45,7 @@ export function buildEdictRecord(input: EdictRecordInput): EdictRecord {
       id,
     }),
     noticeType,
-    status: STATUS_BY_NOTICE[noticeType],
+    status: statusFor('court_auction', noticeType),
     url: detailUrl(id),
     court: fields.court,
     caseNumber: fields.caseNumber,
@@ -79,6 +80,7 @@ export function buildEdictRecord(input: EdictRecordInput): EdictRecord {
     rawLabels: detail.rawLabels,
     kurzgutachten: input.kurzgutachten ?? null,
     kurzgutachtenUrl: detail.kurzgutachtenUrl,
+    insolvency: null,
     relatedIds: [
       ...new Set(
         detail.related

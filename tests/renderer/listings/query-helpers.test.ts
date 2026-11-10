@@ -8,6 +8,7 @@ import {
   clearFilter,
   countActiveFilters,
   defaultQuery,
+  forEnabledSources,
   EMPTY_TRACKER,
   nextPendingUserState,
   nextSort,
@@ -15,6 +16,9 @@ import {
   parseWholeNumber,
   pendingPatches,
   queueCounts,
+  resetFilters,
+  selectSources,
+  selectsDisabledSources,
   trackAnalysis,
   type PendingUserState,
   type UserStateEvent,
@@ -24,6 +28,7 @@ import {
 function row(id: string, analysisStatus: ListingRow['analysisStatus']): ListingRow {
   return {
     id,
+    source: 'court_auction',
     caseKey: `case-${id}`,
     url: `https://edikte.justiz.gv.at/${id}`,
     status: 'upcoming',
@@ -50,6 +55,7 @@ function row(id: string, analysisStatus: ListingRow['analysisStatus']): ListingR
     approximate: [],
     analysisStatus,
     hasAnalysis: false,
+    analysisStale: false,
     riskLevel: null,
     hasLanggutachten: true,
     starred: false,
@@ -75,6 +81,54 @@ describe('parseWholeNumber', () => {
 })
 
 describe('query updates', () => {
+  it('switches sales to publication order and removes auction date restrictions', () => {
+    const query = applyPatch(defaultQuery('geringstes_gebot'), {
+      auctionFrom: '2026-11-01',
+      auctionTo: '2026-12-01',
+    })
+    const sales = selectSources(query, ['insolvency_sale'])
+    expect(sales).toMatchObject({
+      sources: ['insolvency_sale'],
+      auctionFrom: null,
+      auctionTo: null,
+      sort: { column: 'publishedAt', direction: 'desc' },
+    })
+    const byPrice = applyPatch(query, { sort: { column: 'price', direction: 'asc' } })
+    expect(selectSources(byPrice, ['insolvency_sale']).sort).toEqual(byPrice.sort)
+  })
+
+  it('keeps the source selection and sort when resetting filters', () => {
+    const sales = selectSources(defaultQuery('schaetzwert'), ['insolvency_sale'])
+    const filtered = applyPatch(sales, { text: 'x', minPrice: 100_000 })
+    expect(resetFilters(filtered, 'geringstes_gebot')).toEqual({
+      ...defaultQuery('geringstes_gebot'),
+      sources: sales.sources,
+      sort: sales.sort,
+    })
+    expect(activeFilters(sales)).toEqual([])
+  })
+
+  it('shows the sole enabled source without keeping an invisible auction date filter', () => {
+    const query = applyPatch(defaultQuery('schaetzwert'), {
+      sources: ['court_auction'],
+      auctionFrom: '2026-11-01',
+    })
+    const sales = forEnabledSources(query, ['insolvency_sale'])
+    expect(sales.sources).toEqual(['insolvency_sale'])
+    expect(sales.auctionFrom).toBeNull()
+    expect(forEnabledSources(sales, ['insolvency_sale'])).toBe(sales)
+  })
+
+  it('detects an unavailable saved source and recovers without changing the saved query', () => {
+    const saved = applyPatch(defaultQuery('schaetzwert'), { sources: ['court_auction'] })
+    expect(selectsDisabledSources(saved, ['insolvency_sale'])).toBe(true)
+    expect(selectsDisabledSources(saved, ['court_auction', 'insolvency_sale'])).toBe(false)
+    expect(selectsDisabledSources(defaultQuery('schaetzwert'), ['insolvency_sale'])).toBe(false)
+    const recovered = forEnabledSources(saved, ['insolvency_sale'])
+    expect(recovered.sources).toEqual(['insolvency_sale'])
+    expect(saved.sources).toEqual(['court_auction'])
+  })
+
   it('debounces changes of the search text and the number filters only', () => {
     const query = defaultQuery('schaetzwert')
     const typed = (patch: Partial<ListingQuery>) =>
@@ -117,6 +171,19 @@ describe('analysis queue', () => {
     })
     expect(queueCounts(rows, tracker)).toEqual({ running: 1, waiting: 2 })
     expect(analyzableIds(rows, tracker)).toEqual(['c', 'd'])
+  })
+
+  it('offers stale completed analyses again without duplicating pending jobs', () => {
+    const stale = { ...row('old-report', 'done'), analysisStale: true }
+    expect(analyzableIds([row('current', 'done'), stale], EMPTY_TRACKER)).toEqual(['old-report'])
+    const tracker = trackAnalysis(EMPTY_TRACKER, {
+      analysisId: 10,
+      edictId: stale.id,
+      status: 'queued',
+      step: 'waiting',
+      queued: 1,
+    })
+    expect(analyzableIds([stale], tracker)).toEqual([])
   })
 })
 
@@ -209,7 +276,7 @@ describe('active filters', () => {
 
   it('counts neither the price basis nor the default statuses in any order', () => {
     const same = applyPatch(base, {
-      statuses: ['postponed', 'upcoming'],
+      statuses: ['on_offer', 'postponed', 'upcoming'],
       priceBasis: 'geringstes_gebot',
     })
     expect(activeFilters(same)).toEqual([])

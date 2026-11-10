@@ -1,12 +1,18 @@
 import { sql } from 'drizzle-orm'
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import type { CrossCheck, EvidenceItem } from '@shared/analysis-schema'
-import type { KurzgutachtenFacts, ListingQueryInput, LocationPrecision } from '@shared/domain'
+import type {
+  InsolvencyFacts,
+  KurzgutachtenFacts,
+  ListingQueryInput,
+  LocationPrecision,
+} from '@shared/domain'
 import type {
   AnalysisStatus,
   AreaKind,
   Bundesland,
   DocumentKind,
+  EdictSource,
   ListingStatus,
   NoticeType,
   PropertyType,
@@ -24,8 +30,14 @@ const jsonArray = sql`'[]'`
 export const edicts = sqliteTable(
   'edicts',
   {
-    /** The site's 32-hex document ID, lowercase. One per edict, not per property. */
+    /**
+     * A court auction has the site's 32-hex document ID, lowercase. A sale in
+     * insolvency proceedings has `mv-` and its JustizOnline record number.
+     * One per edict, not per property.
+     */
     id: text('id').primaryKey(),
+    /** Which list the record comes from: court auctions or sales in insolvency proceedings. */
+    source: text('source').$type<EdictSource>().notNull().default('court_auction'),
     /** Court, case number and object, normalised; groups re-issued edicts. */
     caseKey: text('case_key').notNull(),
     noticeType: text('notice_type').$type<NoticeType>().notNull(),
@@ -72,6 +84,8 @@ export const edicts = sqliteTable(
     rawLabels: text('raw_labels', { mode: 'json' }).$type<Record<string, string>>().notNull(),
     kurzgutachten: text('kurzgutachten', { mode: 'json' }).$type<KurzgutachtenFacts>(),
     kurzgutachtenUrl: text('kurzgutachten_url'),
+    /** Facts only an insolvency sale has, such as the administrator. Null for court auctions. */
+    insolvency: text('insolvency', { mode: 'json' }).$type<InsolvencyFacts>(),
     /** IDs from the "Alle Edikte zum Fall" chain. */
     relatedIds: text('related_ids', { mode: 'json' })
       .$type<string[]>()
@@ -135,6 +149,8 @@ export const documents = sqliteTable(
     extractedAt: text('extracted_at'),
     extractError: text('extract_error'),
     createdAt: text('created_at').notNull(),
+    /** Set when the notice no longer lists the file, as an ISO UTC timestamp. */
+    removedAt: text('removed_at'),
   },
   (table) => [
     uniqueIndex('documents_edict_url_idx').on(table.edictId, table.url),
@@ -173,6 +189,8 @@ export const areaEstimates = sqliteTable(
     documentId: integer('document_id')
       .notNull()
       .references(() => documents.id, { onDelete: 'cascade' }),
+    /** SHA-256 of the report bytes from which this estimate was extracted. */
+    documentSha256: text('document_sha256'),
     kind: text('kind').$type<AreaKind>().notNull(),
     sqm: real('sqm').notNull(),
     page: integer('page').notNull(),
@@ -215,6 +233,8 @@ export const analyses = sqliteTable(
       .$type<number[]>()
       .notNull()
       .default(jsonArray),
+    /** SHA-256 of the report bytes read by this analysis. Null when provenance is unknown. */
+    documentSha256: text('document_sha256'),
     droppedPages: text('dropped_pages', { mode: 'json' })
       .$type<number[]>()
       .notNull()
@@ -256,6 +276,8 @@ export const savedFilters = sqliteTable('saved_filters', {
 
 export const syncRuns = sqliteTable('sync_runs', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  /** Which list the run read. One run reads one source over one scope. */
+  source: text('source').$type<EdictSource>().notNull().default('court_auction'),
   kind: text('kind').$type<'full' | 'incremental'>().notNull(),
   status: text('status').$type<'running' | 'ok' | 'degraded' | 'failed' | 'cancelled'>().notNull(),
   scope: text('scope', { mode: 'json' }).$type<Bundesland[]>().notNull(),

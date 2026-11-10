@@ -11,7 +11,7 @@ export const GEOCODE_RETRY_MS = 5 * 60_000
 /** listings:changed goes out after this many new positions, and when a run ends. */
 const CHANGED_BATCH = 10
 
-export type GeocodeSettings = Pick<Settings, 'syncBundeslaender'>
+export type GeocodeSettings = Pick<Settings, 'syncBundeslaender' | 'syncSources'>
 
 export interface GeocodeServiceDeps {
   db: AppDatabase
@@ -53,7 +53,8 @@ export function createGeocodeService(deps: GeocodeServiceDeps): GeocodeService {
   }
 
   const execute = async (signal: AbortSignal): Promise<void> => {
-    const pending = loadPendingLocations(db, deps.readSettings().syncBundeslaender)
+    const settings = deps.readSettings()
+    const pending = loadPendingLocations(db, settings.syncBundeslaender, settings.syncSources)
     let left = pending.length
     publish({ pending: left, running: true })
     const changed: string[] = []
@@ -98,7 +99,12 @@ export function createGeocodeService(deps: GeocodeServiceDeps): GeocodeService {
       if (disposed) throw new AppError('cancelled', 'The app is closing')
       if (controller !== null) return current
       if (deps.offline === true || now() < retryNotBefore) {
-        const pending = loadPendingLocations(db, deps.readSettings().syncBundeslaender).length
+        const settings = deps.readSettings()
+        const pending = loadPendingLocations(
+          db,
+          settings.syncBundeslaender,
+          settings.syncSources,
+        ).length
         current = { pending, running: false }
         return current
       }

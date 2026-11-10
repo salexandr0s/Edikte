@@ -62,6 +62,7 @@
     "document_unreadable": "Das PDF konnte nicht gelesen werden. Es ist möglicherweise beschädigt oder geschützt.",
     "storage_unavailable": "Die App kann nicht in ihren Datenordner schreiben. Prüfen Sie den freien Speicherplatz und die Zugriffsrechte des Ordners.",
     "database_newer": "Der Datenordner stammt von einer neueren Edikte-Version. Installieren Sie diese Version, um ihn zu öffnen.",
+    "database_backup_failed": "Die Sicherungskopie der Datenbank konnte nicht erstellt werden. Die Datenbank wurde nicht aktualisiert. Prüfen Sie den freien Speicherplatz und die Zugriffsrechte des Datenordners und starten Sie Edikte erneut.",
     "consent_required": "Bestätigen Sie zuerst, dass der Text des Gutachtens an Ihren KI-Anbieter gesendet werden darf.",
     "provider_not_selected": "Wählen Sie zuerst in den Einstellungen einen KI-Anbieter aus.",
     "provider_not_connected": "Beim gewählten KI-Anbieter sind Sie nicht angemeldet. Melden Sie sich in den Einstellungen an.",
@@ -80,15 +81,20 @@
   },
   "nav": {
     "label": "Hauptnavigation",
-    "listings": "Versteigerungen",
+    "listings": "Objekte",
     "settings": "Einstellungen"
   },
   "toast": {
     "region": "Benachrichtigungen"
   },
+  "edictSource": {
+    "court_auction": "Versteigerungen",
+    "insolvency_sale": "Insolvenzverkäufe"
+  },
   "listingStatus": {
     "upcoming": "Bevorstehend",
     "postponed": "Verschoben",
+    "on_offer": "Angeboten",
     "cancelled": "Abgesagt",
     "sold": "Zuschlag erteilt",
     "closed": "Abgeschlossen"
@@ -102,6 +108,8 @@
     "zuschlag_mit_ueberbot": "Zuschlag mit Überbot",
     "zuschlag_nach_ueberbot": "Zuschlag nach Überbot",
     "meistbotsverteilung": "Meistbotsverteilung",
+    "insolvenzverkauf": "Verkauf im Insolvenzverfahren",
+    "insolvenzverpachtung": "Verpachtung im Insolvenzverfahren",
     "other": "Sonstiges Edikt"
   },
   "propertyType": {
@@ -180,8 +188,8 @@
       "accept": "Zustimmen und fortfahren"
     },
     "confirm": {
-      "title_one": "Diese Versteigerung analysieren?",
-      "title_other": "{{count}} Versteigerungen analysieren?",
+      "title_one": "Dieses Objekt analysieren?",
+      "title_other": "{{count}} Objekte analysieren?",
       "provider": "Anbieter",
       "model": "Modell",
       "defaultModel": "Standard des Anbieters",
@@ -191,15 +199,15 @@
       "cost": "Kosten",
       "estimatedCost": "Etwa {{cost}} zu Listenpreisen",
       "planCost": "Zählt zum Nutzungslimit Ihres Plans bei {{provider}}",
-      "skipped_one": "Eine Versteigerung hat kein Gutachten und wird übersprungen.",
-      "skipped_other": "{{count}} Versteigerungen haben kein Gutachten und werden übersprungen.",
-      "again_one": "Eine Versteigerung wurde schon analysiert und wird neu analysiert.",
-      "again_other": "{{count}} Versteigerungen wurden schon analysiert und werden neu analysiert.",
+      "skipped_one": "Ein Objekt hat kein Gutachten und wird übersprungen.",
+      "skipped_other": "{{count}} Objekte haben kein Gutachten und werden übersprungen.",
+      "again_one": "Ein Objekt wurde schon analysiert und wird neu analysiert.",
+      "again_other": "{{count}} Objekte wurden schon analysiert und werden neu analysiert.",
       "start": "Analyse starten"
     },
     "nothing": {
       "title": "Nichts zu analysieren",
-      "text": "Keine dieser Versteigerungen hat ein Gutachten, das analysiert werden kann."
+      "text": "Keines dieser Objekte hat ein Gutachten, das analysiert werden kann."
     }
   }
 }

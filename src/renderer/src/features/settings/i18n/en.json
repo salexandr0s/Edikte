@@ -8,18 +8,20 @@
     "data": {
       "title": "Data and sync",
       "bundeslaender": "Bundesländer to sync",
-      "bundeslaenderHelp": "The app loads the auctions published for these Bundesländer.",
+      "bundeslaenderHelp": "The app loads the listings published for these Bundesländer.",
       "bundeslaenderRequired": "Choose at least one Bundesland.",
       "autoSync": "Sync automatically",
-      "autoSyncHelp": "Checks edikte.justiz.gv.at for new and changed auctions every 6 hours while the app is open, and at start when the last check is older than that.",
+      "autoSyncHelp": "Checks the selected sources for new and changed listings every 6 hours while the app is open, and at start when the last check is older than that.",
       "priceBasis": "Default price basis",
-      "priceBasisHelp": "Used for the price per m² in the auction list.",
+      "priceBasisHelp": "Used for the price per m² of auctions. Insolvency sales always use the appraised value (Schätzwert).",
       "retention": "Keep downloaded documents",
       "retentionUnit": "days after a case closes",
       "retentionHelp": "After that, the app deletes the files. You can enter 1 to 3650 days.",
       "retentionInvalid": "Enter a whole number from 1 to 3650.",
       "dataDir": "Data folder",
-      "dataDirHelp": "Downloaded documents are stored here."
+      "dataDirHelp": "Downloaded documents are stored here.",
+      "sources": "Sources",
+      "sourcesRequired": "Choose at least one source."
     },
     "consent": {
       "title": "Analysis consent",
@@ -31,9 +33,10 @@
     "about": {
       "title": "About Edikte",
       "notAffiliated": "Edikte is not affiliated with the Austrian Federal Ministry of Justice (Bundesministerium für Justiz).",
-      "source": "The auction data comes from the public Ediktsdatei at edikte.justiz.gv.at.",
+      "source": "The data comes from the public Ediktsdatei at edikte.justiz.gv.at and justizonline.gv.at.",
       "personalUse": "The app is meant for personal use.",
-      "openSite": "Open edikte.justiz.gv.at"
+      "openSite": "Open edikte.justiz.gv.at",
+      "openJustizOnline": "Open JustizOnline"
     }
   },
   "providers": {

@@ -18,7 +18,7 @@ import { SegmentedControl } from '../../components/ui/segmented-control'
 import { Spinner } from '../../components/ui/spinner'
 import { SwitchRow } from '../../components/ui/switch'
 import { ChipGroup, DateRangeFilter, NumberFilter, RangeFilter } from './filter-controls'
-import { showsBezirke } from './query-helpers'
+import { insolvencyOnly, showsBezirke } from './query-helpers'
 
 interface FilterDialogProps {
   /** The toolbar button. The dialog renders in its place and portals its panel. */
@@ -29,7 +29,7 @@ interface FilterDialogProps {
   onChange: (patch: Partial<ListingQuery>) => void
   onReset: () => void
   activeCount: number
-  /** Auctions the query matches, or null until the first page has loaded. */
+  /** Listings the query matches, or null until the first page has loaded. */
   matches: number | null
   loading: boolean
 }
@@ -50,6 +50,7 @@ export function FilterDialog({
   loading,
 }: FilterDialogProps) {
   const { t } = useTranslation()
+  const salesOnly = insolvencyOnly(query)
 
   return (
     <Dialog
@@ -98,20 +99,22 @@ export function FilterDialog({
         </FilterSection>
 
         <FilterSection title={t('filters.sections.price')}>
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-fg">{t('filters.priceBasis')}</span>
-            <SegmentedControl
-              aria-label={t('filters.priceBasis')}
-              size="sm"
-              className="self-start"
-              segments={PriceBasisSchema.options.map((value) => ({
-                value,
-                label: t(`priceBasis.${value}`),
-              }))}
-              value={query.priceBasis}
-              onValueChange={(priceBasis) => onChange({ priceBasis })}
-            />
-          </div>
+          {!salesOnly && (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-fg">{t('filters.priceBasis')}</span>
+              <SegmentedControl
+                aria-label={t('filters.priceBasis')}
+                size="sm"
+                className="self-start"
+                segments={PriceBasisSchema.options.map((value) => ({
+                  value,
+                  label: t(`priceBasis.${value}`),
+                }))}
+                value={query.priceBasis}
+                onValueChange={(priceBasis) => onChange({ priceBasis })}
+              />
+            </div>
+          )}
           <RangeFilter
             className="max-w-sm"
             label={t('filters.price')}
@@ -198,13 +201,15 @@ export function FilterDialog({
             selected={query.statuses}
             onChange={(statuses) => onChange({ statuses })}
           />
-          <DateRangeFilter
-            className="max-w-sm"
-            label={t('filters.auctionDate')}
-            min={query.auctionFrom}
-            max={query.auctionTo}
-            onChange={({ min, max }) => onChange({ auctionFrom: min, auctionTo: max })}
-          />
+          {!salesOnly && (
+            <DateRangeFilter
+              className="max-w-sm"
+              label={t('filters.auctionDate')}
+              min={query.auctionFrom}
+              max={query.auctionTo}
+              onChange={({ min, max }) => onChange({ auctionFrom: min, auctionTo: max })}
+            />
+          )}
         </FilterSection>
 
         <FilterSection title={t('filters.sections.analysis')}>

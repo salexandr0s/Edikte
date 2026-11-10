@@ -1,3 +1,4 @@
+import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS, SettingsPatchSchema } from '@shared/domain'
 import { isAppError } from '@shared/errors'
@@ -58,6 +59,130 @@ describe('migrations', () => {
       code = isAppError(error) ? error.code : 'other'
     }
     expect(code).toBe('database_newer')
+  })
+
+  it('keep the rows of a database last opened before migration 0005', () => {
+    // Catches a migration that loses documents, analyses, stars or notes. A table
+    // rebuild would: with foreign keys on, dropping the old table deletes every
+    // row that references it.
+    const edictId = 'c'.repeat(32)
+    const at = '2026-11-05T09:00:00.000Z'
+    // One made-up row per table, in an order the foreign keys allow.
+    const oldRows: [table: string, row: Record<string, string | number | null>][] = [
+      [
+        'edicts',
+        {
+          id: edictId,
+          case_key: 'made-up-case',
+          notice_type: 'versteigerung',
+          status: 'upcoming',
+          url: 'https://example.invalid/edict',
+          property_type: 'apartment',
+          title: 'Musterwohnung Top 1',
+          raw_labels: '{}',
+          content_hash: 'hash',
+          parser_version: 1,
+          first_seen_at: at,
+          last_seen_at: at,
+          fetched_at: at,
+        },
+      ],
+      [
+        'documents',
+        {
+          id: 7,
+          edict_id: edictId,
+          kind: 'langgutachten',
+          title: 'Langgutachten (pdf)',
+          file_name: 'gutachten.pdf',
+          url: 'https://example.invalid/gutachten.pdf',
+          local_path: `${edictId}/gutachten.pdf`,
+          created_at: at,
+        },
+      ],
+      [
+        'document_pages',
+        { id: 4, document_id: 7, page_number: 1, has_text: 1, text: 'Musterseite' },
+      ],
+      [
+        'analyses',
+        {
+          id: 3,
+          edict_id: edictId,
+          provider: 'claude-cli',
+          model: 'made-up-model',
+          prompt_version: 1,
+          schema_version: 1,
+          status: 'done',
+          result: '{"summary":"made up"}',
+          created_at: at,
+        },
+      ],
+      [
+        'user_state',
+        { case_key: 'made-up-case', starred: 1, notes: 'Made-up note', updated_at: at },
+      ],
+      [
+        'saved_filters',
+        {
+          id: 2,
+          name: 'Made-up filter',
+          query: '{"bezirke":[21]}',
+          created_at: at,
+          updated_at: at,
+        },
+      ],
+      [
+        'sync_runs',
+        { id: 5, kind: 'full', status: 'ok', scope: '["wien"]', started_at: at, listed: 1 },
+      ],
+      [
+        'edict_locations',
+        {
+          edict_id: edictId,
+          query: 'Musterweg 1, Musterstadt',
+          lat: 47.5,
+          lng: 14.5,
+          precision: 'address',
+          provider: 'made-up',
+          geocoded_at: at,
+        },
+      ],
+    ]
+
+    const sqlite = new Database(':memory:')
+    try {
+      // As in openDatabase: the app migrates with foreign keys on.
+      sqlite.pragma('foreign_keys = ON')
+      const older = bundledMigrations().filter((migration) => migration.tag < '0005')
+      expect(runMigrations(sqlite, older).at(-1)).toBe('0004_edict_locations')
+      for (const [table, row] of oldRows) {
+        const columns = Object.keys(row)
+        const placeholders = columns.map(() => '?').join(', ')
+        sqlite
+          .prepare(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`)
+          .run(...Object.values(row))
+      }
+
+      expect(runMigrations(sqlite)[0]).toBe('0005_edict_source')
+
+      for (const [table, row] of oldRows) {
+        const kept = sqlite.prepare(`SELECT ${Object.keys(row).join(', ')} FROM ${table}`).all()
+        expect(kept, table).toEqual([row])
+      }
+      expect(sqlite.prepare('SELECT source, insolvency FROM edicts').all()).toEqual([
+        { source: 'court_auction', insolvency: null },
+      ])
+      expect(sqlite.prepare('SELECT source FROM sync_runs').all()).toEqual([
+        { source: 'court_auction' },
+      ])
+      expect(sqlite.prepare('SELECT removed_at FROM documents').all()).toEqual([
+        { removed_at: null },
+      ])
+      expect(sqlite.pragma('foreign_key_check')).toEqual([])
+    } finally {
+      sqlite.close()
+    }
   })
 
   it('keep the full-text index in sync with document pages', () => {

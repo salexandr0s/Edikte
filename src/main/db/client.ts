@@ -9,11 +9,11 @@ export type AppDatabase = BetterSQLite3Database<typeof schema> & { $client: Data
 export function openDatabase(file: string): AppDatabase {
   const sqlite = new Database(file)
   try {
-    sqlite.pragma('journal_mode = WAL')
-    sqlite.pragma('synchronous = NORMAL')
     sqlite.pragma('foreign_keys = ON')
     sqlite.pragma('busy_timeout = 5000')
     runMigrations(sqlite)
+    sqlite.pragma('journal_mode = WAL')
+    sqlite.pragma('synchronous = NORMAL')
   } catch (error) {
     sqlite.close()
     throw error

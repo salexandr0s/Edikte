@@ -68,12 +68,18 @@ export function RiskList({ result, source, german }: ListProps) {
 type FindingKind = 'encumbrances' | 'arrears' | 'defects'
 
 /** Encumbrances, arrears or defects, with amount and source. */
-export function FindingList({ kind, result, source, german }: ListProps & { kind: FindingKind }) {
+export function FindingList({
+  kind,
+  result,
+  source,
+  german,
+  title,
+}: ListProps & { kind: FindingKind; title?: string }) {
   const { t } = useTranslation()
   const format = useFormat()
   const findings = result[kind]
   return (
-    <ResultSection title={t(`analysis.findings.${kind}`)}>
+    <ResultSection title={title ?? t(`analysis.findings.${kind}`)}>
       {findings.length === 0 ? (
         <p className="text-sm text-fg-muted">{t('analysis.findings.none')}</p>
       ) : (

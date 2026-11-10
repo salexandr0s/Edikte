@@ -17,9 +17,6 @@ import { findSqmMentions, parseEur, parseSqm } from '@shared/parse-numbers'
  */
 export type Elements = ReturnType<Cheerio<never>['find']>
 
-/** Edict IDs are the site's 32-hex Domino document IDs, stored lowercase. */
-export const EDICT_ID_PATTERN = /^[0-9a-f]{32}$/
-
 const DB_BASE = `${EDIKTE_ORIGIN}${EX_DB_PATH}/`
 
 /** Canonical URL of an edict page. */

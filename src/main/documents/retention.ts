@@ -1,7 +1,7 @@
 import { lstat, readdir, realpath, rm, rmdir } from 'node:fs/promises'
 import path from 'node:path'
+import { EDICT_ID_PATTERN } from '@shared/edict-id'
 import { isInside, splitLocalPath } from './document-protocol'
-import { EDICT_ID_PATTERN } from './file-names'
 
 // Downloaded Gutachten name the owners, so files are deleted once a case has
 // been closed for longer than the retention setting.

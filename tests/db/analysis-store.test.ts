@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { AnalysisOutcome } from '../../src/main/ai/analysis/pipeline'
+import type { AnalysisJobOutcome } from '../../src/main/ai/analysis/batch'
 import {
   createAnalysisJobStore,
   listAnalyses,
@@ -36,7 +36,7 @@ function job(edict: string, model: string): NewAnalysisJob {
   }
 }
 
-function outcome(): AnalysisOutcome {
+function outcome(): AnalysisJobOutcome {
   return {
     provider: 'claude-cli',
     model: 'claude-opus-5-5',
@@ -44,6 +44,8 @@ function outcome(): AnalysisOutcome {
     accountLabel: 'run@example.com',
     promptVersion: 1,
     schemaVersion: 1,
+    documentIds: [1],
+    documentSha256: 'sha',
     result: houseAnswer,
     evidence: [],
     crossChecks: [],
@@ -113,12 +115,16 @@ describe('analysis job store', () => {
       })
       expect(
         db
-          .select({ requestedModel: analyses.requestedModel, accountLabel: analyses.accountLabel })
+          .select({
+            requestedModel: analyses.requestedModel,
+            accountLabel: analyses.accountLabel,
+            documentSha256: analyses.documentSha256,
+          })
           .from(analyses)
           .all(),
       ).toEqual([
-        { requestedModel: 'opus', accountLabel: 'run@example.com' },
-        { requestedModel: 'opus', accountLabel: 'tester@example.com' },
+        { requestedModel: 'opus', accountLabel: 'run@example.com', documentSha256: 'sha' },
+        { requestedModel: 'opus', accountLabel: 'tester@example.com', documentSha256: null },
       ])
     } finally {
       db.$client.close()

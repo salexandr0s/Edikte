@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { priceForBasis } from '@shared/area'
 import type { ListingRow } from '@shared/domain'
-import type { AnalysisStatus, ListingStatus, RiskLevel } from '@shared/enums'
+import type { AnalysisStatus, ListingStatus, PriceBasis, RiskLevel } from '@shared/enums'
 import { bezirkName } from '@shared/wien-bezirke'
 import { Badge, type BadgeVariant } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
@@ -16,6 +16,7 @@ const CELL = 'border-b border-border py-3 align-top group-last/row:border-b-0'
 export const STATUS_VARIANT: Readonly<Record<ListingStatus, BadgeVariant>> = {
   upcoming: 'primary',
   postponed: 'warning',
+  on_offer: 'primary',
   cancelled: 'danger',
   sold: 'default',
   closed: 'outline',
@@ -36,6 +37,7 @@ const ANALYSIS_VARIANT: Readonly<Record<Exclude<AnalysisStatus, 'done'>, BadgeVa
 
 interface ListingTableRowProps {
   row: ListingRow
+  columnPriceBasis: PriceBasis
   /** From the latest analysis event when there is one, else from the row. */
   analysisStatus: AnalysisStatus | null
   onOpen: () => void
@@ -45,6 +47,7 @@ interface ListingTableRowProps {
 
 export function ListingTableRow({
   row,
+  columnPriceBasis,
   analysisStatus,
   onOpen,
   onStar,
@@ -127,7 +130,15 @@ export function ListingTableRow({
       </td>
       <td className={cx(CELL, 'px-4')}>
         <div className="flex flex-col items-start gap-1">
-          {row.auctionAt === null ? (
+          {row.source === 'insolvency_sale' ? (
+            row.publishedAt === null ? (
+              <Missing label={notStated} />
+            ) : (
+              <span className="text-xs text-fg-muted">
+                {t('listings.row.published', { date: format.localDate(row.publishedAt) })}
+              </span>
+            )
+          ) : row.auctionAt === null ? (
             <Missing label={notStated} />
           ) : (
             <span className="flex flex-col tabular-nums">
@@ -156,7 +167,10 @@ export function ListingTableRow({
           ) : (
             <span className="whitespace-nowrap tabular-nums">{format.eur(price)}</span>
           )}
-          {otherPrice !== null && (
+          {row.priceBasis !== columnPriceBasis && (
+            <span className="text-xs text-fg-muted">{t(`priceBasis.${row.priceBasis}`)}</span>
+          )}
+          {row.source === 'court_auction' && otherPrice !== null && (
             <span className="text-xs text-fg-muted">
               {t(`listings.row.otherPrice.${otherBasis}`, { value: format.eur(otherPrice) })}
             </span>
@@ -182,7 +196,16 @@ export function ListingTableRow({
         <PricePerSqm row={row} />
       </td>
       <td className={cx(CELL, 'px-4')}>
-        <AnalysisBadge status={analysisStatus} risk={row.riskLevel} />
+        <div className="flex flex-col items-start gap-1">
+          {row.analysisStale && (
+            <Badge size="sm" variant="warning" title={t('listings.row.analysisStaleHint')}>
+              {t('listings.row.analysisStale')}
+            </Badge>
+          )}
+          {(!row.analysisStale || (analysisStatus !== null && analysisStatus !== 'done')) && (
+            <AnalysisBadge status={analysisStatus} risk={row.riskLevel} />
+          )}
+        </div>
       </td>
       <td className={cx(CELL, 'px-1')}>
         <Button
@@ -272,7 +295,6 @@ function Missing({ label }: { label: string }) {
   )
 }
 
-/** Street, then postcode and city, or the Vienna district when both are missing. */
 /** Street, then postcode and town, or the district when the site named no town. */
 export function addressLine(row: ListingRow, district: string | null): string | null {
   const place = [row.plz, row.city].filter((part) => part !== null && part !== '').join(' ')

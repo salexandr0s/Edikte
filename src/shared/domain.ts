@@ -7,6 +7,7 @@ import {
   AreaSourceSchema,
   BundeslandSchema,
   DocumentKindSchema,
+  EdictSourceSchema,
   ListingStatusSchema,
   NoticeTypeSchema,
   PriceBasisSchema,
@@ -51,9 +52,11 @@ export type ListingLocation = z.infer<typeof ListingLocationSchema>
 
 // ── Listings ───────────────────────────────────────────────────────────────
 
-/** One row of the listings table. `id` is the site's edict ID. */
+/** One row of the listings table. `id` is the edict ID, in one of the forms of `edict-id.ts`. */
 export const ListingRowSchema = z.object({
   id: z.string(),
+  /** The section of the Ediktsdatei the edict was published in. */
+  source: EdictSourceSchema,
   /** Groups re-issued edicts of the same property. Star, hide and notes attach to it. */
   caseKey: z.string(),
   url: z.string(),
@@ -72,19 +75,25 @@ export const ListingRowSchema = z.object({
   location: ListingLocationSchema.nullable(),
   court: z.string().nullable(),
   caseNumber: z.string().nullable(),
+  /** Auctions only. A sale in insolvency proceedings has no date. */
   auctionAt: LocalDateTimeSchema.nullable(),
   publishedAt: LocalDateSchema.nullable(),
+  /** For a sale in insolvency proceedings, the notice's "Wert des Objekts". */
   schaetzwertEur: z.number().nonnegative().nullable(),
+  /** Auctions only. */
   geringstesGebotEur: z.number().nonnegative().nullable(),
   area: AreaValueSchema.nullable(),
   plotSqm: z.number().positive().nullable(),
+  /** The price `pricePerSqm` rests on. A sale in insolvency proceedings always uses the Schätzwert. */
   priceBasis: PriceBasisSchema,
   pricePerSqm: z.number().nonnegative().nullable(),
   approximate: z.array(ApproximateReasonSchema),
   /** Status of the newest analysis run, finished or not. */
   analysisStatus: AnalysisStatusSchema.nullable(),
-  /** A finished analysis exists. Its risk level and area stay while a newer run is queued, running or failed. */
+  /** A finished analysis of the active report exists, even while a newer run is unfinished. */
   hasAnalysis: z.boolean(),
+  /** Finished history exists, but none of it describes the current active report. */
+  analysisStale: z.boolean(),
   riskLevel: RiskLevelSchema.nullable(),
   hasLanggutachten: z.boolean(),
   starred: z.boolean(),
@@ -103,10 +112,12 @@ export const ListingSortColumnSchema = z.enum([
 ])
 
 export const ListingQuerySchema = z.object({
+  /** Empty means every source, as with the other lists of this query. */
+  sources: z.array(EdictSourceSchema).default([]),
   bundeslaender: z.array(BundeslandSchema).default([]),
   bezirke: z.array(BezirkSchema).default([]),
   propertyTypes: z.array(PropertyTypeSchema).default([]),
-  statuses: z.array(ListingStatusSchema).default(['upcoming', 'postponed']),
+  statuses: z.array(ListingStatusSchema).default(['upcoming', 'postponed', 'on_offer']),
   maxPricePerSqm: z.number().positive().nullable().default(null),
   minArea: z.number().nonnegative().nullable().default(null),
   maxArea: z.number().positive().nullable().default(null),
@@ -162,6 +173,8 @@ export const DocumentInfoSchema = z.object({
   /** Pages without a text layer, likely scans. */
   scannedPages: z.array(z.number().int().positive()),
   extractError: z.string().nullable(),
+  /** When the notice stopped listing the file. Null while it is published. */
+  removedAt: z.string().nullable(),
 })
 export type DocumentInfo = z.infer<typeof DocumentInfoSchema>
 
@@ -178,6 +191,30 @@ export const KurzgutachtenFactsSchema = z.object({
   other: z.record(z.string(), z.string()),
 })
 export type KurzgutachtenFacts = z.infer<typeof KurzgutachtenFactsSchema>
+
+/** The administrator of an insolvency or the deputy, as named on the notice. */
+export const InsolvencyContactSchema = z.object({
+  name: z.string().nullable(),
+  address: z.string().nullable(),
+  phone: z.string().nullable(),
+  fax: z.string().nullable(),
+  email: z.string().nullable(),
+})
+export type InsolvencyContact = z.infer<typeof InsolvencyContactSchema>
+
+/**
+ * What a sale in insolvency proceedings states beyond the property. The
+ * notice also names the debtor; the app does not store that.
+ */
+export const InsolvencyFactsSchema = z.object({
+  administrator: InsolvencyContactSchema.nullable(),
+  deputy: InsolvencyContactSchema.nullable(),
+  /** "Beschreibung", the long text of the notice. */
+  description: z.string().nullable(),
+  /** "Weiterführender Link" as published. Shown as text and never opened. */
+  link: z.string().nullable(),
+})
+export type InsolvencyFacts = z.infer<typeof InsolvencyFactsSchema>
 
 export const AreaEstimateSchema = z.object({
   id: z.number().int(),
@@ -215,6 +252,8 @@ export const ListingDetailSchema = ListingRowSchema.extend({
   /** Every label/value pair on the edict page, as published. */
   rawLabels: z.record(z.string(), z.string()),
   kurzgutachten: KurzgutachtenFactsSchema.nullable(),
+  /** Set for a sale in insolvency proceedings, null for an auction. */
+  insolvency: InsolvencyFactsSchema.nullable(),
   documents: z.array(DocumentInfoSchema),
   estimates: z.array(AreaEstimateSchema),
   /** Every area value known for the listing; `area` is the chosen one. */
@@ -250,8 +289,10 @@ export type SavedFilter = z.infer<typeof SavedFilterSchema>
 
 // ── Sync ───────────────────────────────────────────────────────────────────
 
+/** One run reads one source over the Bundesländer in scope. */
 export const SyncRunSummarySchema = z.object({
   id: z.number().int(),
+  source: EdictSourceSchema,
   kind: z.enum(['full', 'incremental']),
   status: z.enum(['running', 'ok', 'degraded', 'failed', 'cancelled']),
   startedAt: z.string(),
@@ -271,8 +312,10 @@ export const SyncStatusSchema = z.object({
   phase: z.enum(['list', 'details', 'kurzgutachten']).nullable(),
   done: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
+  /** The run in progress. Its `source` names the section being read. */
   current: SyncRunSummarySchema.nullable(),
-  lastFinished: SyncRunSummarySchema.nullable(),
+  /** The newest finished run of each enabled source that has one, in sync order. */
+  lastRuns: z.array(SyncRunSummarySchema),
 })
 export type SyncStatus = z.infer<typeof SyncStatusSchema>
 
@@ -283,6 +326,8 @@ export const FillPlanSchema = z.object({
   listings: z.number().int().nonnegative(),
   /** Documents that would be downloaded. */
   documents: z.number().int().nonnegative(),
+  /** Cached documents whose local area estimate needs to be read again. */
+  cachedDocuments: z.number().int().nonnegative(),
   totalKb: z.number().int().nonnegative(),
 })
 export type FillPlan = z.infer<typeof FillPlanSchema>
@@ -336,6 +381,8 @@ export const LanguageSettingSchema = z.enum(['system', 'de', 'en'])
 const settingsFields = {
   language: LanguageSettingSchema,
   syncBundeslaender: z.array(BundeslandSchema).min(1),
+  /** The sections the sync reads and the list shows. */
+  syncSources: z.array(EdictSourceSchema).min(1),
   autoSync: z.boolean(),
   priceBasis: PriceBasisSchema,
   selectedProvider: ProviderIdSchema.nullable(),
@@ -353,6 +400,8 @@ const settingsFields = {
 export const SettingsSchema = z.object({
   language: settingsFields.language.default('system'),
   syncBundeslaender: settingsFields.syncBundeslaender.default(['wien']),
+  // Both by default, also for a data folder from before the second source.
+  syncSources: settingsFields.syncSources.default(['court_auction', 'insolvency_sale']),
   autoSync: settingsFields.autoSync.default(true),
   priceBasis: settingsFields.priceBasis.default('schaetzwert'),
   selectedProvider: settingsFields.selectedProvider.default(null),
@@ -370,6 +419,7 @@ export const SettingsPatchSchema = z
   .pick({
     language: true,
     syncBundeslaender: true,
+    syncSources: true,
     autoSync: true,
     priceBasis: true,
     analysisConsentAt: true,
@@ -395,7 +445,7 @@ export const AppInfoSchema = z.object({
 })
 export type AppInfo = z.infer<typeof AppInfoSchema>
 
-/** The preset shipped as a saved filter: Vienna homes under €5,000 per m². */
+/** The preset shipped as a saved filter: Vienna homes under €5,000 per m², from every source. */
 export const PRESET_WIEN_UNDER_5000: ListingQueryInput = {
   bundeslaender: ['wien'],
   propertyTypes: ['apartment', 'house', 'multi_family_house'],

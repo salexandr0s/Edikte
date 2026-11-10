@@ -19,7 +19,7 @@ interface PinCardProps {
 }
 
 /**
- * The auctions at the chosen pin, each a button to its page. A pin that
+ * The listings at the chosen pin, each a button to its page. A pin that
  * stands for several places close together names the address on each row.
  */
 export function PinCard({ pin, onOpen, onClose, className }: PinCardProps) {
@@ -132,6 +132,11 @@ function PinCardRow({
                 {t('listings.row.risk', { level: t(`riskLevel.${row.riskLevel}`) })}
               </Badge>
             )}
+            {row.analysisStale && (
+              <Badge size="sm" variant="warning" title={t('listings.row.analysisStaleHint')}>
+                {t('listings.row.analysisStale')}
+              </Badge>
+            )}
           </span>
           {withAddress && (
             <span lang="de" title={address(row, t)} className="truncate text-xs text-fg-muted">
@@ -140,13 +145,26 @@ function PinCardRow({
           )}
           <span className="text-xs text-fg-muted">
             {t(`propertyType.${row.propertyType}`)}
-            {row.auctionAt !== null && ` · ${format.localDateTime(row.auctionAt)}`}
+            {row.source === 'insolvency_sale'
+              ? row.publishedAt !== null &&
+                ` · ${t('listings.row.published', { date: format.localDate(row.publishedAt) })}`
+              : row.auctionAt !== null && ` · ${format.localDateTime(row.auctionAt)}`}
           </span>
+          {row.source === 'insolvency_sale' && (
+            <span className="text-xs text-fg-muted">{t(`noticeType.${row.noticeType}`)}</span>
+          )}
           <span className="flex flex-wrap items-baseline gap-x-2 tabular-nums">
             {price === null ? (
               <span className="text-sm text-fg-muted">{t('common.notStated')}</span>
             ) : (
-              <span className="text-sm font-semibold">{format.eur(price)}</span>
+              <span className="text-sm font-semibold">
+                {format.eur(price)}
+                {row.source === 'insolvency_sale' && (
+                  <span className="ml-2 text-xs font-normal text-fg-muted">
+                    {t('listings.columns.price.schaetzwert')}
+                  </span>
+                )}
+              </span>
             )}
             {area !== '' && <span className="text-xs text-fg-muted">{area}</span>}
           </span>

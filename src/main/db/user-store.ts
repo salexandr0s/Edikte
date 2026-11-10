@@ -45,13 +45,21 @@ const PRESETS: ReadonlyArray<{
   { presetKey: 'wien_under_5000', name: 'Wien unter 5.000 €/m²', query: PRESET_WIEN_UNDER_5000 },
 ]
 
-/** Inserts shipped presets that are missing. Existing presets are left as they are. */
+/** Writes shipped presets from their constants, keeping each row's ID and creation time. */
 export function ensurePresetFilters(db: AppDatabase): void {
   const now = new Date().toISOString()
   for (const preset of PRESETS) {
     db.insert(savedFilters)
-      .values({ ...preset, createdAt: now, updatedAt: now })
-      .onConflictDoNothing({ target: savedFilters.presetKey })
+      .values({
+        ...preset,
+        query: ListingQuerySchema.parse(preset.query),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: savedFilters.presetKey,
+        set: { name: preset.name, query: ListingQuerySchema.parse(preset.query), updatedAt: now },
+      })
       .run()
   }
 }
@@ -63,7 +71,12 @@ export function listSavedFilters(db: AppDatabase): SavedFilter[] {
     .orderBy(asc(savedFilters.id))
     .all()
     .map((row) => {
-      const query = ListingQuerySchema.safeParse(row.query)
+      const stored: unknown = row.query
+      const query = ListingQuerySchema.safeParse(
+        typeof stored === 'object' && stored !== null && !('sources' in stored)
+          ? { ...stored, sources: ['court_auction'] }
+          : stored,
+      )
       return {
         id: row.id,
         name: row.name,
@@ -81,10 +94,11 @@ export function saveFilter(
   input: { id?: number | undefined; name: string; query: ListingQueryInput },
 ): SavedFilter {
   const now = new Date().toISOString()
+  const query = ListingQuerySchema.parse(input.query)
   if (input.id === undefined) {
     const row = db
       .insert(savedFilters)
-      .values({ name: input.name, query: input.query, createdAt: now, updatedAt: now })
+      .values({ name: input.name, query, createdAt: now, updatedAt: now })
       .returning({ id: savedFilters.id })
       .get()
     return findFilter(db, row.id)
@@ -94,7 +108,7 @@ export function saveFilter(
     throw new AppError('forbidden', 'Presets cannot be changed; save a copy instead')
   }
   db.update(savedFilters)
-    .set({ name: input.name, query: input.query, updatedAt: now })
+    .set({ name: input.name, query, updatedAt: now })
     .where(eq(savedFilters.id, input.id))
     .run()
   return findFilter(db, input.id)

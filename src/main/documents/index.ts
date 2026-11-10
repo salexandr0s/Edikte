@@ -2,13 +2,11 @@
 // re-exported: it loads pdf.js and runs only in the utility process.
 
 export {
-  DEFAULT_MAX_DOCUMENT_BYTES,
   downloadDocument,
   type DownloadedFile,
   type DownloadOptions,
   type DownloadProgress,
 } from './download'
-export { parseDownloadUrl } from './url-policy'
 export { safePdfFileName } from './file-names'
 export type { ExtractedDocument, ExtractedPage } from './extract'
 export { extractInUtilityProcess } from './extract-host'

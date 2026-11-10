@@ -9,10 +9,12 @@ import {
 } from '@shared/analysis-schema'
 import { approximateReasons, chooseArea, usableAreaKinds } from '@shared/area'
 import {
+  InsolvencyFactsSchema,
   KurzgutachtenFactsSchema,
   type AreaEstimate,
   type AreaValue,
   type DocumentInfo,
+  type InsolvencyFacts,
   type KurzgutachtenFacts,
   type ListingLocation,
   type ListingRow,
@@ -52,6 +54,7 @@ export function toDocumentInfo(
     pageCount: row.pageCount,
     scannedPages: [...scannedPages].sort((a, b) => a - b),
     extractError: row.extractError,
+    removedAt: row.removedAt,
   }
 }
 
@@ -67,17 +70,34 @@ export function toAreaEstimate(row: AreaEstimateRow): AreaEstimate {
   }
 }
 
+export function isAnalysisStale(
+  row: Pick<AnalysisRow, 'status' | 'documentIds' | 'documentSha256'>,
+  report: Pick<DocumentRow, 'id' | 'sha256'> | null,
+): boolean {
+  if (row.status !== 'done') return false
+  return (
+    report === null ||
+    firstDocumentId(row.documentIds) !== report.id ||
+    row.documentSha256 === null ||
+    row.documentSha256 !== report.sha256
+  )
+}
+
 /** Never throws. A stored result that fails the analysis schema becomes null. */
-export function toAnalysisRecord(row: AnalysisRow): AnalysisRecord {
+export function toAnalysisRecord(
+  row: AnalysisRow,
+  report: Pick<DocumentRow, 'id' | 'sha256'> | null = null,
+): AnalysisRecord {
   return {
     id: row.id,
     edictId: row.edictId,
-    documentId: parseItems(IntSchema, row.documentIds)[0] ?? null,
+    documentId: firstDocumentId(row.documentIds),
     provider: row.provider,
     model: row.model,
     promptVersion: row.promptVersion,
     schemaVersion: row.schemaVersion,
     status: row.status,
+    stale: isAnalysisStale(row, report),
     result: parseAnalysisResult(row.result),
     evidence: parseItems(EvidenceItemSchema, row.evidence),
     crossChecks: parseItems(CrossCheckSchema, row.crossChecks),
@@ -102,12 +122,22 @@ export function toKurzgutachtenFacts(value: unknown): KurzgutachtenFacts | null 
   return parsed.success ? parsed.data : null
 }
 
+export function toInsolvencyFacts(value: unknown): InsolvencyFacts | null {
+  const parsed = InsolvencyFactsSchema.safeParse(value)
+  return parsed.success ? parsed.data : null
+}
+
 function parseItems<T>(schema: z.ZodType<T>, value: unknown): T[] {
   const items: readonly unknown[] = Array.isArray(value) ? value : []
   return items.flatMap((item) => {
     const parsed = schema.safeParse(item)
     return parsed.success ? [parsed.data] : []
   })
+}
+
+function firstDocumentId(value: unknown): number | null {
+  const parsed = IntSchema.safeParse(Array.isArray(value) ? value[0] : null)
+  return parsed.success ? parsed.data : null
 }
 
 function toErrorShape(code: string | null, message: string | null): AppErrorShape | null {
@@ -122,6 +152,7 @@ function toErrorShape(code: string | null, message: string | null): AppErrorShap
 export type ListingEdict = Pick<
   EdictRow,
   | 'id'
+  | 'source'
   | 'caseKey'
   | 'url'
   | 'status'
@@ -160,6 +191,8 @@ export interface ListingSources {
   hasLanggutachten: boolean
   /** Status of the latest analysis, finished or not. */
   analysisStatus: AnalysisStatus | null
+  /** Completed history exists, but none matches the current report. */
+  analysisStale: boolean
   finished: FinishedAnalysis | null
   estimates: ReadonlyArray<Pick<AreaEstimateRow, 'documentId' | 'kind' | 'sqm' | 'page' | 'quote'>>
   location: ListingLocation | null
@@ -171,7 +204,7 @@ export function toFinishedAnalysis(
   return {
     result: parseAnalysisResult(row.result),
     evidence: parseItems(EvidenceItemSchema, row.evidence),
-    documentId: parseItems(IntSchema, row.documentIds)[0] ?? null,
+    documentId: firstDocumentId(row.documentIds),
   }
 }
 
@@ -207,6 +240,7 @@ export function buildListingRow(
   const fromTitle = approximationFromTitle(edict.title, edict.categoryCodes)
   const row: ListingRow = {
     id: edict.id,
+    source: edict.source,
     caseKey: edict.caseKey,
     url: edict.url,
     status: edict.status,
@@ -238,6 +272,7 @@ export function buildListingRow(
       areaMismatch: choice.mismatch,
     }),
     analysisStatus: sources.analysisStatus,
+    analysisStale: sources.analysisStale,
     hasAnalysis: sources.finished !== null,
     riskLevel: highestRisk(result),
     hasLanggutachten: sources.hasLanggutachten,

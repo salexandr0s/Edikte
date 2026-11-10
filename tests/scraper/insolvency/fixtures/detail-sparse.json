@@ -1,0 +1,251 @@
+{
+  "index": 0,
+  "edikt": {
+    "id": 990003,
+    "ediktArt": "MV",
+    "ediktsArtLabel": "Verkäufe und Verpachtungen in Insolvenzverfahren",
+    "title": "098 7 S 56/25 z",
+    "badges": [],
+    "sections": [
+      {
+        "title": "Grunddaten",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "LIST",
+            "id": "b3000000-0000-4000-8000-000000000001",
+            "items": [
+              {
+                "heading": "Dienststelle",
+                "text": "LG Beispielstadt (098)",
+                "multipleTextElements": [],
+                "internalUrl": "ediktsdatei/dienststellen/098"
+              },
+              {
+                "heading": "Aktenzeichen",
+                "text": "098 7 S 56/25 z"
+              },
+              {
+                "heading": "Bekanntmachungsdatum",
+                "multipleTextElements": [],
+                "textDate": "2026-09-14T11:00:00"
+              }
+            ]
+          },
+          {
+            "type": "LIST",
+            "id": "b3000000-0000-4000-8000-000000000002",
+            "items": [
+              {
+                "heading": "Art der Bekanntmachung",
+                "text": "Liegenschaft"
+              },
+              {
+                "heading": "Art der Transaktion",
+                "text": "Verpachtung"
+              }
+            ]
+          },
+          {
+            "type": "LIST",
+            "id": "b3000000-0000-4000-8000-000000000003",
+            "items": [
+              {
+                "heading": "Name Schuldner:in",
+                "text": "Erna Erfunden"
+              },
+              {
+                "heading": "Adresse",
+                "text": "Schuldnerweg 9"
+              },
+              {
+                "heading": "PLZ, Ort",
+                "text": "9991 Schuldnerdorf"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Adressdaten, Beschreibung und Schätzwert",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "LIST",
+            "id": "b3000000-0000-4000-8000-000000000004",
+            "items": [
+              {
+                "heading": "Straße",
+                "text": "-"
+              },
+              {
+                "heading": "PLZ",
+                "text": "9998"
+              },
+              {
+                "heading": "Ort",
+                "text": "Beispieldorf"
+              },
+              {
+                "heading": "Land",
+                "text": "Österreich"
+              },
+              {
+                "heading": "Bundesland",
+                "text": "Steiermark"
+              }
+            ]
+          },
+          {
+            "type": "LIST",
+            "id": "b3000000-0000-4000-8000-000000000005",
+            "items": [
+              {
+                "heading": "Kurzbeschreibung",
+                "text": "Landwirtschaftliche Fläche"
+              },
+              {
+                "heading": "Kategorie(n)",
+                "text": "Land- und forstwirtschaftlich genutzte Liegenschaft"
+              },
+              {
+                "heading": "Beschreibung"
+              },
+              {
+                "heading": "Grundbuchnummer",
+                "text": "09998"
+              },
+              {
+                "heading": "Grundbuchgericht",
+                "text": "BG Beispielstadt"
+              },
+              {
+                "heading": "Einlagezahl",
+                "text": "77"
+              },
+              {
+                "heading": "Grundstücksnr.",
+                "text": "-"
+              },
+              {
+                "heading": "BLNr.",
+                "text": "-"
+              }
+            ]
+          },
+          {
+            "type": "LIST",
+            "id": "b3000000-0000-4000-8000-000000000006",
+            "items": [
+              {
+                "heading": "Grundstücksgröße",
+                "text": "-"
+              },
+              {
+                "heading": "Objektgröße",
+                "text": "-"
+              },
+              {
+                "heading": "Weiterführender Link",
+                "text": ""
+              },
+              {
+                "heading": "Anschlüsse",
+                "text": "-"
+              },
+              {
+                "heading": "Baubewilligung",
+                "text": "-"
+              },
+              {
+                "heading": "Benützungsbewilligung",
+                "text": "-"
+              },
+              {
+                "heading": "Widmung",
+                "text": "-"
+              },
+              {
+                "heading": "Bestandsverhältnisse",
+                "text": "-"
+              },
+              {
+                "heading": "Lasten",
+                "text": "-"
+              },
+              {
+                "heading": "Wert des Objekts",
+                "text": "-"
+              }
+            ]
+          },
+          {
+            "type": "LIST",
+            "id": "b3000000-0000-4000-8000-000000000007",
+            "items": [
+              {
+                "heading": "Zubehör",
+                "text": "Kein Zubehör"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Gutachten",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "FILE_LIST",
+            "id": "b3000000-0000-4000-8000-000000000008",
+            "orientation": "VERTICAL",
+            "items": []
+          }
+        ]
+      },
+      {
+        "title": "Insolvenzverwalter:in",
+        "type": "CARD",
+        "accordionDefaultCollapsed": false,
+        "elements": [
+          {
+            "type": "LIST",
+            "id": "b3000000-0000-4000-8000-000000000009",
+            "items": [
+              {
+                "heading": "Name",
+                "text": "Dr. Erika Beispiel",
+                "multipleTextElements": [],
+                "internalUrl": "ediktsdatei/insolvenzverwalter/990101"
+              },
+              {
+                "heading": "Anschrift",
+                "text": "Kanzleiplatz 2, 3999 Musterstadt"
+              },
+              {
+                "heading": "Telefon",
+                "text": "+43 1 555 01 00"
+              },
+              {
+                "heading": "Fax",
+                "text": "-"
+              },
+              {
+                "heading": "E-Mail",
+                "text": "kanzlei@example.at",
+                "multipleTextElements": [],
+                "externalUrl": "mailto:kanzlei@example.at"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "formsToShow": ["MV_LIEGENSCHAFT"]
+  },
+  "total": 1,
+  "accessedTimestamp": "2026-11-09T10:15:32.123456"
+}

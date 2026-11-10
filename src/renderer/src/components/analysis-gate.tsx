@@ -28,6 +28,7 @@ type Question =
 interface Pending {
   question: Question
   answer: (accepted: boolean) => void
+  returnFocus: HTMLElement | null
 }
 
 const AnalysisGateContext = createContext<AnalysisGateValue | null>(null)
@@ -41,7 +42,7 @@ export function AnalysisGateProvider({ children }: { children: ReactNode }) {
   const openAnswer = useRef<((accepted: boolean) => void) | null>(null)
 
   const ask = useCallback(
-    (question: Question) =>
+    (question: Question, returnFocus: HTMLElement | null) =>
       new Promise<boolean>((resolve) => {
         openAnswer.current?.(false)
         const answer = (accepted: boolean) => {
@@ -52,30 +53,34 @@ export function AnalysisGateProvider({ children }: { children: ReactNode }) {
           resolve(accepted)
         }
         openAnswer.current = answer
-        setPending({ question, answer })
+        setPending({ question, answer, returnFocus })
       }),
     [],
   )
 
   const requestAnalysis = useCallback(
     async (edictIds: string[]): Promise<number | null> => {
+      // Capture before provider checks disable or replace the invoking control.
+      const returnFocus =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null
       try {
         const providers = await invoke('providers:list')
         const provider = providers.find((candidate) => candidate.selected) ?? null
         if (provider?.state !== 'ready') {
-          if (await ask({ kind: 'provider', provider })) navigate({ screen: 'settings' })
+          if (await ask({ kind: 'provider', provider }, returnFocus))
+            navigate({ screen: 'settings' })
           return null
         }
         if (settings.analysisConsentAt === null) {
-          if (!(await ask({ kind: 'consent', provider }))) return null
+          if (!(await ask({ kind: 'consent', provider }, returnFocus))) return null
           await updateSettings({ analysisConsentAt: new Date().toISOString() })
         }
         const estimate = await invoke('analysis:estimate', { edictIds })
         if (estimate.listings - estimate.withoutDocument <= 0) {
-          await ask({ kind: 'nothing' })
+          await ask({ kind: 'nothing' }, returnFocus)
           return null
         }
-        if (!(await ask({ kind: 'confirm', provider, estimate }))) return null
+        if (!(await ask({ kind: 'confirm', provider, estimate }, returnFocus))) return null
         const { queued } = await invoke('analysis:start', { edictIds })
         toast({ kind: 'success', title: t('analysisGate.queued', { count: queued }) })
         return queued
@@ -102,7 +107,7 @@ export function AnalysisGateProvider({ children }: { children: ReactNode }) {
   return (
     <AnalysisGateContext.Provider value={{ requestAnalysis }}>
       {children}
-      {pending !== null && <GateDialog question={pending.question} answer={pending.answer} />}
+      {pending !== null && <GateDialog {...pending} />}
     </AnalysisGateContext.Provider>
   )
 }
@@ -113,7 +118,7 @@ export function useAnalysisGate(): AnalysisGateValue {
   return value
 }
 
-function GateDialog({ question, answer }: Pending) {
+function GateDialog({ question, answer, returnFocus }: Pending) {
   const { t } = useTranslation()
   const format = useFormat()
   const close = (open: boolean) => {
@@ -131,6 +136,7 @@ function GateDialog({ question, answer }: Pending) {
       return (
         <Dialog
           open
+          returnFocus={returnFocus}
           onOpenChange={close}
           size="sm"
           title={
@@ -159,6 +165,7 @@ function GateDialog({ question, answer }: Pending) {
       return (
         <Dialog
           open
+          returnFocus={returnFocus}
           onOpenChange={close}
           dismissible={false}
           title={t('analysisGate.consent.title', { provider })}
@@ -184,6 +191,7 @@ function GateDialog({ question, answer }: Pending) {
       return (
         <Dialog
           open
+          returnFocus={returnFocus}
           onOpenChange={close}
           title={t('analysisGate.confirm.title', { count: analyzable })}
           footer={
@@ -235,6 +243,7 @@ function GateDialog({ question, answer }: Pending) {
       return (
         <Dialog
           open
+          returnFocus={returnFocus}
           onOpenChange={close}
           size="sm"
           title={t('analysisGate.nothing.title')}

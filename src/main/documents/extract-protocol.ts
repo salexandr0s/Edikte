@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { AppError } from '@shared/errors'
 import type { ExtractedDocument } from './extract'
-import { DEFAULT_MAX_DOCUMENT_BYTES } from './download'
+import { DEFAULT_MAX_DOCUMENT_BYTES } from './limits'
 
 // Messages between the main process and the PDF text worker, and the host
 // logic around one worker run. Electron-free, so it can be tested in Node.

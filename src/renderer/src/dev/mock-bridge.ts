@@ -5,15 +5,26 @@ import {
   PRESET_WIEN_UNDER_5000,
   type AppInfo,
   type AreaValue,
+  type InsolvencyFacts,
   type KurzgutachtenFacts,
   type ListingDetail,
   type ListingRow,
   type RelatedEdict,
   type SavedFilter,
+  type Settings,
   type SyncRunSummary,
+  type SyncStatus,
   type UserState,
 } from '@shared/domain'
-import { EDIKTE_ORIGIN, EX_DB_PATH, STATUS_BY_NOTICE } from '@shared/edikte-codes'
+import { insolvencyEdictId } from '@shared/edict-id'
+import {
+  BUNDESLAND_SITE_NAMES,
+  EDIKTE_ORIGIN,
+  EX_DB_PATH,
+  JUSTIZONLINE_ORIGIN,
+  statusFor,
+} from '@shared/edikte-codes'
+import { EdictSourceSchema, type EdictSource } from '@shared/enums'
 import { AppError, isAppError, type AppErrorShape } from '@shared/errors'
 import {
   eventContract,
@@ -43,6 +54,10 @@ import { createProviderHandlers, fakeProviderStatus } from './mock-providers'
  */
 
 const LATENCY_MS = 120
+const SYNC_STEP_MS = 400
+
+/** Steps of a simulated run. A run over the insolvency sales reads no Kurzgutachten pages. */
+const RUN_STEPS: Readonly<Record<EdictSource, number>> = { court_auction: 12, insolvency_sale: 6 }
 
 export function createMockBridge(): EdikteBridge {
   const listeners = new Map<EventChannel, Set<(payload: unknown) => void>>()
@@ -94,20 +109,93 @@ function toErrorShape(error: unknown): AppErrorShape {
 
 function createHandlers(state: MockState, emit: Emit): MockHandlers {
   let syncTimer: ReturnType<typeof setInterval> | null = null
+  /** Sources of the pass in progress whose run has not started, in sync order. */
+  let waitingSources: EdictSource[] = []
+  /** The newest finished run of every source, also of one the settings switch off. */
+  const finishedRuns = new Map<EdictSource, SyncRunSummary>(
+    state.sync.lastRuns.map((run) => [run.source, run]),
+  )
+  let nextRunId = Math.max(0, ...state.sync.lastRuns.map((run) => run.id)) + 1
   let geocodeRunning = false
   let nextFilterId = Math.max(...state.filters.map((filter) => filter.id)) + 1
 
-  const finishSync = (status: SyncRunSummary['status']) => {
-    if (syncTimer !== null) clearInterval(syncTimer)
-    syncTimer = null
-    const current = state.sync.current
-    const lastFinished =
-      current === null
-        ? state.sync.lastFinished
-        : { ...current, status, finishedAt: new Date().toISOString() }
-    state.sync = { state: 'idle', phase: null, done: 0, total: 0, current: null, lastFinished }
+  /**
+   * The `lastRuns` of the status: the newest finished run of each enabled
+   * source that has one, in sync order.
+   */
+  const lastRuns = (): SyncRunSummary[] =>
+    enabledSources(state.settings).flatMap((source) => {
+      const run = finishedRuns.get(source)
+      return run === undefined ? [] : [run]
+    })
+
+  /**
+   * Starts the run of the next waiting source, so the status stays `running`
+   * from the first run of a pass to the last. With no source left, the pass
+   * is over and the status goes idle.
+   */
+  const startNextRun = (kind: SyncRunSummary['kind']) => {
+    const source = waitingSources.shift()
+    if (source === undefined) {
+      if (syncTimer !== null) clearInterval(syncTimer)
+      syncTimer = null
+      state.sync = {
+        state: 'idle',
+        phase: null,
+        done: 0,
+        total: 0,
+        current: null,
+        lastRuns: lastRuns(),
+      }
+      return
+    }
+    state.sync = {
+      state: 'running',
+      phase: runPhase(source, 0),
+      done: 0,
+      total: RUN_STEPS[source],
+      current: {
+        id: nextRunId++,
+        source,
+        kind,
+        status: 'running',
+        startedAt: new Date().toISOString(),
+        finishedAt: null,
+        listed: state.rows.filter((row) => row.source === source).length,
+        fetched: 0,
+        changed: 0,
+        removed: 0,
+        requests: 1,
+        note: null,
+      },
+      lastRuns: lastRuns(),
+    }
+  }
+
+  /** Ends the run in progress with `status` and goes on with the pass. */
+  const finishRun = (run: SyncRunSummary, status: SyncRunSummary['status']) => {
+    finishedRuns.set(run.source, { ...run, status, finishedAt: new Date().toISOString() })
+    startNextRun(run.kind)
     emit('sync:progress', state.sync)
     if (status === 'ok') emit('listings:changed', { edictIds: null })
+  }
+
+  /** One step of the run in progress. The last step ends the run as ok. */
+  const stepRun = () => {
+    const { current, total } = state.sync
+    if (current === null) return
+    const done = state.sync.done + 1
+    if (done >= total) {
+      finishRun({ ...current, fetched: total - 1, changed: 2 }, 'ok')
+      return
+    }
+    state.sync = {
+      ...state.sync,
+      phase: runPhase(current.source, done),
+      done,
+      current: { ...current, fetched: done, requests: done + 1 },
+    }
+    emit('sync:progress', state.sync)
   }
 
   const rowsWithUserState = () =>
@@ -116,63 +204,44 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
       return user ? { ...row, starred: user.starred, hidden: user.hidden } : row
     })
 
+  /** The rows the list covers: those of the sources the settings enable. */
+  const rowsInScope = () =>
+    rowsWithUserState().filter((row) => state.settings.syncSources.includes(row.source))
+
   return {
     'app:getInfo': () => fakeAppInfo(),
     'settings:get': () => state.settings,
     'settings:update': (patch) => {
       state.settings = { ...state.settings, ...patch }
+      if (patch.syncSources !== undefined) {
+        // The enabled sources decide which finished runs the status holds and
+        // which rows the list covers, so the list has to load again.
+        state.sync = { ...state.sync, lastRuns: lastRuns() }
+        emit('listings:changed', { edictIds: null })
+      }
       return state.settings
     },
 
     'sync:status': () => state.sync,
     'sync:start': ({ full }) => {
       if (state.sync.state !== 'idle') throw new AppError('busy', 'A sync is already running')
-      const total = 12
-      state.sync = {
-        state: 'running',
-        phase: 'list',
-        done: 0,
-        total,
-        current: {
-          id: (state.sync.lastFinished?.id ?? 0) + 1,
-          kind: full ? 'full' : 'incremental',
-          status: 'running',
-          startedAt: new Date().toISOString(),
-          finishedAt: null,
-          listed: state.rows.length,
-          fetched: 0,
-          changed: 0,
-          removed: 0,
-          requests: 1,
-          note: null,
-        },
-        lastFinished: state.sync.lastFinished,
-      }
-      syncTimer = setInterval(() => {
-        const { current } = state.sync
-        if (current === null) return
-        const done = state.sync.done + 1
-        if (done >= total) {
-          state.sync = { ...state.sync, current: { ...current, fetched: total - 1, changed: 2 } }
-          finishSync('ok')
-          return
-        }
-        state.sync = {
-          ...state.sync,
-          phase: done < total / 2 ? 'details' : 'kurzgutachten',
-          done,
-          current: { ...current, fetched: done, requests: done + 1 },
-        }
-        emit('sync:progress', state.sync)
-      }, 400)
+      // One pass reads the enabled sources one after the other, each in a run of its own.
+      waitingSources = enabledSources(state.settings)
+      syncTimer = setInterval(stepRun, SYNC_STEP_MS)
+      startNextRun(full ? 'full' : 'incremental')
       return state.sync
     },
     'sync:cancel': () => {
-      if (state.sync.state === 'running') finishSync('cancelled')
+      const { current } = state.sync
+      if (current !== null) {
+        // Cancelling ends the pass: the sources still waiting do not run.
+        waitingSources = []
+        finishRun(current, 'cancelled')
+      }
       return state.sync
     },
 
-    'listings:query': (query) => applyListingQuery(rowsWithUserState(), query),
+    'listings:query': (query) => applyListingQuery(rowsInScope(), query),
     'geocode:run': () => {
       // One address is still unknown; the pretend lookup places it a moment later.
       const unknown = state.rows.find((row) => row.street === 'Probegasse 21')
@@ -240,7 +309,7 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
     },
 
     ...createProviderHandlers(state, emit),
-    ...createJobHandlers(state, emit, rowsWithUserState),
+    ...createJobHandlers(state, emit, rowsInScope),
 
     'shell:openExternal': ({ url }) => {
       window.open(url, '_blank', 'noopener,noreferrer')
@@ -248,13 +317,26 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
   }
 }
 
+/** The sources the settings enable, in the order the sync reads them. */
+function enabledSources(settings: Settings): EdictSource[] {
+  return EdictSourceSchema.options.filter((source) => settings.syncSources.includes(source))
+}
+
+/** The phase a simulated run shows once `done` of its steps are over. */
+function runPhase(source: EdictSource, done: number): NonNullable<SyncStatus['phase']> {
+  if (done === 0) return 'list'
+  // Only auctions have Kurzgutachten pages. Reading them is the second half of their run.
+  return source === 'court_auction' && done >= RUN_STEPS[source] / 2 ? 'kurzgutachten' : 'details'
+}
+
 function createState(): MockState {
   const now = new Date().toISOString()
+  const settings = { ...DEFAULT_SETTINGS }
   const listings = fakeListings()
   const documents = fakeDocuments(listings)
   const analyses = fakeAnalysisHistory(listings)
   return {
-    settings: { ...DEFAULT_SETTINGS },
+    settings,
     rows: listings.map((row) => rowWithAnalyses(row, analyses, documents)),
     documents,
     estimates: fakeEstimates(listings, documents),
@@ -277,28 +359,51 @@ function createState(): MockState {
       done: 0,
       total: 0,
       current: null,
-      lastFinished: {
-        id: 1,
-        kind: 'full',
-        status: 'ok',
-        startedAt: '2026-11-04T07:00:00.000Z',
-        finishedAt: '2026-11-04T07:04:10.000Z',
-        listed: 9,
-        fetched: 9,
-        changed: 9,
-        removed: 0,
-        requests: 19,
-        note: null,
-      },
+      lastRuns: fakeFirstRuns(settings),
     },
   }
+}
+
+/** The first sync of the enabled sources: one finished run each, and every run ok. */
+function fakeFirstRuns(settings: Settings): SyncRunSummary[] {
+  const runs: Readonly<Record<EdictSource, SyncRunSummary>> = {
+    court_auction: {
+      id: 1,
+      source: 'court_auction',
+      kind: 'full',
+      status: 'ok',
+      startedAt: '2026-11-04T07:00:00.000Z',
+      finishedAt: '2026-11-04T07:04:10.000Z',
+      listed: 9,
+      fetched: 9,
+      changed: 9,
+      removed: 0,
+      requests: 19,
+      note: null,
+    },
+    insolvency_sale: {
+      id: 2,
+      source: 'insolvency_sale',
+      kind: 'full',
+      status: 'ok',
+      startedAt: '2026-11-04T07:04:10.000Z',
+      finishedAt: '2026-11-04T07:04:14.000Z',
+      listed: 2,
+      fetched: 2,
+      changed: 2,
+      removed: 0,
+      requests: 3,
+      note: null,
+    },
+  }
+  return enabledSources(settings).map((source) => runs[source])
 }
 
 function fakeAppInfo(): AppInfo {
   const agent = navigator.userAgent
   return {
     name: 'Edikte',
-    version: '0.1.0',
+    version: '0.2.0',
     platform: agent.includes('Windows') ? 'win32' : agent.includes('Mac') ? 'darwin' : 'linux',
     arch: 'unknown',
     isPackaged: false,
@@ -313,18 +418,16 @@ function fakeArea(sqm: number, kind: AreaValue['kind']): AreaValue {
   return { sqm, kind, source: 'listing', page: null, quote: null, documentId: null }
 }
 
-function fakeListing(
-  n: number,
-  fields: Pick<ListingRow, 'title' | 'propertyType'> & Partial<ListingRow>,
-): ListingRow {
-  const id = n.toString(16).padStart(32, '0')
+/** The fields a fake listing has to state. Every other field has a default in `fakeListing`. */
+type FakeListingFields = Pick<
+  ListingRow,
+  'id' | 'source' | 'caseKey' | 'url' | 'status' | 'noticeType' | 'title' | 'propertyType'
+> &
+  Partial<ListingRow>
+
+function fakeListing(fields: FakeListingFields): ListingRow {
   return withPriceBasis(
     {
-      id,
-      caseKey: `mock-case-${n}`,
-      url: `${EDIKTE_ORIGIN}${EX_DB_PATH}/alldoc/${id}!OpenDocument`,
-      status: 'upcoming',
-      noticeType: 'versteigerung',
       categoryLabel: null,
       street: null,
       plz: null,
@@ -333,7 +436,7 @@ function fakeListing(
       bezirk: null,
       location: null,
       court: null,
-      caseNumber: `${10 + n} E ${100 + n}/26x`,
+      caseNumber: null,
       auctionAt: null,
       publishedAt: '2026-10-20',
       schaetzwertEur: null,
@@ -345,6 +448,7 @@ function fakeListing(
       approximate: [],
       analysisStatus: null,
       hasAnalysis: false,
+      analysisStale: false,
       riskLevel: null,
       hasLanggutachten: true,
       starred: false,
@@ -356,9 +460,45 @@ function fakeListing(
   )
 }
 
+/** A court auction. Its ID is `n`, written as a Domino document ID. */
+function fakeAuction(
+  n: number,
+  fields: Pick<ListingRow, 'title' | 'propertyType'> & Partial<ListingRow>,
+): ListingRow {
+  const id = n.toString(16).padStart(32, '0')
+  return fakeListing({
+    id,
+    source: 'court_auction',
+    caseKey: `mock-case-${n}`,
+    url: `${EDIKTE_ORIGIN}${EX_DB_PATH}/alldoc/${id}!OpenDocument`,
+    status: 'upcoming',
+    noticeType: 'versteigerung',
+    caseNumber: `${10 + n} E ${100 + n}/26x`,
+    ...fields,
+  })
+}
+
+/**
+ * A sale in insolvency proceedings by its JustizOnline record number. It is
+ * on offer and has no auction.
+ */
+function fakeInsolvencySale(
+  recordNumber: number,
+  fields: Pick<ListingRow, 'title' | 'propertyType' | 'noticeType'> & Partial<ListingRow>,
+): ListingRow {
+  return fakeListing({
+    id: insolvencyEdictId(recordNumber),
+    source: 'insolvency_sale',
+    caseKey: `insolvency:${recordNumber}`,
+    url: `${JUSTIZONLINE_ORIGIN}/jop/web/ediktsdatei/suche/${recordNumber}`,
+    status: 'on_offer',
+    ...fields,
+  })
+}
+
 function fakeListings(): ListingRow[] {
   return [
-    fakeListing(1, {
+    fakeAuction(1, {
       title: 'Eigentumswohnung Top 12',
       propertyType: 'apartment',
       categoryLabel: 'Eigentumswohnung',
@@ -372,7 +512,7 @@ function fakeListings(): ListingRow[] {
       geringstesGebotEur: 122_500,
       area: fakeArea(65.76, 'nutzflaeche'),
     }),
-    fakeListing(2, {
+    fakeAuction(2, {
       title: 'Eigentumswohnung Top 4',
       propertyType: 'apartment',
       categoryLabel: 'Eigentumswohnung',
@@ -393,7 +533,7 @@ function fakeListings(): ListingRow[] {
         documentId: 2,
       },
     }),
-    fakeListing(3, {
+    fakeAuction(3, {
       title: 'Einfamilienhaus',
       propertyType: 'house',
       categoryLabel: 'Einfamilienhaus',
@@ -409,7 +549,7 @@ function fakeListings(): ListingRow[] {
       plotSqm: 420,
       approximate: ['area_mismatch'],
     }),
-    fakeListing(4, {
+    fakeAuction(4, {
       title: 'Eigentumswohnung Top 2',
       propertyType: 'apartment',
       categoryLabel: 'Eigentumswohnung',
@@ -422,7 +562,7 @@ function fakeListings(): ListingRow[] {
       schaetzwertEur: 310_000,
       geringstesGebotEur: 155_000,
     }),
-    fakeListing(5, {
+    fakeAuction(5, {
       title: 'Wohnung mit Loggia',
       propertyType: 'apartment',
       categoryLabel: 'Eigentumswohnung',
@@ -438,7 +578,7 @@ function fakeListings(): ListingRow[] {
       geringstesGebotEur: 99_000,
       area: fakeArea(52, 'nutzflaeche'),
     }),
-    fakeListing(6, {
+    fakeAuction(6, {
       title: 'Einfamilienhaus mit Garten',
       propertyType: 'house',
       categoryLabel: 'Einfamilienhaus',
@@ -454,7 +594,7 @@ function fakeListings(): ListingRow[] {
       area: fakeArea(110, 'wohnflaeche'),
       plotSqm: 650,
     }),
-    fakeListing(7, {
+    fakeAuction(7, {
       title: 'Geschäftslokal',
       propertyType: 'commercial',
       categoryLabel: 'Gewerbliche Liegenschaft',
@@ -468,7 +608,7 @@ function fakeListings(): ListingRow[] {
       schaetzwertEur: 350_000,
       geringstesGebotEur: 175_000,
     }),
-    fakeListing(8, {
+    fakeAuction(8, {
       title: 'Eigentumswohnung Top 7',
       propertyType: 'apartment',
       categoryLabel: 'Eigentumswohnung',
@@ -485,7 +625,7 @@ function fakeListings(): ListingRow[] {
       geringstesGebotEur: 145_000,
       area: fakeArea(70, 'nutzflaeche'),
     }),
-    fakeListing(9, {
+    fakeAuction(9, {
       title: 'Baugrundstück',
       propertyType: 'land',
       categoryLabel: 'Baugrund',
@@ -500,21 +640,47 @@ function fakeListings(): ListingRow[] {
       plotSqm: 600,
       hasLanggutachten: false,
     }),
+    // The sales in insolvency proceedings come last: the fake documents and
+    // analyses pick listings by their position in this list.
+    fakeInsolvencySale(990001, {
+      title: 'Eigentumswohnung Top 9',
+      propertyType: 'apartment',
+      noticeType: 'insolvenzverkauf',
+      categoryLabel: 'Eigentumswohnung',
+      street: 'Musterallee 8',
+      plz: '1140',
+      bezirk: 14,
+      location: { lat: 48.1975, lng: 16.2913, precision: 'address' },
+      court: 'HG Musterstadt',
+      caseNumber: '099 4 S 12/26 x',
+      publishedAt: '2026-10-19',
+      schaetzwertEur: 189_000,
+      area: fakeArea(58.4, 'nutzflaeche'),
+    }),
+    // A sparse notice: a lease that states no value and no area and has no files.
+    fakeInsolvencySale(990002, {
+      title: 'Geschäftslokal im Erdgeschoß',
+      propertyType: 'commercial',
+      noticeType: 'insolvenzverpachtung',
+      categoryLabel: 'Gewerbliche Liegenschaft',
+      street: 'Probezeile 3',
+      plz: '1120',
+      bezirk: 12,
+      location: { lat: 48.1763, lng: 16.3274, precision: 'street' },
+      court: 'HG Musterstadt',
+      caseNumber: '099 6 S 31/26 k',
+      publishedAt: '2026-10-12',
+      hasLanggutachten: false,
+    }),
   ]
 }
 
 function fakeDetail(state: MockState, row: ListingRow, n: number): ListingDetail {
-  const rawLabels: Record<string, string> = {}
-  if (row.court) rawLabels.Dienststelle = row.court
-  if (row.caseNumber) rawLabels.Aktenzeichen = row.caseNumber
-  if (row.schaetzwertEur !== null) rawLabels.Schätzwert = `EUR ${row.schaetzwertEur}`
   const documents = state.documents.filter((doc) => doc.edictId === row.id)
   const analyses = state.analyses.filter((record) => record.edictId === row.id)
-  const estimates = state.estimates.filter((estimate) =>
-    documents.some((doc) => doc.id === estimate.documentId),
-  )
-  const gutachten = documents.find((doc) => doc.kind === 'langgutachten')
-  const latestDone = analyses.findLast((record) => record.status === 'done')
+  const gutachten = documents.find((doc) => doc.kind === 'langgutachten' && doc.removedAt === null)
+  const estimates = state.estimates.filter((estimate) => estimate.documentId === gutachten?.id)
+  const latestDone = analyses.findLast((record) => record.status === 'done' && !record.stale)
   const aiArea = latestDone === undefined ? null : analysisArea(latestDone, gutachten?.id ?? null)
   const areaCandidates: AreaValue[] = [
     ...(row.area?.source === 'listing' ? [row.area] : []),
@@ -528,19 +694,24 @@ function fakeDetail(state: MockState, row: ListingRow, n: number): ListingDetail
       documentId,
     })),
   ]
+  // The fake sales in insolvency proceedings have no auction, and their
+  // notices state no deposit, accessories or land register entry.
+  const auction = row.source === 'court_auction'
+  const objektgroesseRaw = row.area?.source === 'listing' ? `${row.area.sqm} m²` : null
   return {
     ...row,
-    vadiumEur: row.schaetzwertEur === null ? null : Math.round(row.schaetzwertEur / 10),
+    vadiumEur: auction && row.schaetzwertEur !== null ? Math.round(row.schaetzwertEur / 10) : null,
     meistbotEur: row.status === 'sold' ? 301_000 : null,
-    zubehoer: 'kein Zubehör',
-    objektgroesseRaw: row.area?.source === 'listing' ? `${row.area.sqm} m²` : null,
-    grundbuch: '01234 Beispielort',
-    ez: String(100 + n),
-    auctionPlace: row.court === null ? null : `${row.court}, Saal 1`,
+    zubehoer: auction ? 'kein Zubehör' : null,
+    objektgroesseRaw,
+    grundbuch: auction ? '01234 Beispielort' : null,
+    ez: auction ? String(100 + n) : null,
+    auctionPlace: auction && row.court !== null ? `${row.court}, Saal 1` : null,
     viewing: n === 1 ? '25.11.2026, 14:00 bis 15:00 Uhr' : null,
     remarks: null,
-    rawLabels,
+    rawLabels: fakeRawLabels(row, objektgroesseRaw),
     kurzgutachten: fakeKurzgutachten(row),
+    insolvency: fakeInsolvency(row),
     documents,
     estimates,
     areaCandidates,
@@ -552,11 +723,108 @@ function fakeDetail(state: MockState, row: ListingRow, n: number): ListingDetail
   }
 }
 
-/** Facts from the Kurzgutachten page; only homes with a Gutachten have one here. */
-function fakeKurzgutachten(row: ListingRow): KurzgutachtenFacts | null {
-  if (!row.hasLanggutachten || (row.propertyType !== 'apartment' && row.propertyType !== 'house')) {
-    return null
+/**
+ * The headings of the edict page with their values, as far as the row holds
+ * them. A sale in insolvency proceedings has the headings of a JustizOnline
+ * notice, without those that name the debtor.
+ */
+function fakeRawLabels(row: ListingRow, objektgroesse: string | null): Record<string, string> {
+  const lease = row.noticeType === 'insolvenzverpachtung'
+  const labels: Array<[label: string, value: string | null]> =
+    row.source === 'insolvency_sale'
+      ? [
+          ['Dienststelle', row.court],
+          ['Aktenzeichen', row.caseNumber],
+          ['Bekanntmachungsdatum', row.publishedAt === null ? null : noticeDate(row.publishedAt)],
+          ['Art der Transaktion', lease ? 'Verpachtung' : 'Veräußerung'],
+          ['Straße', row.street],
+          ['PLZ', row.plz],
+          ['Ort', row.city],
+          ['Bundesland', row.bundesland === null ? null : BUNDESLAND_SITE_NAMES[row.bundesland]],
+          ['Kategorie(n)', row.categoryLabel],
+          ['Wert des Objekts', row.schaetzwertEur === null ? null : `€ ${row.schaetzwertEur}`],
+          ['Objektgröße', objektgroesse],
+        ]
+      : [
+          ['Dienststelle', row.court],
+          ['Aktenzeichen', row.caseNumber],
+          ['Schätzwert', row.schaetzwertEur === null ? null : `EUR ${row.schaetzwertEur}`],
+        ]
+  return Object.fromEntries(labels.filter((entry): entry is [string, string] => entry[1] !== null))
+}
+
+/** A site date such as "2026-10-19" as a notice prints it: "19.10.2026". */
+function noticeDate(date: string): string {
+  return `${date.slice(8, 10)}.${date.slice(5, 7)}.${date.slice(0, 4)}`
+}
+
+/**
+ * What the notice of a sale in insolvency proceedings says beyond the
+ * property. The sale names an administrator with every way to reach her, a
+ * deputy and a long text. The lease stands for a sparse notice: it has the
+ * name of an administrator and nothing else. Neither says who the debtor is.
+ */
+function fakeInsolvency(row: ListingRow): InsolvencyFacts | null {
+  if (row.source !== 'insolvency_sale') return null
+  if (row.noticeType === 'insolvenzverpachtung') {
+    return {
+      administrator: {
+        name: 'Mag. Anna Probe',
+        address: null,
+        phone: null,
+        fax: null,
+        email: null,
+      },
+      deputy: null,
+      description: null,
+      link: null,
+    }
   }
+  return {
+    administrator: {
+      name: 'Dr. Erika Beispiel',
+      address: 'Beispielgasse 1, 1010 Wien',
+      phone: '+43 1 000 00 00',
+      fax: '+43 1 000 00 09',
+      email: 'erika.beispiel@example.at',
+    },
+    deputy: {
+      name: 'Mag. Paul Muster',
+      address: null,
+      phone: '+43 1 000 00 01',
+      fax: null,
+      email: 'paul.muster@example.at',
+    },
+    description:
+      'Verkauft wird eine Wohnung im dritten Stock mit zwei Zimmern, Loggia und Kellerabteil. ' +
+      'Die Wohnung ist bestandfrei und wird im vorhandenen Zustand übergeben. ' +
+      'Schriftliche Anbote nimmt die Insolvenzverwalterin entgegen.',
+    link: null,
+  }
+}
+
+/**
+ * Facts from the Kurzgutachten page of an auction. Only homes with a Gutachten
+ * have one here. The notice of a sale in insolvency proceedings states such
+ * facts itself, without a reference date and without an author. The lease
+ * stands for a notice that states none.
+ */
+function fakeKurzgutachten(row: ListingRow): KurzgutachtenFacts | null {
+  if (row.source === 'insolvency_sale') {
+    if (row.noticeType !== 'insolvenzverkauf') return null
+    return {
+      anschluesse: 'Wasser, Kanal, Strom, Fernwärme',
+      baubewilligung: '1968',
+      widmung: 'Bauland-Wohngebiet, Bauklasse III',
+      bestandsverhaeltnisse: 'Bestandfrei',
+      stichtag: null,
+      lasten: null,
+      erstelltVon: null,
+      other: { Benützungsbewilligung: '1970' },
+    }
+  }
+  const home = row.propertyType === 'apartment' || row.propertyType === 'house'
+  if (!row.hasLanggutachten || !home) return null
   const house = row.propertyType === 'house'
   return {
     anschluesse: house ? 'Wasser, Kanal, Strom, Gas' : 'Wasser, Kanal, Strom, Fernwärme',
@@ -571,15 +839,15 @@ function fakeKurzgutachten(row: ListingRow): KurzgutachtenFacts | null {
   }
 }
 
-/** The earlier Versteigerung edict of a postponed or sold listing. */
+/** The earlier Versteigerung edict of a postponed or sold auction. */
 function fakeRelated(row: ListingRow, n: number): RelatedEdict[] {
-  if (row.noticeType === 'versteigerung') return []
+  if (row.source !== 'court_auction' || row.noticeType === 'versteigerung') return []
   const id = (0xa000 + n).toString(16).padStart(32, '0')
   return [
     {
       id,
       noticeType: 'versteigerung',
-      status: STATUS_BY_NOTICE.versteigerung,
+      status: statusFor('court_auction', 'versteigerung'),
       publishedAt: '2026-08-20',
       auctionAt: row.status === 'sold' ? row.auctionAt : '2026-11-26T10:00',
       url: `${EDIKTE_ORIGIN}${EX_DB_PATH}/alldoc/${id}!OpenDocument`,

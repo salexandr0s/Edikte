@@ -24,22 +24,32 @@ export interface AnalysisHistoryState {
 
 /** Loads analysis:list, and loads it again whenever `latestKey` changes. */
 export function useAnalysisHistory(edictId: string, latestKey: string): AnalysisHistoryState {
-  const [history, setHistory] = useState<AnalysisHistoryState>({ runs: null, failed: null })
+  const key = `${edictId}:${latestKey}`
+  const [history, setHistory] = useState<AnalysisHistoryState & { key: string }>({
+    runs: null,
+    failed: null,
+    key,
+  })
   useEffect(() => {
     let current = true
     invoke('analysis:list', { edictId }).then(
       (runs) => {
-        if (current) setHistory({ runs, failed: null })
+        if (current) setHistory({ runs, failed: null, key })
       },
       (error: unknown) => {
-        if (current) setHistory((previous) => ({ ...previous, failed: errorCode(error) }))
+        if (current)
+          setHistory((previous) => ({
+            runs: previous.key === key ? previous.runs : null,
+            failed: errorCode(error),
+            key,
+          }))
       },
     )
     return () => {
       current = false
     }
-  }, [edictId, latestKey])
-  return history
+  }, [edictId, key])
+  return history.key === key ? history : { runs: null, failed: null }
 }
 
 const runDate = (run: AnalysisRecord) => run.finishedAt ?? run.createdAt
@@ -81,8 +91,12 @@ export function AnalysisHistory({ history, latestId, viewedRunId, onView }: Anal
               <span className="text-fg-muted">
                 {t(`providerName.${run.provider}`)} · {run.model}
               </span>
-              <Badge size="sm" variant={STATUS_VARIANTS[run.status]}>
-                {t(`analysisStatus.${run.status}`)}
+              <Badge
+                size="sm"
+                variant={run.stale ? 'warning' : STATUS_VARIANTS[run.status]}
+                title={run.stale ? t('analysis.stale.reason') : undefined}
+              >
+                {run.stale ? t('analysis.stale.label') : t(`analysisStatus.${run.status}`)}
               </Badge>
               {run.status === 'done' && run.id !== viewedRunId && (
                 <Button

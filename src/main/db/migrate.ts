@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3'
 import { z } from 'zod'
 import { AppError } from '@shared/errors'
+import { createMigrationBackup } from './backup'
 import journalJson from './migrations/meta/_journal.json'
 
 // Migrations come from drizzle-kit (`npm run db:generate`). They are bundled
@@ -43,14 +44,17 @@ export function runMigrations(
   sqlite: Database.Database,
   migrations = bundledMigrations(),
 ): string[] {
-  sqlite.exec(
-    'CREATE TABLE IF NOT EXISTS schema_migrations (tag TEXT PRIMARY KEY NOT NULL, applied_at TEXT NOT NULL)',
-  )
-  const applied = new Set(
+  const hasLedger =
     sqlite
-      .prepare<[], { tag: string }>('SELECT tag FROM schema_migrations')
-      .all()
-      .map((row) => row.tag),
+      .prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'schema_migrations'")
+      .get() !== undefined
+  const applied = new Set(
+    hasLedger
+      ? sqlite
+          .prepare<[], { tag: string }>('SELECT tag FROM schema_migrations')
+          .all()
+          .map((row) => row.tag)
+      : [],
   )
   const known = new Set(migrations.map((migration) => migration.tag))
   const unknown = [...applied].filter((tag) => !known.has(tag))
@@ -61,10 +65,17 @@ export function runMigrations(
     )
   }
 
+  const pending = migrations.filter((migration) => !applied.has(migration.tag))
+  const firstPending = pending[0]
+  if (firstPending === undefined) return []
+  createMigrationBackup(sqlite, firstPending.tag)
+  sqlite.exec(
+    'CREATE TABLE IF NOT EXISTS schema_migrations (tag TEXT PRIMARY KEY NOT NULL, applied_at TEXT NOT NULL)',
+  )
+
   const record = sqlite.prepare('INSERT INTO schema_migrations (tag, applied_at) VALUES (?, ?)')
   const newlyApplied: string[] = []
-  for (const migration of migrations) {
-    if (applied.has(migration.tag)) continue
+  for (const migration of pending) {
     sqlite.transaction(() => {
       for (const statement of migration.statements) sqlite.exec(statement)
       record.run(migration.tag, new Date().toISOString())

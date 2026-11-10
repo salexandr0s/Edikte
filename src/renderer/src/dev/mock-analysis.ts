@@ -30,7 +30,17 @@ export function fakeAnalysisHistory(rows: readonly ListingRow[]): AnalysisRecord
       message: 'Usage limit reached',
     }),
     fakeAnalysisRecord(first, 2, 'claude-cli', 'opus', '2026-11-04T09:12:00.000Z'),
-    fakeAnalysisRecord(second, 3, 'anthropic-api', 'claude-opus-5-5', '2026-11-04T09:16:00.000Z'),
+    {
+      ...fakeAnalysisRecord(
+        second,
+        3,
+        'anthropic-api',
+        'claude-opus-5-5',
+        '2026-11-04T09:16:00.000Z',
+      ),
+      documentId: 2,
+      stale: true,
+    },
     fakeAnalysisRecord(house, 4, 'claude-cli', 'opus', '2026-11-04T09:20:00.000Z'),
   ]
 }
@@ -51,6 +61,7 @@ export function queuedRecord(
     promptVersion: MOCK_PROMPT_VERSION,
     schemaVersion: ANALYSIS_SCHEMA_VERSION,
     status: 'queued',
+    stale: false,
     result: null,
     evidence: [],
     crossChecks: [],
@@ -114,16 +125,24 @@ export function rowWithAnalyses(
   documents: readonly DocumentInfo[],
 ): ListingRow {
   const own = analyses.filter((record) => record.edictId === row.id)
-  const latestDone = own.findLast((record) => record.status === 'done')
-  const gutachten = documents.find((doc) => doc.edictId === row.id && doc.kind === 'langgutachten')
+  const latestDone = own.findLast((record) => record.status === 'done' && !record.stale)
+  const gutachten = documents.find(
+    (doc) => doc.edictId === row.id && doc.kind === 'langgutachten' && doc.removedAt === null,
+  )
   const aiArea = latestDone === undefined ? null : analysisArea(latestDone, gutachten?.id ?? null)
+  const baseArea =
+    row.area?.source === 'listing' ||
+    (row.area?.source === 'local_estimate' && row.area.documentId === gutachten?.id)
+      ? row.area
+      : null
   return withPriceBasis(
     {
       ...row,
       analysisStatus: own.at(-1)?.status ?? null,
       hasAnalysis: latestDone !== undefined,
+      analysisStale: latestDone === undefined && own.some((record) => record.status === 'done'),
       riskLevel: highestRisk(latestDone?.result ?? null),
-      area: aiArea !== null && row.area?.source !== 'listing' ? aiArea : row.area,
+      area: baseArea?.source === 'listing' ? baseArea : (aiArea ?? baseArea),
     },
     row.priceBasis,
   )
@@ -131,6 +150,7 @@ export function rowWithAnalyses(
 
 /** The area a finished analysis picked, as an area value of the listing. */
 export function analysisArea(record: AnalysisRecord, documentId: number | null): AreaValue | null {
+  if (record.stale) return null
   const index = record.result?.primary_area_index ?? null
   const area = index === null ? undefined : record.result?.areas[index]
   if (area === undefined) return null

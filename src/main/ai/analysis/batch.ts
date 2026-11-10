@@ -13,6 +13,13 @@ export interface AnalysisJob {
   model: string
 }
 
+/** A finished analysis with the documents the job actually read. */
+export interface AnalysisJobOutcome extends AnalysisOutcome {
+  documentIds: number[]
+  /** Bytes of the first report when its pages were read. */
+  documentSha256: string | null
+}
+
 /**
  * The queue's rows in the analyses table, implemented by the caller. Rows in
  * status queued or running are pending: after a restart `listPending` returns
@@ -21,7 +28,11 @@ export interface AnalysisJob {
 export interface AnalysisJobStore {
   listPending(): AnalysisJob[] | Promise<AnalysisJob[]>
   markRunning(analysisId: number, startedAt: string): void | Promise<void>
-  markDone(analysisId: number, outcome: AnalysisOutcome, finishedAt: string): void | Promise<void>
+  markDone(
+    analysisId: number,
+    outcome: AnalysisJobOutcome,
+    finishedAt: string,
+  ): void | Promise<void>
   markFailed(analysisId: number, failure: AnalysisFailure, finishedAt: string): void | Promise<void>
   markCancelled(analysisId: number, finishedAt: string): void | Promise<void>
 }
@@ -36,7 +47,7 @@ export type AnalysisJobRunner = (
   job: AnalysisJob,
   signal: AbortSignal,
   onStep: (step: AnalysisJobStep) => void,
-) => Promise<AnalysisOutcome>
+) => Promise<AnalysisJobOutcome>
 
 export type AnalysisCancelTarget = { analysisId: number } | { provider: ProviderId } | { all: true }
 
@@ -217,7 +228,7 @@ export class AnalysisQueue {
   private async execute(current: RunningJob): Promise<FinalStatus | null> {
     const { job } = current
     const { signal } = current.controller
-    let outcome: AnalysisOutcome
+    let outcome: AnalysisJobOutcome
     try {
       await this.store.markRunning(job.analysisId, this.now())
       if (signal.aborted) throw new AppError('cancelled', 'Analysis cancelled')
@@ -245,7 +256,7 @@ export class AnalysisQueue {
    * ends the job as failed with what the run spent and received, so a restart
    * does not pay for the same analysis twice.
    */
-  private async storeOutcome(job: AnalysisJob, outcome: AnalysisOutcome): Promise<FinalStatus> {
+  private async storeOutcome(job: AnalysisJob, outcome: AnalysisJobOutcome): Promise<FinalStatus> {
     for (let attempt = 1; attempt <= RESULT_WRITE_ATTEMPTS; attempt += 1) {
       if (attempt > 1) await delay(this.storeRetryMs)
       try {

@@ -15,6 +15,17 @@ function status(code: number, headers: Record<string, string> = {}): Response {
   return new Response('', { status: code, headers })
 }
 
+const API = 'https://justizonline.gv.at/jop/service/edi/v1/edikte/990001'
+/** A file of an API record, as a download address. */
+const FILE = `${API}/resources/TVZfOTk5MDAwMQ`
+
+function json(value: unknown): Response {
+  return new Response(JSON.stringify(value), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
 /** A fetch that answers only when its request is aborted, like a server that never replies. */
 function hangingFetch(_input: string | URL | Request, init?: RequestInit): Promise<Response> {
   return new Promise((_resolve, reject) => {
@@ -235,7 +246,7 @@ describe('EdikteClient', () => {
   })
 
   it('times out a download that gets no answer once it leaves the queue', async () => {
-    const { client, fetchMock } = setup({ timeoutMs: 30_000 })
+    const { client, fetchMock } = setup({ timeoutMs: 30_000, downloadAttempts: 1 })
     fetchMock.mockImplementationOnce(hangingFetch).mockResolvedValueOnce(page('next'))
     const assertion = expect(client.limitedFetch(PAGE)).rejects.toMatchObject({ code: 'timeout' })
     await vi.advanceTimersByTimeAsync(30_000)
@@ -273,5 +284,131 @@ describe('EdikteClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     controller.abort()
     await assertion
+  })
+
+  it('reads JSON from the API with its own Accept header and the same User-Agent', async () => {
+    const { client, fetchMock } = setup()
+    fetchMock.mockResolvedValueOnce(json({ total: 1, edikte: [{ id: 990001 }] }))
+    await expect(client.getJson(API)).resolves.toEqual({ total: 1, edikte: [{ id: 990001 }] })
+    const call = fetchMock.mock.calls[0]
+    expect(call?.[0]).toBe(API)
+    const headers = new Headers(call?.[1]?.headers)
+    expect(headers.get('accept')).toBe('application/json')
+    expect(headers.get('user-agent')).toBe('Edikte/1.2.3 (desktop app for personal use)')
+    expect(client.requestCount).toBe(1)
+  })
+
+  it('keeps one pace across both hosts', async () => {
+    const { client, fetchMock } = setup()
+    fetchMock.mockResolvedValueOnce(page('Seite')).mockResolvedValueOnce(json({ total: 0 }))
+    const first = client.getText(PAGE)
+    const second = client.getJson(API)
+    await vi.advanceTimersByTimeAsync(999)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await expect(first).resolves.toBe('Seite')
+    await expect(second).resolves.toEqual({ total: 0 })
+  })
+
+  it('refuses addresses outside the JustizOnline API without sending a request', async () => {
+    const { client, fetchMock } = setup()
+    for (const url of [
+      'https://example.com/jop/service/edi/v1/edikte/990001',
+      'https://justizonline.gv.at/jop/web/ediktsdatei/suche/990001',
+      'https://justizonline.gv.at/jop/service/edi/v1/../../web/ediktsdatei/suche',
+      'http://justizonline.gv.at/jop/service/edi/v1/edikte/990001',
+      'https://justizonline.gv.at:8443/jop/service/edi/v1/edikte/990001',
+      'https://someone@justizonline.gv.at/jop/service/edi/v1/edikte/990001',
+    ]) {
+      await expect(client.getJson(url)).rejects.toMatchObject({ code: 'site_changed' })
+    }
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('refuses an API answer that is not JSON', async () => {
+    const { client, fetchMock } = setup()
+    fetchMock
+      // The text would parse; only its content type says it is a page.
+      .mockResolvedValueOnce(page('{"total":0}'))
+      .mockResolvedValueOnce(
+        new Response('{"edikte":', { headers: { 'content-type': 'application/json' } }),
+      )
+    await expect(client.getJson(API)).rejects.toMatchObject({ code: 'site_changed' })
+    const invalid = expect(client.getJson(API)).rejects.toMatchObject({ code: 'site_changed' })
+    await vi.advanceTimersByTimeAsync(1000)
+    await invalid
+    // Neither answer is asked for again.
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('refuses API redirects to another host or away from the API path', async () => {
+    const { client, fetchMock } = setup()
+    for (const location of [
+      'https://example.com/jop/service/edi/v1/edikte/990001',
+      'https://justizonline.gv.at/jop/web/ediktsdatei/suche',
+    ]) {
+      fetchMock.mockResolvedValueOnce(status(302, { location }))
+      const refused = expect(client.getJson(API)).rejects.toMatchObject({ code: 'site_changed' })
+      await vi.advanceTimersByTimeAsync(1000)
+      await refused
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('pauses only the host that keeps failing', async () => {
+    const { client, fetchMock } = setup({ maxAttempts: 1 })
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(input === PAGE ? status(500) : json({ total: 0 })),
+    )
+    for (let request = 0; request < 5; request += 1) {
+      const assertion = expect(client.getText(PAGE)).rejects.toMatchObject({
+        code: 'site_unavailable',
+      })
+      await vi.advanceTimersByTimeAsync(1000)
+      await assertion
+    }
+    const paused = { code: 'site_unavailable', message: 'Requests paused after repeated failures' }
+    await expect(client.getText(PAGE)).rejects.toMatchObject(paused)
+    // A download counts against the host of its address.
+    await expect(client.limitedFetch(PAGE)).rejects.toMatchObject(paused)
+    const other = client.getJson(API)
+    await vi.advanceTimersByTimeAsync(1000)
+    await expect(other).resolves.toEqual({ total: 0 })
+    expect(fetchMock).toHaveBeenCalledTimes(6)
+  })
+
+  it('gives the API a shorter timeout and retries a request that gets no answer', async () => {
+    const { client, fetchMock } = setup()
+    fetchMock.mockImplementationOnce(hangingFetch).mockResolvedValueOnce(json({ total: 0 }))
+    const result = client.getJson(API)
+    // The 10 s timeout, then all but the last millisecond of the 2 s backoff.
+    await vi.advanceTimersByTimeAsync(10_000 + 1_999)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await expect(result).resolves.toEqual({ total: 0 })
+  })
+
+  it('tries a download again when the first try gets no answer', async () => {
+    const { client, fetchMock } = setup()
+    fetchMock.mockImplementationOnce(hangingFetch).mockResolvedValueOnce(page('pdf'))
+    const download = client.limitedFetch(FILE)
+    // The header timeout of the file's host, then the 2 s backoff.
+    await vi.advanceTimersByTimeAsync(10_000 + 1_999)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await expect(download.then((response) => response.text())).resolves.toBe('pdf')
+  })
+
+  it('gives up on a download that never answers after three tries', async () => {
+    const { client, fetchMock } = setup()
+    fetchMock.mockImplementation(hangingFetch)
+    const assertion = expect(client.limitedFetch(FILE)).rejects.toMatchObject({ code: 'timeout' })
+    // Three timeouts of 10 s with backoffs of 2 s and 4 s between them.
+    await vi.advanceTimersByTimeAsync(10_000 + 2_000 + 10_000 + 4_000 + 10_000)
+    await assertion
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 })

@@ -8,6 +8,7 @@ import { CHATGPT_ISSUER } from './ai/chatgpt/authorization'
 // as the ChatGPT sign-in open their own URLs and do not go through this list.
 const EXTERNAL_HOSTS = new Set([
   'edikte.justiz.gv.at',
+  'justizonline.gv.at',
   'www.justiz.gv.at',
   'chatgpt.com',
   'platform.openai.com',

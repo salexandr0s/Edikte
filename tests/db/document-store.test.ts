@@ -1,7 +1,8 @@
+import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase, type AppDatabase } from '../../src/main/db/client'
 import { createDocumentStore } from '../../src/main/db/document-store'
-import { userState } from '../../src/main/db/schema'
+import { areaEstimates, edicts, userState } from '../../src/main/db/schema'
 import { NOW, edictId, insertEdict, insertGutachten } from '../services/documents/seed'
 
 let db: AppDatabase
@@ -15,6 +16,28 @@ afterEach(() => {
 })
 
 describe('document store', () => {
+  it('selects the first published report and keeps an on-offer sale open until removal', () => {
+    const id = 'mv-990001'
+    insertEdict(db, id, {
+      source: 'insolvency_sale',
+      status: 'on_offer',
+      publishedAt: '2026-01-01',
+    })
+    const retired = insertGutachten(db, id, {
+      removedAt: NOW,
+      localPath: `${id}/retired.pdf`,
+    })
+    const active = insertGutachten(db, id, { url: 'https://example.invalid/current.pdf' })
+    insertGutachten(db, id, { url: 'https://example.invalid/second.pdf' })
+    const store = createDocumentStore(db)
+    expect(store.langgutachten([id]).get(id)?.id).toBe(active)
+    expect(store.retentionCandidates()).toEqual([
+      { documentId: retired, localPath: `${id}/retired.pdf`, caseClosedAt: null, keep: false },
+    ])
+    db.update(edicts).set({ removedAt: NOW }).where(eq(edicts.id, id)).run()
+    expect(store.retentionCandidates()[0]?.caseClosedAt).toBe(NOW)
+  })
+
   it('records a download with its pages and estimate, and forgets them again', () => {
     const edict = edictId(1)
     insertEdict(db, edict, {
@@ -56,6 +79,10 @@ describe('document store', () => {
         createdAt: NOW,
       },
     ])
+    expect(db.select().from(areaEstimates).get()).toMatchObject({
+      documentId,
+      documentSha256: 'abc',
+    })
 
     expect(store.find(documentId)).toMatchObject({
       edictTitle: 'Einfamilienhaus',

@@ -8,6 +8,10 @@ import { safePdfFileName } from '../../src/main/documents/file-names'
 
 const EDICT_ID = '0123456789abcdef0123456789abcdef'
 const START = 'https://edikte.justiz.gv.at/edikte/ex/exedi3.nsf/0/abc/$file/gutachten.pdf'
+// A made-up JustizOnline record and one of its files.
+const INSOLVENCY_EDICT_ID = 'mv-990001'
+const INSOLVENCY_FILE =
+  'https://justizonline.gv.at/jop/service/edi/v1/edikte/990001/resources/TVZfOTkwMDAx'
 const PDF = new TextEncoder().encode('%PDF-1.4\n% test file\n%%EOF\n')
 
 let documentsDir: string
@@ -43,8 +47,8 @@ function options(fetcher: typeof fetch, extra: Partial<DownloadOptions> = {}): D
   }
 }
 
-function edictFiles(): Promise<string[]> {
-  return readdir(path.join(documentsDir, EDICT_ID)).catch(() => [])
+function edictFiles(edictId = EDICT_ID): Promise<string[]> {
+  return readdir(path.join(documentsDir, edictId)).catch(() => [])
 }
 
 describe('downloadDocument', () => {
@@ -107,6 +111,69 @@ describe('downloadDocument', () => {
       })
     }
     expect(urls).toEqual([])
+  })
+
+  // Catches a download that knows only the auction site: every document of an
+  // insolvency sale would then end as forbidden.
+  it('downloads a file of an insolvency record into the folder of that record', async () => {
+    const { fetch, urls } = fakeFetch(() => new Response(PDF))
+    const result = await downloadDocument(
+      options(fetch, { url: INSOLVENCY_FILE, edictId: INSOLVENCY_EDICT_ID }),
+    )
+    expect(urls).toEqual([INSOLVENCY_FILE])
+    expect(result).toMatchObject({
+      localPath: `${INSOLVENCY_EDICT_ID}/gutachten.pdf`,
+      absolutePath: path.join(documentsDir, INSOLVENCY_EDICT_ID, 'gutachten.pdf'),
+      finalUrl: INSOLVENCY_FILE,
+    })
+    expect(await edictFiles(INSOLVENCY_EDICT_ID)).toEqual(['gutachten.pdf'])
+  })
+
+  // Catches a policy that accepts both sites for every edict, and one that
+  // checks the host of a JustizOnline file without its record number. Either
+  // would let a stored row fetch a file that belongs to another edict.
+  it.each([
+    {
+      name: 'a JustizOnline file for an auction',
+      url: INSOLVENCY_FILE,
+      edictId: EDICT_ID,
+    },
+    {
+      name: 'an auction document for an insolvency record',
+      url: START,
+      edictId: INSOLVENCY_EDICT_ID,
+    },
+    {
+      name: 'a file of another insolvency record',
+      url: 'https://justizonline.gv.at/jop/service/edi/v1/edikte/990002/resources/TVZfOTkwMDAy',
+      edictId: INSOLVENCY_EDICT_ID,
+    },
+  ])('refuses $name without fetching', async ({ url, edictId }) => {
+    const { fetch, urls } = fakeFetch(() => new Response(PDF))
+    await expect(downloadDocument(options(fetch, { url, edictId }))).rejects.toMatchObject({
+      code: 'forbidden',
+    })
+    expect(urls).toEqual([])
+  })
+
+  // Catches a redirect check that accepts either site whatever host the
+  // download started on, and one that pins the host but lets the download
+  // leave the API path for other pages of JustizOnline.
+  it.each([
+    { name: 'to the auction site', location: START },
+    {
+      name: 'out of the API path',
+      location: 'https://justizonline.gv.at/jop/web/ediktsdatei/suche/990001',
+    },
+  ])('refuses a redirect of an insolvency file $name', async ({ location }) => {
+    const { fetch, urls } = fakeFetch(
+      () => new Response(null, { status: 302, headers: { Location: location } }),
+    )
+    await expect(
+      downloadDocument(options(fetch, { url: INSOLVENCY_FILE, edictId: INSOLVENCY_EDICT_ID })),
+    ).rejects.toMatchObject({ code: 'forbidden' })
+    expect(urls).toEqual([INSOLVENCY_FILE])
+    expect(await edictFiles(INSOLVENCY_EDICT_ID)).toEqual([])
   })
 
   it('stops at the size cap, announced or not', async () => {

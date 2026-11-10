@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DocumentProgressSchema,
@@ -8,9 +9,11 @@ import {
   type ListingQuery,
   type ListingRow,
 } from '@shared/domain'
+import { AppError } from '@shared/errors'
 import { openDatabase, type AppDatabase } from '../../../src/main/db/client'
 import { createDocumentStore } from '../../../src/main/db/document-store'
-import { areaEstimates, userState } from '../../../src/main/db/schema'
+import { queryListings } from '../../../src/main/db/listing-store'
+import { areaEstimates, documents, userState } from '../../../src/main/db/schema'
 import type { ExtractedDocument } from '../../../src/main/documents/extract'
 import type { EmitEvent } from '../../../src/main/ipc/events'
 import { EdikteClient } from '../../../src/main/scraper/client'
@@ -110,6 +113,154 @@ function setup(rows: ListingRow[] = [], overrides: Partial<DocumentServiceDeps> 
 }
 
 describe('document service', () => {
+  it.each([
+    { label: 'a usable area', pages: AREA_DOCUMENT.pages, sqm: 70 },
+    {
+      label: 'no area',
+      pages: [{ pageNumber: 1, printedLabel: null, hasText: true, text: 'No usable area stated' }],
+      sqm: null,
+    },
+  ])(
+    'refreshes a cached legacy estimate to $label once without downloading or re-extracting',
+    async ({ pages, sqm }) => {
+      const edict = edictId(203)
+      insertEdict(db, edict, { bundesland: 'wien' })
+      const documentId = insertGutachten(db, edict)
+      await storeReadDocument(db, documentsDir, documentId, edict, pages)
+      db.insert(areaEstimates)
+        .values({
+          edictId: edict,
+          documentId,
+          documentSha256: null,
+          kind: 'nutzflaeche',
+          sqm: 55,
+          page: 1,
+          quote: 'Old estimate',
+          confidence: 'medium',
+          method: 'legacy',
+          createdAt: NOW,
+        })
+        .run()
+      const store = createDocumentStore(db)
+      const replace = vi.spyOn(store, 'replaceEstimates')
+      const fetch = vi.fn<DocumentServiceDeps['fetch']>()
+      const extract = vi.fn<DocumentServiceDeps['extract']>()
+      const { service } = setup([], {
+        store,
+        fetch,
+        extract,
+        queryListings: (query) => queryListings(db, query),
+      })
+
+      expect(await service.planFill(QUERY)).toMatchObject({
+        listings: 1,
+        documents: 0,
+        cachedDocuments: 1,
+      })
+      await service.fill(QUERY)
+      await service.idle()
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(extract).not.toHaveBeenCalled()
+      const estimates = db.select().from(areaEstimates).all()
+      if (sqm === null) expect(estimates).toEqual([])
+      else expect(estimates).toMatchObject([{ documentSha256: 'sha', sqm }])
+      expect(queryListings(db, QUERY).rows[0]?.area?.sqm ?? null).toBe(sqm)
+      expect(await service.planFill(QUERY)).toMatchObject({ documents: 0, cachedDocuments: 0 })
+      await service.fill(QUERY)
+      await service.idle()
+      expect(replace).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('extracts changed downloaded bytes after an interrupted read instead of reusing old pages', async () => {
+    const edict = edictId(202)
+    insertEdict(db, edict)
+    const documentId = insertGutachten(db, edict)
+    await storeReadDocument(db, documentsDir, documentId, edict, [
+      { pageNumber: 1, printedLabel: null, hasText: true, text: 'Old report pages' },
+    ])
+    const store = createDocumentStore(db)
+    const oldPath = store.find(documentId)?.row.localPath
+    expect(oldPath).toBeTruthy()
+    await rm(path.join(documentsDir, oldPath ?? 'missing'))
+    const extract = vi
+      .fn<DocumentServiceDeps['extract']>()
+      .mockRejectedValueOnce(new AppError('cancelled', 'Interrupted after download'))
+      .mockResolvedValueOnce(AREA_DOCUMENT)
+    const fetch = vi.fn(pdfFetch)
+    const { service } = setup([], { extract, fetch })
+
+    await expect(service.prepare(documentId, new AbortController().signal)).rejects.toMatchObject({
+      code: 'cancelled',
+    })
+    await service.idle()
+    await service.prepare(documentId, new AbortController().signal)
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(extract).toHaveBeenCalledTimes(2)
+    expect(store.pageTexts(documentId).map((page) => page.text)).toEqual(
+      AREA_DOCUMENT.pages.map((page) => page.text),
+    )
+  })
+
+  it('retains extraction on an identical re-download and re-reads a cache with unknown identity', async () => {
+    const edict = edictId(204)
+    insertEdict(db, edict)
+    const documentId = insertGutachten(db, edict)
+    await storeReadDocument(db, documentsDir, documentId, edict, AREA_DOCUMENT.pages)
+    const store = createDocumentStore(db)
+    const row = store.find(documentId)?.row
+    expect(row).toBeDefined()
+    store.recordDownload(documentId, {
+      localPath: row?.localPath ?? '',
+      sha256: 'sha',
+      bytes: 17,
+      downloadedAt: '2026-11-06T08:00:00.000Z',
+    })
+    expect(store.find(documentId)?.row.extractedAt).toBe(NOW)
+    expect(store.pageTexts(documentId)).toHaveLength(2)
+    const extract = vi.fn<DocumentServiceDeps['extract']>().mockResolvedValue(AREA_DOCUMENT)
+    const fetch = vi.fn<DocumentServiceDeps['fetch']>()
+    const { service } = setup([], { extract, fetch })
+
+    await service.prepare(documentId, new AbortController().signal)
+    expect(extract).not.toHaveBeenCalled()
+    db.update(documents).set({ sha256: null }).where(eq(documents.id, documentId)).run()
+
+    const prepared = await service.prepare(documentId, new AbortController().signal)
+
+    expect(prepared.row.sha256).toMatch(/^[a-f0-9]{64}$/)
+    expect(extract).toHaveBeenCalledTimes(1)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('finishes an interrupted cached extraction even without an old estimate row', async () => {
+    const edict = edictId(205)
+    insertEdict(db, edict, { bundesland: 'wien' })
+    const documentId = insertGutachten(db, edict)
+    await storeReadDocument(db, documentsDir, documentId, edict, [])
+    db.update(documents)
+      .set({ extractedAt: null, pageCount: null })
+      .where(eq(documents.id, documentId))
+      .run()
+    const fetch = vi.fn<DocumentServiceDeps['fetch']>()
+    const extract = vi.fn<DocumentServiceDeps['extract']>().mockResolvedValue(AREA_DOCUMENT)
+    const { service } = setup([], {
+      fetch,
+      extract,
+      queryListings: (query) => queryListings(db, query),
+    })
+
+    expect(await service.planFill(QUERY)).toMatchObject({ documents: 0, cachedDocuments: 1 })
+    await service.fill(QUERY)
+    await service.idle()
+
+    expect(queryListings(db, QUERY).rows[0]?.area?.sqm).toBe(70)
+    expect(extract).toHaveBeenCalledTimes(1)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('downloads a document, reads it and stores the local estimate', async () => {
     const edict = edictId(1)
     insertEdict(db, edict)
@@ -157,6 +308,7 @@ describe('document service', () => {
     expect(await service.planFill({ ...QUERY, includeWithoutArea: false })).toEqual({
       listings: 3,
       documents: 1,
+      cachedDocuments: 0,
       totalKb: 300,
     })
     expect(queries[0]?.includeWithoutArea).toBe(true)
@@ -168,7 +320,12 @@ describe('document service', () => {
     insertGutachten(db, edict)
     const { service, progress } = setup([listingRow(edict, null)], { fetch: hangingFetch })
 
-    expect(await service.fill(QUERY)).toEqual({ listings: 1, documents: 1, totalKb: 100 })
+    expect(await service.fill(QUERY)).toEqual({
+      listings: 1,
+      documents: 1,
+      cachedDocuments: 0,
+      totalKb: 100,
+    })
     await expect(service.fill(QUERY)).rejects.toMatchObject({ code: 'busy' })
     service.cancelFill()
     await service.idle()

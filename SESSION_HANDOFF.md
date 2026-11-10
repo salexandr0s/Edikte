@@ -1,119 +1,90 @@
-# Session Handoff — 2026-11-06
+# Session handoff: 2026-11-10
 
-Project: Edikte, an Electron desktop app (macOS, Windows) for the court auctions on edikte.justiz.gv.at. Public repo https://github.com/salexandr0s/Edikte since 2026-11-06, rebuilt from a rewritten history; the previous repo is kept private as `salexandr0s/Edikte-archive`. `main` is the only local branch and matches `origin/main`. This file is tracked since this session. It replaces the map-view handoff of the same day; that session's open points are carried below.
+Project: Edikte, the Electron desktop app for Austrian court auctions and real-estate sales in insolvency proceedings. Branch `feat/insolvency-sales`, based on `47ef51a`. Work remains local; nothing has been pushed, merged or released.
+
+The approved plan is `~/.claude/plans/edikte-insolvency-sales.md` (revision 2). Its progress file is `~/.claude/plans/edikte-insolvency-sales-progress.md`. The feature and all four recommended improvements are complete. The user approved items 1–4, including stale-analysis handling, on 2026-11-10.
 
 ## Completed
 
-### Data check: the app shows everything the site lists
+Recovered Claude's clean final contract commit, `c5a40ee`, and created an active Codex goal to finish the feature, verification, review, documentation and approved improvements.
 
-Request: "it appears like we don't have enough data incoming". Result: no app defect, no code changed.
+| Commit    | Work                                                                                                                                                                  |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `1d0a377` | Source-scoped stores and geocoding, document retirement/restoration, active-report selection, retention, preserved starred/noted removals and legacy saved filters    |
+| `7a0e835` | Shared sync engine, auction and insolvency strategies, record builder, sequential multi-source service/scheduling, unreadable-file guard and opt-in live verification |
+| `d6970e7` | Source-specific analysis prompts and versions, and the actual report IDs in completed analysis evidence                                                               |
+| `c900595` | Source-aware list/map/detail/settings/first-run UI, disabled-source recovery, batch query guards, paired copy and e2e heading updates                                 |
+| `4aad949` | Feature verification, review and screenshots                                                                                                                          |
+| `bc21197` | Consistent SQLite backup before pending migrations, with failure before DDL and migration-ledger writes                                                               |
+| `a729fe6` | Return focus after programmatic dialogs and map-card Escape/Close                                                                                                     |
+| `2aaf01f` | Current-report hash provenance, stale-result UI, cached area repair and guarded legacy migration 0006                                                                 |
 
-- The database holds one sync run (full, ok, started 2026-11-05 09:54 CET): 123 listed, 123 pages read, 0 errors, 0 unreadable rows. 123 edicts, all Vienna, 120 cases, none removed.
-- The live Vienna search at 15:00 CET returned the same 123 IDs with the same notice mix (88 Versteigerung, 25 Meistbotsverteilung, 6 Zuschlag, 2 Entfall, 1 Verschiebung, 1 Schriftliche Anbote). ID diff against the database: 0 new, 0 gone.
-- The Bundesland filter misses nothing: the unfiltered Austria-wide search (537 rows) has exactly 123 rows with a Vienna postcode.
-- The site shrank. The plan notes of 4 Nov record 136 Vienna rows (98 Versteigerung) and 552 Austria-wide. The stored list has no auction before 11 Nov, so edicts of auctions already held drop off the site.
-- Vienna publications: 6 on 3 Nov, 10 on 4 Nov, none by 15:00 on 5 Nov. Austria-wide, 20 edicts carry a 5 Nov date, so the site does publish. One Hernals edict changed on the site on 5 Nov; the incremental query `[DATBM]>=04.11.2026` lists it, so the next incremental run reads it again.
-- The default list filter (upcoming and postponed) shows about 90 of the 120 cases; 28 sold or closed and 2 cancelled cases are hidden.
-- The app was not running (last database write 10:19 CET), so nothing synced. While it runs, auto sync starts 6 h after the last settled run (15:57 CET for this one), for Vienna only, the scope chosen at setup. The other eight Bundesländer hold 414 edicts.
-- The site's raw Domino views (`?ReadViewEntries`) answer HTTP 500, so the full-text search the app sends is the only count source.
-- The database was last opened by the build before the map commits; migration `0004_edict_locations` applies at the next launch.
+The auction system prompt still has version 2 and its previous SHA-256. The insolvency prompt uses version 1. Queued analysis records now save the report actually read, even when sync replaced the report while the job waited.
 
-### Repo cleanup
+An unreadable file list degrades an insolvency run without changing stored records. Valid empty lists retire their old document links. Foreign document URLs still follow the skip-and-count rule. Cancellation applies the existing retry delay to the entire pass, so auto sync does not immediately run a remaining source.
 
-- Every branch was already in `main`: `feat/initial-app` (62fb006), `feat/map-view` (ee8b9e4), `origin/claude/keen-hamilton-27wvrh` (31e9aca) and `origin/feat/initial-app` are ancestors of 0d146d9. Nothing to merge.
-- Deleted the two local branches. Removed a detached worktree that a spare session had left in a temp folder (at 263362e, clean, no process in it).
-- Moved `out/` (electron-vite output, 4.7 MB) and `dist/` (electron-builder output, 322 MB, with the mac-arm64 app built at 15:43) to the Trash. `build/` holds the tracked icons and stays.
-- Committed this file. The merged remote branches `origin/feat/initial-app` and `origin/claude/keen-hamilton-27wvrh` were deleted on GitHub afterwards; `main` is the only branch anywhere.
+German and English UI copy refers to the combined list as Objekte/Listings. Insolvency sales use publication dates and the notice value as Schätzwert. The detail shows administrator/deputy contacts and description; further URLs remain plain text. At least one source must stay enabled.
 
-### Publishing audit
+## Verification state
 
-Request: "check that nothing personal is on edikte, no names, no nothing, then make it public."
+- Both-project typecheck, ESLint and Prettier passed after all approved improvements.
+- Unit tests: 752 passed, two opt-in tests skipped.
+- Built Electron smoke test: passed after all approved improvements and the final migration safeguard. It used a temporary user-data folder and offline mode.
+- Browser checks: mock renderer, both languages, light/dark views, 960/1280/1440 CSS pixel widths; source switch/sort/date behavior; rich and sparse sale detail; map pins and a sale card; source settings; saved-filter recovery when its source is disabled; keyboard operation. Filter dialog footer remained accessible at 960 × 600 and Escape returned focus to its trigger.
+- Batch actions now require the page to answer the current query. The normal mock response was too fast to observe the loading interval reliably; the identity guard and handler guard were inspected in code.
+- Browser map initially failed because a shared Vite optimizer cache served HTTP 504 for Leaflet. `vite.renderer.config.ts` now uses its own cache directory. The map and real basemap tiles loaded after restarting the development server.
+- Independent backend review ran 202 focused tests across 20 suites and found two concrete report-integrity defects, both fixed and covered by regressions.
+- README screenshots were regenerated with the existing script and all twelve images were inspected. They show made-up mock data and the new source controls.
+- Improvement review found no remaining actionable backend or UI findings. Regressions cover malformed legacy IDs, stale report areas/risks/filter counts, changed-byte extraction invalidation, cached local-estimate recovery and unsafe legacy migration backfills. The backup test proves committed WAL changes appear in the standalone snapshot and that backup failure leaves schema, ledger and data untouched.
+- Browser improvement checks covered saved-filter, fill, API-key and analysis dialog focus; map Escape and Close from inside a selected card; a plan with two downloads plus one cached read; local area recovery while old AI history stays stale; and the warning in both languages/themes at the 960-pixel minimum width. Provider controls used the mock bridge only.
+- Live verification passed in 1028.06 seconds (about 17 minutes): a fresh temporary Vienna database, both sources, one shared default client at one request per second. Both sources finished with status `ok`; the service emitted one final idle state and all three sample PDFs downloaded with positive byte counts. Court auctions had 154 listed/fetched/changed, zero removed and 274 requests. Vitest discarded captured logs for the passing test, so exact insolvency counts, full-run header percentiles and individual byte counts are unavailable. The temporary directory and downloads were removed. This run loaded the code before the unreadable-file guard; focused tests cover that guard at the committed revision.
+- A separate three-page insolvency search probe returned HTTP 200 in all three requests, with response headers after 301/135/132 ms and no timeouts. Pages held 100/100/20 readable rows, total 220, `incomplete=false`, no skipped rows. It used the same default client and one-request-per-second queue; the 10-second API timeout stays unchanged. These measurements cover list headers, not full-run retries. The temporary probe test was removed.
 
-- Searched every tracked file and all 70 commits for names, emails, user paths, the data folder, tokens and keys, and read the workflows, the release notes and assets, the PR texts, the comments and the repo description on GitHub. No secrets are stored there, and nobody else has access.
-- Found three things. The handoff commit 0271b95 named the second user and carried the macOS user name in a path. The scraper fixtures carried the land-register numbers (EZ, BLNr, Grundstücksnummer) of real properties, which identify them in the public Grundbuch; `tests/scraper/detail.test.ts` and a comment in `src/main/scraper/detail.ts` repeated four of them. Streets, names, case numbers and edict IDs in the fixtures were already made up: 0 of the 136 fixture IDs match the live list or the database.
-- Changed in this commit: the register numbers in all 12 fixtures (39 labelled fields and one unlabelled parcel in the Styria page) renumbered with `(n*7+3) mod 10^len`, so the length and the style stay and no number is kept; the four test values, the two case-key strings and the comment follow the fixtures; the two handoff lines reworded.
-- The commits carried two private author emails (66 and 3 commits), visible in the `.patch` view of a public repo. The rewrite maps them to the GitHub noreply address.
+The real user-data folder has not been opened or migrated by this work. No live AI analysis has run.
 
-### Published as a new repository
+## Key files
 
-- The history was rewritten on a fresh clone with `git filter-repo` (the text replacements and the mailmap) and pushed to a new `salexandr0s/Edikte`, public since 2026-11-06. A force push into the old repo was rejected because its three merged PRs keep the old commits reachable. The old repo stays private as `salexandr0s/Edikte-archive` with its PRs, CI runs and the original release; delete it when it is no longer needed.
-- Checked over the API after the push: every commit and the tag carry the GitHub noreply address, the handoff at HEAD and at its first commit holds no name or path, 71 commits, HEAD tree identical to the scrub commit.
-- The local checkout was reset to the new history. The old objects remain only in the local reflog and in the archive repo.
-- The tag push started the release workflow at 11:22 UTC on 2026-11-06. The first tag push, seconds after the first push into the empty repo, started nothing, so the tag was deleted and pushed again. The workflow rebuilt 0.1.0 and uploaded the packages to a draft release, which the user had published as the latest release (six assets) the same day.
+- `src/main/scraper/{sync,sync-site,auction-site}.ts` and `insolvency/{api,detail,search,edict-record,parser-version,site}.ts`.
+- `src/main/db/{sync-store,listing-store,document-store,location-store,user-store,analysis-store}.ts`.
+- `src/main/services/{sync/sync-service,geocode/geocode-service,analysis/analysis-service,analysis/analysis-job}.ts` and `src/main/ai/analysis/{prompt,pipeline,batch}.ts`.
+- `src/renderer/src/features/{listings,detail,settings,first-run}/`, shared translation pairs, and `vite.renderer.config.ts`.
+- `tests/scraper/insolvency/live.test.ts`: opt-in live sync and sample downloads, temporary data only, aggregate logs without record contents.
+- `src/main/db/backup.ts`, migration `0006_analysis_document_hash.sql`, document/analysis stores and services: backups, current-report provenance and cached recovery.
+- `docs/insolvency-sales-review.md`: verification, approved improvements and the deferred retention policy.
 
-### README with screenshots
+## Deferred work and known gaps
 
-Request: "can you make a nice readme for edikte? with screenshots etc". Commit cee9723.
+No implementation work remains under the approved goal. All work is committed locally. Push, PR, merge and release require separate approval.
 
-- The README keeps its two language sections and every section of the old text (installation, unsigned app, AI providers, data folder, privacy, development). New: a centred header with the app icon and the release and CI badges, the list screenshot in light and dark through a `<picture>` element, a feature list, and a grid of the detail, map, filter and settings screens with captions, each language with its own screenshots.
-- Added facts: the privacy section names Nominatim and basemap.at with the 14-day tile cache, the data folder section the `tiles` folder and the document retention (90 days after a case closes), the development section the screenshot command, and a licence line says there is none yet.
-- `scripts/readme-screenshots.mjs` (`npm run screenshots`) drives Playwright's Chromium against `npm run dev:renderer`: it finishes the three setup steps, reads the labels from the i18n files so one flow serves both languages, and captures 1280×800 at 2× into `docs/screenshots/` (12 files, 4.0 MB). The map is a JPEG at quality 85 because its PNG weighed 1.6 to 2.9 MB; the other screens are PNGs of 200 to 345 KB.
-- The images show the mock bridge's made-up sample data, and the README says so under the first image.
+README and CLAUDE text, this handoff, the review, project memory and the twelve regenerated/inspected screenshots document the final behavior.
 
-## Key Files Changed
+Expiry of downloads outside sync scope remains deferred until the user chooses a retention policy (review item 5). Source-switch counts remain optional. Neither was among the four approved improvements.
 
-- `tests/scraper/fixtures/*.html` (12 files): land-register numbers renumbered.
-- `tests/scraper/detail.test.ts`, `src/main/scraper/detail.ts`: four expected EZ values, two case-key strings and one comment follow the fixtures.
-- `README.md`: rewritten around the screenshots; the old sections kept.
-- `docs/screenshots/` (12 images), `scripts/readme-screenshots.mjs`, `package.json` (`screenshots` script), `CLAUDE.md` (commands table).
-- `SESSION_HANDOFF.md`: this file.
+Previously recorded gaps remain: Electron map-tile protocol and live Nominatim lookup were not exercised by the browser mock checks; no live Codex analysis, Windows run, packaged-app check or release was part of this work. Contrast review used visual inspection and existing semantic tokens, not numerical measurement of every state.
 
-## Verification State
+## Resume commands
 
-- 0d146d9: GitHub CI run 42050243497 (push to `main`, 14:58 UTC) passed: typecheck, lint, format check, unit tests and the Playwright smoke test of the built app on Linux.
-- Scrub commit: `npm run typecheck`, `npm run lint`, `npm run format:check` and `npm test` pass (the scraper suite alone: 103 passed, 1 skipped).
-- History rewrite, tried on a throwaway clone with `git filter-repo --replace-text` (26 literal lines, longest first, so a line that contains another one is replaced first) and a mailmap: no old register number, name, user name or private email is left in any commit; the rewritten fixtures, test and source equal the working tree; the tag `v0.1.0` keeps its message; 70 commits. The list and the mailmap sit in the session scratchpad under `publish/`; the list is built from `git diff HEAD` of the scrub plus the two handoff lines, so it can be rebuilt.
-- README commit cee9723: `npm run format:check` and `npm run lint` pass; the twelve images were looked at one by one; the page on GitHub shows the header, both badges, the dark list image in a dark browser, the feature list, the grid and the tables. Not run: unit tests and the e2e test, since no code under test changed; CI runs on the push.
-- Not checked: the packaged app and the map inside Electron (see the gaps).
-
-## Remaining / Known Gaps
-
-- Delete `salexandr0s/Edikte-archive` once nothing in it is needed any more.
-- No LICENSE file; `package.json` says UNLICENSED, so a public repo grants no rights. Decide whether that is intended. The README says so in one line.
-- Two runs of `npm run screenshots` differ by a few hundred pixels at the bottom right of the list image, so every run changes the binary files. Commit new images only when a screen changed.
-- The data check did not read every stored page for changes made on the site after 09:54. The one changed Hernals edict was found through the date query, and the incremental run does the same for all of them.
-- Map view, from the map session:
-  - Run `npm run dev` and look at the map with real data. The cluster threshold (`LABEL_GAP`) and the dark basemap filter were tuned on the mock's seven pins.
-  - The pin card was not tried below 600 px of map height.
-  - Clusters are rebuilt on every zoom change, which drops and recreates every marker. Fine for hundreds of pins, not measured beyond that.
-  - The status chip's tooltip was not confirmed by hand.
-- Carried over from earlier sessions:
-  - Confirm that tiles arrive through `edikte-tile://` and that lookups reach Nominatim inside Electron.
-  - Decide whether opening the map should ask once before addresses go to nominatim.openstreetmap.org. The first map open on a large list looks up one address per second.
-  - `saved-filters.tsx`, `fill-areas.tsx`, `api-key-actions.tsx` and `analysis-gate.tsx` open without a `trigger`, so focus lands on the body when they close.
-  - `--edk-modal-max-height` is untested on short windows.
-  - Saving `dialog.tsx` or `toast.tsx` under the dev server throws "must be used inside …Provider" until reload.
-  - The second user still needs collaborator access.
-  - No live Codex analysis yet.
-- No mock renderer dev server was running at the end of this session; the one started for the screenshots was stopped.
-
-## Resume Commands
-
-```bash
-cd ~/GitHub/Edikte
-git status && git log --oneline -6 && git branch -a
-npm run typecheck && npm run lint && npm test && npm run format:check
+```sh
+git status --short
+git log --oneline -8
+npm run typecheck
+npm run lint
+npm test
+npm run format:check
+npm run test:e2e
 npm run dev:renderer
 ```
 
-The mock app starts with the setup steps (Language, AI providers, First sync); click Continue three times to reach the list, then the map icon next to the sort control.
+Reuse successful checks for unchanged code. A later deliberate live rerun is `EDIKTE_LIVE=1 npx vitest run tests/scraper/insolvency/live.test.ts --reporter=verbose --silent=false`; it makes hundreds of rate-limited requests and removes its own temporary database and downloads afterward. The verbose reporter preserves aggregate measurements that the default reporter discarded for a passing test.
 
-## Decisions Made
+## Decisions
 
-- No code change for the data question: the smaller list is the site's own, and the app holds it row for row.
-- The build folders went to the Trash, not through `rm -rf`: `~/.claude/settings.json` denies `rm -r`, `rm -rf` and `git clean -f`.
-- The handoff is tracked from now on: the request was to commit every change, and most repos under `~/GitHub` track it.
-- The remote branches went after a second confirmation; both were merged, so nothing was lost.
-- Register numbers were renumbered rather than removed, so the parsers still see the page layout as the site renders it.
-- The history was rewritten with filter-repo rather than squashed: the commits keep their messages, and only the blobs with the old values and the author lines changed.
-- New repository rather than a force push: the merged PRs of the old repo keep the old commits reachable, so the old repo stays private as an archive.
-- README images are tracked in `docs/screenshots/` rather than uploaded elsewhere, so clones and forks render them. They come from the mock renderer, not the packaged app, so no real property, owner or data path appears in them. The map is the one JPEG, for its size.
-- From the map session (f7dfc5c to e2286ca):
-  - Leaflet's controls were replaced by the app's own `Button`, `Badge`, `Tooltip` and `Spinner`, not restyled, so Leaflet's CSS needs no overrides.
-  - The pin card is content-sized in a left column so the map stays visible beside it; the chosen pin is panned out from under the column.
-  - Dark mode keeps the CSS inversion of the tile pane, darkened to `brightness(0.8)` after comparing three variants.
-  - No cluster plugin: a greedy screen-space grouping in `map-pins.ts`, about 40 lines, tested under Vitest.
-  - Clusters live in render state derived from the zoom, and the fit logic works on the places, so regrouping never refits.
-  - The tile layer is bounded to Austria instead of changing the failure heuristic.
-  - The scale label builds its no-break space with `String.fromCharCode(0xa0)` because ESLint's `no-irregular-whitespace` rejects the character in a template literal.
-  - The three map commits are separate so the grouping and the tile fix can be reverted on their own.
+- Keep the existing feature branch and prior commits; commit logical units locally.
+- Use the shared source contracts from `c5a40ee`. `current.source` identifies the active sync run; `lastRuns` contains the newest finished run of each enabled source.
+- Preserve debtor-field exclusions, including old/new change-log values and free-text history notes. Store the administrator contacts needed for offers.
+- Preserve explicit sources in old saved filters. Recover a disabled-source selection through a visible action, without rewriting the saved filter.
+- Never analyse a retired report merely because it has a lower document ID. Preserve downloaded retired files for viewing and record the actual analysed report in evidence.
+- Current analysis and local-estimate values require the active report ID and matching known byte hash. Unknown legacy provenance stays stale; history and evidence remain readable. Migration backfills only safe extraction that predates the result, invalidating unsafe cache readiness before the backfill. No automatic AI refresh.
+- Preserve the last known hash when cache files are evicted. Changed bytes invalidate extracted pages atomically; identical bytes can reuse them. Explicit area fill can repair cached estimates or interrupted extraction without another download.
+- Keep pre-migration SQLite snapshots in `migration-backups`; backup failure aborts before any schema or ledger mutation. Backups have no automatic expiry.
+- Push, PR, merge and release still require separate approval.

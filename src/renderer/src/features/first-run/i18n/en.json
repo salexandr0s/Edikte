@@ -1,7 +1,7 @@
 {
   "firstRun": {
     "title": "Set up Edikte",
-    "welcome": "Edikte lists court auctions of real estate from edikte.justiz.gv.at and can analyze the appraisal reports (Gutachten) with an AI provider you sign in to. Choose a few settings to start; you can change all of them later in Settings.",
+    "welcome": "Edikte lists real estate from court auctions at edikte.justiz.gv.at and insolvency sales at JustizOnline. It can analyze appraisal reports (Gutachten) with an AI provider you sign in to. Choose a few settings to start; you can change all of them later in Settings.",
     "steps": "Setup steps",
     "stepOf": "Step {{current}} of {{total}}",
     "stepDone": "{{step}}, done",
@@ -18,7 +18,7 @@
     },
     "sync": {
       "title": "First sync",
-      "text": "Choose the Bundesländer whose auctions the app loads. You can change this later in Settings."
+      "text": "Choose the sources and Bundesländer whose listings the app loads. You can change this later in Settings."
     }
   }
 }

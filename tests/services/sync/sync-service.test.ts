@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ListingQuerySchema } from '@shared/domain'
+import { ListingQuerySchema, SyncStatusSchema, type SyncStatus } from '@shared/domain'
 import { AppError, isAppError } from '@shared/errors'
 import { openDatabase, type AppDatabase } from '../../../src/main/db/client'
 import { getListing, queryListings } from '../../../src/main/db/listing-store'
@@ -33,12 +33,15 @@ function setup(options: { offline?: boolean } = {}) {
   site.pages = [sitePage(1), sitePage(2)]
   const settings: SyncSettings = {
     syncBundeslaender: ['wien'],
+    syncSources: ['court_auction'],
     autoSync: true,
     firstRunCompletedAt: '2026-11-01T08:00:00.000Z',
   }
   const events: string[] = []
-  const emit: EmitEvent = (event) => {
+  const progress: SyncStatus[] = []
+  const emit: EmitEvent = (event, payload) => {
     events.push(event)
+    if (event === 'sync:progress') progress.push(SyncStatusSchema.parse(payload))
   }
   let time = Date.parse('2026-11-05T08:00:00.000Z')
   let wake: (() => void) | null = null
@@ -62,6 +65,7 @@ function setup(options: { offline?: boolean } = {}) {
     site,
     settings,
     events,
+    progress,
     service,
     /** Time passes with the computer awake: fake timers run too. */
     advance: (ms: number): void => {
@@ -101,12 +105,72 @@ const reloads = (events: readonly string[]) =>
   events.filter((event) => event === 'listings:changed').length
 
 describe('sync service', () => {
+  it('keeps one running pass across sources and preserves a successful source after a failure', async () => {
+    const { db, site, settings, service, progress, advance } = setup()
+    settings.syncSources = ['insolvency_sale', 'court_auction']
+    site.sales = [990001]
+    site.hold = (url) => url.includes('justizonline.gv.at')
+    service.start({ full: true })
+    await vi.waitFor(() => expect(site.waiting).toBe(1))
+    expect(service.status()).toMatchObject({
+      state: 'running',
+      current: { source: 'insolvency_sale' },
+      lastRuns: [{ source: 'court_auction', status: 'ok' }],
+    })
+    expect(progress.every((status) => status.state === 'running')).toBe(true)
+    site.release()
+    await settled(service)
+    expect(service.status().lastRuns).toMatchObject([
+      { source: 'court_auction', status: 'ok' },
+      { source: 'insolvency_sale', status: 'ok', listed: 1 },
+    ])
+    expect(getListing(db, 'mv-990001').source).toBe('insolvency_sale')
+
+    advance(24 * HOUR)
+    site.failWith = new AppError('network', 'The auction site is unavailable')
+    service.start({ full: true })
+    await settled(service)
+    expect(service.status().lastRuns).toMatchObject([
+      { source: 'court_auction', status: 'failed' },
+      { source: 'insolvency_sale', status: 'ok' },
+    ])
+    expect(getListing(db, idOf(1)).removedAt).toBeNull()
+    expect(getListing(db, 'mv-990001').removedAt).toBeNull()
+    expect(progress.filter((status) => status.state === 'idle')).toHaveLength(2)
+  })
+
+  it('automatically syncs only the newly enabled source when the other is current', async () => {
+    const { db, service, change, site } = setup()
+    site.sales = [990001]
+    service.start({ full: false })
+    await settled(service)
+    change({ syncSources: ['court_auction', 'insolvency_sale'] })
+    await settled(service)
+    expect(db.select({ source: syncRuns.source }).from(syncRuns).all()).toEqual([
+      { source: 'court_auction' },
+      { source: 'insolvency_sale' },
+    ])
+  })
+
+  it('skips the remaining sources when a pass is cancelled', async () => {
+    const { db, site, settings, service } = setup()
+    settings.syncSources = ['court_auction', 'insolvency_sale']
+    site.hold = () => true
+    service.start({ full: true })
+    await vi.waitFor(() => expect(site.waiting).toBe(1))
+    service.cancel()
+    await settled(service)
+    expect(
+      db.select({ source: syncRuns.source, status: syncRuns.status }).from(syncRuns).all(),
+    ).toEqual([{ source: 'court_auction', status: 'cancelled' }])
+  })
+
   it('stores a finished run and tells the renderer to reload', async () => {
     const { db, events, service } = setup()
     expect(service.start({ full: false }).state).toBe('running')
     await settled(service)
 
-    expect(service.status().lastFinished).toMatchObject({ kind: 'full', status: 'ok', listed: 2 })
+    expect(service.status().lastRuns).toMatchObject([{ kind: 'full', status: 'ok', listed: 2 }])
     const rows = queryListings(db, ListingQuerySchema.parse({})).rows
     expect(rows.map((row) => row.id).sort()).toEqual([idOf(1), idOf(2)])
     expect(getListing(db, idOf(1)).documents).toHaveLength(1)
@@ -133,10 +197,7 @@ describe('sync service', () => {
     expect(service.status().state).toBe('cancelling')
     await settled(service)
 
-    expect(service.status().lastFinished).toMatchObject({
-      kind: 'incremental',
-      status: 'cancelled',
-    })
+    expect(service.status().lastRuns).toMatchObject([{ kind: 'incremental', status: 'cancelled' }])
     expect(getListing(db, idOf(1)).title).toBe(before)
     expect(reloads(events)).toBe(1)
 
@@ -198,7 +259,7 @@ describe('sync service', () => {
     site.failWith = new AppError('network', 'Could not reach edikte.justiz.gv.at')
     expect(service.startIfDue()).toBe(true)
     await settled(service)
-    expect(service.status().lastFinished?.status).toBe('failed')
+    expect(service.status().lastRuns).toMatchObject([{ status: 'failed' }])
 
     site.failWith = null
     advance(AUTO_SYNC_RETRY_MS - 1)
@@ -206,7 +267,7 @@ describe('sync service', () => {
     advance(1)
     expect(service.status().state).toBe('running')
     await settled(service)
-    expect(service.status().lastFinished?.status).toBe('ok')
+    expect(service.status().lastRuns).toMatchObject([{ status: 'ok' }])
   })
 
   it('waits for the first-run screen and never starts on its own offline', async () => {
@@ -271,7 +332,7 @@ describe('sync service', () => {
     service.start({ full: false })
     await service.dispose()
 
-    expect(lastFinishedRun(db)?.status).toBe('cancelled')
+    expect(lastFinishedRun(db, 'court_auction')?.status).toBe('cancelled')
     expect(events).toEqual(['sync:progress'])
     expect(errorCode(() => service.start({ full: false }))).toBe('cancelled')
   })

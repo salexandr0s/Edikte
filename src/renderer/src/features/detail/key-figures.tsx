@@ -8,11 +8,7 @@ import { useFormat } from '../../lib/format'
 import { daysUntil, joinPresent } from './detail-helpers'
 import { usePercent } from './use-detail-actions'
 
-/**
- * The four numbers that place the auction at a glance: Schätzwert, the bid
- * to beat (or the winning bid once sold), the price per m² on the chosen
- * basis, and the date.
- */
+/** Value, price per m² and the source's dates and sale terms. */
 export function KeyFigures({ detail }: { detail: ListingDetail }) {
   const { t } = useTranslation()
   const format = useFormat()
@@ -22,8 +18,10 @@ export function KeyFigures({ detail }: { detail: ListingDetail }) {
   const money = (value: number | null) => (value === null ? notStated : format.eur(value))
 
   const { area, schaetzwertEur, geringstesGebotEur } = detail
+  const auction = detail.source === 'court_auction'
+  const priceBasis = auction ? detail.priceBasis : 'schaetzwert'
   const approximate = detail.approximate.length > 0
-  const perSqm = pricePerSqm(priceForBasis(detail.priceBasis, detail), area?.sqm ?? null)
+  const perSqm = pricePerSqm(priceForBasis(priceBasis, detail), area?.sqm ?? null)
   const showMeistbot = detail.meistbotEur !== null || detail.status === 'sold'
   const share =
     schaetzwertEur !== null && schaetzwertEur > 0 && geringstesGebotEur !== null
@@ -53,28 +51,31 @@ export function KeyFigures({ detail }: { detail: ListingDetail }) {
           label={t('priceBasis.schaetzwert')}
           value={money(schaetzwertEur)}
           note={
-            detail.vadiumEur === null
-              ? null
-              : t('detail.hero.vadium', { value: format.eur(detail.vadiumEur) })
+            !auction
+              ? t('detail.hero.noticeValue')
+              : detail.vadiumEur === null
+                ? null
+                : t('detail.hero.vadium', { value: format.eur(detail.vadiumEur) })
           }
         />
-        {showMeistbot ? (
-          <Figure
-            label={t('detail.numbers.meistbot')}
-            value={money(detail.meistbotEur)}
-            note={
-              geringstesGebotEur === null
-                ? null
-                : t('detail.hero.minimumBid', { value: format.eur(geringstesGebotEur) })
-            }
-          />
-        ) : (
-          <Figure
-            label={t('priceBasis.geringstes_gebot')}
-            value={money(geringstesGebotEur)}
-            note={share === null ? null : t('detail.hero.shareOfSchaetzwert', { percent: share })}
-          />
-        )}
+        {auction &&
+          (showMeistbot ? (
+            <Figure
+              label={t('detail.numbers.meistbot')}
+              value={money(detail.meistbotEur)}
+              note={
+                geringstesGebotEur === null
+                  ? null
+                  : t('detail.hero.minimumBid', { value: format.eur(geringstesGebotEur) })
+              }
+            />
+          ) : (
+            <Figure
+              label={t('priceBasis.geringstes_gebot')}
+              value={money(geringstesGebotEur)}
+              note={share === null ? null : t('detail.hero.shareOfSchaetzwert', { percent: share })}
+            />
+          ))}
         <Figure
           label={
             area?.kind === 'grundflaeche' ? t('detail.hero.perSqmLand') : t('detail.hero.perSqm')
@@ -93,21 +94,38 @@ export function KeyFigures({ detail }: { detail: ListingDetail }) {
               ? t('detail.numbers.noAreaHint')
               : joinPresent(
                   [
-                    t(`detail.hero.basis.${detail.priceBasis}`),
+                    t(`detail.hero.basis.${priceBasis}`),
                     `${format.sqm(area.sqm)} ${t(`areaKind.${area.kind}`)}`,
                   ],
                   ' · ',
                 )
           }
         />
-        <Figure
-          label={t('detail.facts.auction')}
-          value={
-            detail.auctionAt === null ? notStated : format.localDate(detail.auctionAt.slice(0, 10))
-          }
-          muted={detail.auctionAt === null}
-          note={joinPresent([time, relative], ' · ')}
-        />
+        {auction ? (
+          <Figure
+            label={t('detail.facts.auction')}
+            value={
+              detail.auctionAt === null
+                ? notStated
+                : format.localDate(detail.auctionAt.slice(0, 10))
+            }
+            muted={detail.auctionAt === null}
+            note={joinPresent([time, relative], ' · ')}
+          />
+        ) : (
+          <>
+            <Figure
+              label={t('detail.facts.published')}
+              value={detail.publishedAt === null ? notStated : format.localDate(detail.publishedAt)}
+              muted={detail.publishedAt === null}
+            />
+            <Figure
+              label={t('detail.facts.noticeKind')}
+              value={t(`noticeType.${detail.noticeType}`)}
+              compact
+            />
+          </>
+        )}
       </dl>
       {approximate && (
         <div className="flex flex-wrap items-center gap-2 border-t border-border px-5 py-3 text-xs text-fg-muted">
@@ -132,9 +150,18 @@ interface FigureProps {
   muted?: boolean
   /** Colours the value: the number the listing is judged by. */
   accent?: boolean
+  /** Long notice types use the body size. */
+  compact?: boolean
 }
 
-function Figure({ label, value, note, muted = false, accent = false }: FigureProps) {
+function Figure({
+  label,
+  value,
+  note,
+  muted = false,
+  accent = false,
+  compact = false,
+}: FigureProps) {
   return (
     <div className="flex min-w-0 flex-col gap-1 px-5 py-4">
       <dt className="text-xs text-fg-muted">{label}</dt>
@@ -144,9 +171,11 @@ function Figure({ label, value, note, muted = false, accent = false }: FigurePro
             'wrap-break-word',
             muted
               ? 'text-base font-medium text-fg-muted'
-              : accent
-                ? 'text-2xl font-semibold tracking-tight text-accent-text tabular-nums'
-                : 'text-2xl font-semibold tracking-tight text-fg tabular-nums',
+              : compact
+                ? 'text-base font-medium text-fg'
+                : accent
+                  ? 'text-2xl font-semibold tracking-tight text-accent-text tabular-nums'
+                  : 'text-2xl font-semibold tracking-tight text-fg tabular-nums',
           )}
         >
           {value}

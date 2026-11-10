@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import type { SyncRunSummary, SyncStatus } from '@shared/domain'
-import type { Bundesland } from '@shared/enums'
+import type { SyncRunSummary } from '@shared/domain'
+import type { Bundesland, EdictSource } from '@shared/enums'
 import { AppError } from '@shared/errors'
 import type { PageSource } from '../../src/main/scraper/client'
-import type { DocumentLink } from '../../src/main/scraper/detail'
+import { createAuctionSite } from '../../src/main/scraper/auction-site'
+import type { SearchRow } from '../../src/main/scraper/search'
+import type { DocumentLink, ParsedDetail } from '../../src/main/scraper/detail'
 import type { EdictRecord } from '../../src/main/scraper/edict-record'
 import { PARSER_VERSION } from '../../src/main/scraper/parser-version'
 import {
   runSync,
   type KnownEdict,
+  type RunProgress,
   type SyncCommit,
   type SyncOptions,
   type SyncRunStart,
@@ -134,9 +137,10 @@ class MemoryStore implements SyncStore {
   readonly runs: StoredRun[] = []
   readonly commits: SyncCommit[] = []
 
-  loadState(scope: readonly Bundesland[]): SyncStoreState {
+  loadState(scope: readonly Bundesland[], source: EdictSource): SyncStoreState {
     const known = new Map<string, KnownEdict>()
     for (const edict of this.edicts.values()) {
+      if (edict.source !== source) continue
       if (edict.bundesland === null || !scope.includes(edict.bundesland)) continue
       known.set(edict.id, {
         id: edict.id,
@@ -149,12 +153,11 @@ class MemoryStore implements SyncStore {
         removedAt: edict.removedAt,
       })
     }
-    const ok = this.runs.filter((run) => run.status === 'ok')
+    const ok = this.runs.filter((run) => run.source === source && run.status === 'ok')
     return {
       known,
       lastOkRunStartedAt: ok.at(-1)?.startedAt ?? null,
       lastOkFullRunStartedAt: ok.filter((run) => run.kind === 'full').at(-1)?.startedAt ?? null,
-      lastFinished: this.runs.filter((run) => run.finishedAt !== null).at(-1) ?? null,
     }
   }
 
@@ -162,6 +165,7 @@ class MemoryStore implements SyncStore {
     const id = this.runs.length + 1
     this.runs.push({
       id,
+      source: run.source,
       kind: run.kind,
       status: 'running',
       startedAt: run.startedAt,
@@ -207,26 +211,26 @@ function setup(...pages: SitePage[]) {
   site.publish(...pages)
   const store = new MemoryStore()
   let time = Date.parse('2026-11-04T08:00:00.000Z')
-  const statuses: SyncStatus[] = []
-  const sync = (options: Partial<SyncOptions> = {}) =>
+  const progress: RunProgress[] = []
+  const sync = (options: Partial<SyncOptions<SearchRow, ParsedDetail>> = {}) =>
     runSync({
-      source: site,
+      site: createAuctionSite(site),
       store,
       scope: ['wien'],
       now: () => new Date(time),
-      onProgress: (status) => statuses.push(status),
+      onProgress: (entry) => progress.push(entry),
       ...options,
     })
   const advance = (ms: number) => {
     time += ms
   }
   const now = () => new Date(time).toISOString()
-  return { site, store, statuses, sync, advance, now }
+  return { site, store, progress, sync, advance, now }
 }
 
 describe('runSync', () => {
   it('reads every listed page and its Kurzgutachten on the first run', async () => {
-    const { site, store, statuses, sync } = setup(edict(1), edict(2))
+    const { site, store, progress, sync } = setup(edict(1), edict(2))
     const summary = await sync()
     expect(summary).toMatchObject({
       kind: 'full',
@@ -250,14 +254,9 @@ describe('runSync', () => {
     expect(store.documents.get(idOf(1))).toMatchObject([
       { kind: 'langgutachten', statedSizeKb: 100 },
     ])
-    expect(new Set(statuses.map((status) => status.phase))).toEqual(
-      new Set(['list', 'details', 'kurzgutachten', null]),
+    expect(new Set(progress.map((entry) => entry.phase))).toEqual(
+      new Set(['list', 'details', 'kurzgutachten']),
     )
-    expect(statuses.at(-1)).toMatchObject({
-      state: 'idle',
-      current: null,
-      lastFinished: { status: 'ok' },
-    })
   })
 
   it('lists only recent edicts within a day and reads their pages', async () => {
@@ -378,7 +377,7 @@ describe('runSync', () => {
   })
 
   it('stops and writes nothing when cancelled', async () => {
-    const { site, store, statuses, sync } = setup(edict(1), edict(2), edict(3))
+    const { site, store, sync } = setup(edict(1), edict(2), edict(3))
     const controller = new AbortController()
     site.beforeAnswer = (url) => {
       if (url.includes(`alldoc/${idOf(2)}`)) controller.abort()
@@ -388,6 +387,5 @@ describe('runSync', () => {
     expect(store.commits.at(-1)?.failureCode).toBeNull()
     expect(store.edicts.size).toBe(0)
     expect(store.runs[0]?.status).toBe('cancelled')
-    expect(statuses.at(-1)).toMatchObject({ state: 'idle', lastFinished: { status: 'cancelled' } })
   })
 })

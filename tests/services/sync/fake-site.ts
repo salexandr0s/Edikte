@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { AppError } from '@shared/errors'
-import type { PageSource } from '../../../src/main/scraper/client'
+import type { JsonSource, PageSource } from '../../../src/main/scraper/client'
 
 // The Edikte site as the client returns it, in the markup the scraper reads
 // (see tests/scraper/sync.test.ts). Courts, streets and cases are made up.
@@ -53,13 +54,15 @@ function cancelledError(): AppError {
   return new AppError('cancelled', 'Cancelled')
 }
 
-export class FakeSite implements PageSource {
+export class FakeSite implements PageSource, JsonSource {
   requestCount = 0
   pages: SitePage[] = []
   /** Requests whose URL matches wait until `release()` or until their run is cancelled. */
   hold: ((url: string) => boolean) | null = null
   /** Every request fails with this error, such as `network` for a site out of reach. */
   failWith: AppError | null = null
+  sales: number[] = []
+  jsonFailWith: AppError | null = null
   readonly #waiting: Array<() => void> = []
 
   get waiting(): number {
@@ -72,6 +75,35 @@ export class FakeSite implements PageSource {
     if (this.failWith !== null) throw this.failWith
     if (this.hold?.(url) === true) await this.#waitForRelease(signal)
     return this.#answer(url)
+  }
+
+  async getJson(url: string, signal?: AbortSignal): Promise<unknown> {
+    this.requestCount += 1
+    if (signal?.aborted === true) throw cancelledError()
+    if (this.jsonFailWith !== null) throw this.jsonFailWith
+    if (this.hold?.(url) === true) await this.#waitForRelease(signal)
+    const parsed = new URL(url)
+    if (parsed.search !== '') {
+      return {
+        page: Number(parsed.searchParams.get('page')),
+        pageSize: 100,
+        total: this.sales.length,
+        incompleteResult: false,
+        edikte: this.sales.map((id) => ({
+          id,
+          publishedAt: '2026-11-02',
+          publisherInfo: 'HG Musterstadt',
+          aktenzeichen: '099 4 S 12/26 x',
+        })),
+      }
+    }
+    if (!parsed.pathname.endsWith('/990001')) throw new AppError('not_found', 'HTTP 404')
+    const fixture = readFileSync(
+      new URL('../../scraper/insolvency/fixtures/detail-rich.json', import.meta.url),
+      'utf8',
+    )
+    const json: unknown = JSON.parse(fixture.replaceAll('Niederösterreich', 'Wien'))
+    return json
   }
 
   release(): void {

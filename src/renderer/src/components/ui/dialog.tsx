@@ -1,12 +1,18 @@
 import { Dialog as RadixDialog } from 'radix-ui'
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cx } from '../../lib/cx'
 import { CloseIcon } from './icons'
 
+type FocusTarget = HTMLElement | null | (() => HTMLElement | null)
+
 interface DialogProps {
   /** The control that opens the dialog, rendered in place. Focus returns to it on close. */
   trigger?: ReactNode
+  /** Opening control, or its replacement after an action. Resolve it when the dialog closes. */
+  returnFocus?: FocusTarget
+  /** Overrides Radix's first-control focus when the dialog opens. */
+  initialFocus?: FocusTarget
   open: boolean
   onOpenChange: (open: boolean) => void
   title: ReactNode
@@ -32,13 +38,15 @@ const WIDTHS = {
 
 /**
  * Modal dialog with focus trap and Escape to close (Radix). On close, focus
- * returns to `trigger`; a dialog opened some other way returns it nowhere, so
- * pass the opening control where there is one. The overlay dims and blurs the
- * page behind it. The close button comes last in the tab order, so the first
+ * returns to `trigger`, or to the programmatic opener. Async and menu flows
+ * pass `returnFocus` because their opener can be disabled or unmounted. The
+ * overlay dims and blurs the page behind it. The close button comes last in the tab order, so the first
  * control of the body gets the initial focus.
  */
 export function Dialog({
   trigger,
+  returnFocus,
+  initialFocus,
   open,
   onOpenChange,
   title,
@@ -49,6 +57,7 @@ export function Dialog({
   dismissible = true,
 }: DialogProps) {
   const { t } = useTranslation()
+  const opener = useRef<HTMLElement | null>(null)
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       {trigger !== undefined && <RadixDialog.Trigger asChild>{trigger}</RadixDialog.Trigger>}
@@ -63,6 +72,32 @@ export function Dialog({
           <RadixDialog.Content
             // Without a description, Radix wants aria-describedby unset explicitly.
             {...(description === undefined ? { 'aria-describedby': undefined } : {})}
+            onOpenAutoFocus={(event) => {
+              opener.current =
+                document.activeElement instanceof HTMLElement ? document.activeElement : null
+              if (focusTarget(initialFocus)) event.preventDefault()
+            }}
+            onCloseAutoFocus={(event) => {
+              // Trigger-based dialogs keep Radix's own restoration behavior.
+              if (trigger !== undefined && returnFocus === undefined) return
+              event.preventDefault()
+              // A following question may already be open, including during StrictMode's effect replay.
+              if (document.querySelector('[role="dialog"][data-state="open"]') !== null) return
+              if (focusTarget(returnFocus) || focusTarget(opener.current)) return
+              // Navigation or a completed job can remove the opener. Keep an existing page focus,
+              // otherwise use the visible screen's heading rather than dropping focus on the body.
+              const active = document.activeElement
+              if (
+                active instanceof HTMLElement &&
+                active !== document.body &&
+                active.closest('[role="dialog"]') === null &&
+                focusTarget(active)
+              )
+                return
+              for (const heading of document.querySelectorAll<HTMLElement>('main h1[tabindex]')) {
+                if (focusTarget(heading)) return
+              }
+            }}
             onPointerDownOutside={dismissible ? undefined : (event) => event.preventDefault()}
             className={cx(
               'pointer-events-auto relative flex max-h-(--edk-modal-max-height) flex-col overflow-hidden rounded-lg border border-border bg-surface-elevated text-fg shadow-xl outline-none',
@@ -105,4 +140,19 @@ export function Dialog({
       </RadixDialog.Portal>
     </RadixDialog.Root>
   )
+}
+
+function focusTarget(target: FocusTarget | undefined): boolean {
+  const element = typeof target === 'function' ? target() : target
+  if (
+    element == null ||
+    element === document.body ||
+    !element.isConnected ||
+    element.matches(':disabled') ||
+    element.closest('[hidden], [inert]') !== null ||
+    element.getClientRects().length === 0
+  )
+    return false
+  element.focus({ preventScroll: true })
+  return document.activeElement === element
 }

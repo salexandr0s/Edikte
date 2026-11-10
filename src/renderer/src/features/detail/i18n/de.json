@@ -1,8 +1,8 @@
 {
   "detail": {
-    "loadFailed": "Die Versteigerung konnte nicht geladen werden.",
-    "notFoundTitle": "Versteigerung nicht gefunden",
-    "backToList": "Zurück zu den Versteigerungen",
+    "loadFailed": "Das Objekt konnte nicht geladen werden.",
+    "notFoundTitle": "Objekt nicht gefunden",
+    "backToList": "Zurück zu den Objekten",
     "star": "Merken",
     "starFailed": "Die Markierung konnte nicht gespeichert werden.",
     "openFailed": "Die Seite konnte nicht geöffnet werden.",
@@ -21,7 +21,9 @@
       "ez": "EZ {{value}}",
       "remarks": "Anmerkungen",
       "showMore": "Alles anzeigen",
-      "showLess": "Weniger anzeigen"
+      "showLess": "Weniger anzeigen",
+      "noticeTitle": "Angaben zur Bekanntmachung",
+      "noticeKind": "Art der Bekanntmachung"
     },
     "hero": {
       "perSqm": "Preis pro m²",
@@ -36,7 +38,8 @@
       "inDays_other": "in {{count}} Tagen",
       "vadium": "Vadium {{value}}",
       "shareOfSchaetzwert": "{{percent}} des Schätzwerts",
-      "minimumBid": "Geringstes Gebot {{value}}"
+      "minimumBid": "Geringstes Gebot {{value}}",
+      "noticeValue": "Wert laut Bekanntmachung"
     },
     "numbers": {
       "title": "Eckdaten",
@@ -61,7 +64,7 @@
     },
     "areas": {
       "title": "Flächenangaben",
-      "intro": "Alle Flächen, die zu dieser Versteigerung gefunden wurden. Der Preis pro m² verwendet die verlässlichste.",
+      "intro": "Alle Flächen, die zu diesem Objekt gefunden wurden. Der Preis pro m² verwendet die verlässlichste.",
       "objektgroesse": "Objektgröße laut Edikt",
       "chosen": "Für €/m² verwendet",
       "differs": "Weicht um {{percent}} ab",
@@ -76,7 +79,9 @@
       "anschluesse": "Anschlüsse",
       "baubewilligung": "Baubewilligung",
       "stichtag": "Bewertungsstichtag",
-      "erstelltVon": "Erstellt von"
+      "erstelltVon": "Erstellt von",
+      "noticeTitle": "Angaben aus der Bekanntmachung",
+      "noticeIntro": "Aus der Bekanntmachung, ohne KI gelesen."
     },
     "related": {
       "title": "Weitere Edikte zu diesem Fall",
@@ -91,21 +96,40 @@
     },
     "notes": {
       "title": "Notizen",
-      "label": "Ihre Notizen zu dieser Versteigerung",
-      "help": "Die Notizen werden nur auf diesem Computer gespeichert und bleiben beim Fall, auch wenn die Versteigerung einen neuen Termin bekommt.",
+      "label": "Ihre Notizen zu diesem Objekt",
+      "help": "Die Notizen werden nur auf diesem Computer gespeichert und bleiben beim Fall.",
       "length": "{{used}} von {{max}} Zeichen",
       "saving": "Wird gespeichert …",
       "saved": "Gespeichert",
       "unsaved": "Nicht gespeicherte Änderungen",
       "saveFailed": "Die Notizen konnten nicht gespeichert werden."
+    },
+    "openOnSite": "Auf {{host}} öffnen",
+    "insolvency": {
+      "title": "Insolvenzverwaltung und Beschreibung",
+      "administrator": "Insolvenzverwalter:in",
+      "deputy": "Stellvertreter:in",
+      "name": "Name",
+      "address": "Anschrift",
+      "phone": "Telefon",
+      "fax": "Fax",
+      "email": "E-Mail",
+      "description": "Beschreibung",
+      "link": "Weiterführender Link"
     }
   },
   "analysis": {
     "title": "KI-Analyse",
     "intro": "Die KI liest das Gutachten und listet Flächen, Verkehrswert, Lasten, Rückstände, Mängel und Risiken auf, jeweils mit der Seite, auf der sie stehen.",
-    "noGutachten": "Zu dieser Versteigerung gibt es kein Gutachten, das analysiert werden kann.",
+    "noGutachten": "Zu diesem Objekt gibt es kein Gutachten, das analysiert werden kann.",
     "start": "Mit KI analysieren",
     "again": "Erneut analysieren",
+    "stale": {
+      "label": "Veraltete Analyse",
+      "previous": "Frühere Analyse veraltet",
+      "reason": "Diese Analyse lässt sich dem aktuellen Gutachten nicht sicher zuordnen. Sie kann sich auf ein geändertes oder nicht mehr veröffentlichtes Gutachten beziehen.",
+      "values": "Veraltete Analysewerte werden nicht für Filter, Risikobadges oder den Preis pro m² verwendet."
+    },
     "failed": "Die Analyse ist fehlgeschlagen.",
     "cancelled": "Die Analyse wurde abgebrochen.",
     "noResult": "Dieser Lauf hat kein Ergebnis.",
@@ -165,7 +189,7 @@
       "title": "Eigentum",
       "share": "Anteil",
       "wohnungseigentum": "Wohnungseigentum",
-      "units": "Versteigerte Einheiten",
+      "units": "Einheiten im Gutachten",
       "parking": "Mit Stellplatz"
     },
     "tenancy": {
@@ -190,7 +214,8 @@
       "encumbrances": "Lasten, die nach dem Zuschlag bestehen bleiben",
       "arrears": "Rückstände",
       "defects": "Mängel",
-      "none": "Keine gefunden"
+      "none": "Keine gefunden",
+      "noticeEncumbrances": "Lasten laut Gutachten"
     },
     "pages": {
       "unread": "Seiten, die die KI nicht lesen konnte: {{pages}}",
@@ -252,7 +277,8 @@
     "bytes": "{{done}} von {{total}}",
     "extractFailed": "Der Text dieses PDFs konnte nicht gelesen werden.",
     "page": "S. {{page}}",
-    "pageTitle": "Seite {{page}} im PDF öffnen"
+    "pageTitle": "Seite {{page}} im PDF öffnen",
+    "removed": "Nicht mehr veröffentlicht"
   },
   "evidence": {
     "prefix": "Beleg:",

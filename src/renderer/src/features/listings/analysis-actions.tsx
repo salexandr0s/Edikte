@@ -65,13 +65,18 @@ export function AnalysisQueueStatus({ rows, tracker }: AnalysisActionsProps) {
  * Analyzes the shown listings that have no finished, queued or running
  * analysis. The gate checks the provider, asks for consent and shows the estimate.
  */
-export function AnalyzeFilteredButton({ rows, tracker }: AnalysisActionsProps) {
+export function AnalyzeFilteredButton({
+  rows,
+  tracker,
+  disabled,
+}: AnalysisActionsProps & { disabled: boolean }) {
   const { t } = useTranslation()
   const toast = useToast()
   const { requestAnalysis } = useAnalysisGate()
   const [requesting, setRequesting] = useState(false)
 
   async function analyze() {
+    if (disabled) return
     const ids = analyzableIds(rows, tracker)
     if (ids.length === 0) {
       toast({
@@ -90,7 +95,13 @@ export function AnalyzeFilteredButton({ rows, tracker }: AnalysisActionsProps) {
   }
 
   return (
-    <Button variant="outline" size="sm" loading={requesting} onClick={() => void analyze()}>
+    <Button
+      variant="outline"
+      size="sm"
+      loading={requesting}
+      disabled={disabled}
+      onClick={() => void analyze()}
+    >
       <SparklesIcon className="text-accent-text" />
       {t('batch.analysis.button')}
     </Button>

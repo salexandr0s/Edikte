@@ -8,7 +8,7 @@ import {
   type AnalysisInput,
   type AnalysisStepEvent,
 } from '../../../src/main/ai/analysis/pipeline'
-import { PROMPT_VERSION, buildSystemPrompt } from '../../../src/main/ai/analysis/prompt'
+import { PROMPT_VERSIONS, buildSystemPrompt } from '../../../src/main/ai/analysis/prompt'
 import type { RenderPages } from '../../../src/main/ai/analysis/types'
 import { ProviderError, type AiProvider, type AnalysisRequest } from '../../../src/main/ai/provider'
 import { fakeProvider, houseAnswer, houseEdict, housePages } from './helpers'
@@ -67,7 +67,7 @@ describe('runAnalysis', () => {
       model: 'test-model-2026',
       requestedModel: 'test-model',
       accountLabel: 'tester@example.com',
-      promptVersion: PROMPT_VERSION,
+      promptVersion: PROMPT_VERSIONS.court_auction,
       schemaVersion: ANALYSIS_SCHEMA_VERSION,
       droppedPages: [],
       inputTokens: 40_000,
@@ -95,6 +95,19 @@ describe('runAnalysis', () => {
     )
     expect(outcome.result.unread_pages).toEqual([6, 12])
     expect(statusOf(outcome.evidence, 'defects.1')).toBe('quote_not_found')
+  })
+
+  it('keeps the insolvency instructions and version through a retry and checks its stated value', async () => {
+    const provider = fakeProvider('chatgpt', [{ json: {} }, { json: houseAnswer }])
+    const outcome = await runAnalysis(
+      input(provider, { edict: { ...houseEdict, source: 'insolvency_sale' } }),
+      signal(),
+    )
+    expect(provider.requests[0]?.system).toBe(buildSystemPrompt('insolvency_sale'))
+    expect(provider.requests[1]?.system).toContain(buildSystemPrompt('insolvency_sale'))
+    expect(userText(provider.requests[0])).toContain('Wert laut Bekanntmachung (EUR): 544000')
+    expect(outcome.promptVersion).toBe(PROMPT_VERSIONS.insolvency_sale)
+    expect(outcome.crossChecks.map((check) => check.kind)).toContain('verkehrswert_vs_schaetzwert')
   })
 
   it('carries on without images when rendering fails', async () => {

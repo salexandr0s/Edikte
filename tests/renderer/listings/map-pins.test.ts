@@ -9,6 +9,7 @@ import {
 function row(id: string, fields: Partial<ListingRow> = {}): ListingRow {
   return {
     id,
+    source: 'court_auction',
     caseKey: `case-${id}`,
     url: 'https://edikte.justiz.gv.at/',
     status: 'upcoming',
@@ -35,6 +36,7 @@ function row(id: string, fields: Partial<ListingRow> = {}): ListingRow {
     approximate: [],
     analysisStatus: null,
     hasAnalysis: false,
+    analysisStale: false,
     riskLevel: null,
     hasLanggutachten: false,
     starred: false,

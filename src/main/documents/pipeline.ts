@@ -145,23 +145,31 @@ export async function processDocument(
   const estimate = estimateArea(extracted.pages, document.propertyType)
   await deps.store.replaceEstimates(
     document.id,
-    estimate === null
-      ? []
-      : [
-          {
-            edictId: document.edictId,
-            documentId: document.id,
-            kind: estimate.kind,
-            sqm: estimate.sqm,
-            page: estimate.page,
-            quote: estimate.quote,
-            confidence: estimate.confidence,
-            method: estimate.method,
-            createdAt: now().toISOString(),
-          },
-        ],
+    localEstimateRows(document, estimate, now().toISOString()),
   )
   return { localPath, downloaded: stored === null, pageCount: extracted.pageCount, estimate }
+}
+
+export function localEstimateRows(
+  document: Pick<PipelineDocument, 'id' | 'edictId'>,
+  estimate: LocalAreaEstimate | null,
+  createdAt: string,
+): AreaEstimateRow[] {
+  return estimate === null
+    ? []
+    : [
+        {
+          edictId: document.edictId,
+          documentId: document.id,
+          kind: estimate.kind,
+          sqm: estimate.sqm,
+          page: estimate.page,
+          quote: estimate.quote,
+          confidence: estimate.confidence,
+          method: estimate.method,
+          createdAt,
+        },
+      ]
 }
 
 async function storedFile(

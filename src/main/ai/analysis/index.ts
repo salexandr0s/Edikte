@@ -1,5 +1,5 @@
 export { ANALYSIS_SCHEMA_NAME, analysisJsonSchema } from './json-schema'
-export { PROMPT_VERSION } from './prompt'
+export { PROMPT_VERSIONS } from './prompt'
 export { checkEvidence, type EvidenceContext } from './evidence'
 export { primaryArea, runCrossChecks, type CrossCheckFacts } from './cross-checks'
 export {
@@ -21,6 +21,7 @@ export {
   AnalysisQueue,
   type AnalysisCancelTarget,
   type AnalysisJob,
+  type AnalysisJobOutcome,
   type AnalysisJobRunner,
   type AnalysisJobStep,
   type AnalysisJobStore,

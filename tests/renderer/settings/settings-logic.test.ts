@@ -7,6 +7,7 @@ import {
 import {
   parseRetentionDays,
   toggleBundesland,
+  toggleSyncSource,
 } from '../../../src/renderer/src/features/settings/settings-logic'
 
 function status(id: ProviderStatus['id'], changes: Partial<ProviderStatus> = {}): ProviderStatus {
@@ -47,6 +48,19 @@ describe('toggleBundesland', () => {
   it('keeps the site order and drops cleared entries', () => {
     expect(toggleBundesland(['bgld'], 'wien', true)).toEqual(['wien', 'bgld'])
     expect(toggleBundesland(['wien', 'noe'], 'wien', false)).toEqual(['noe'])
+  })
+})
+
+describe('toggleSyncSource', () => {
+  it('keeps a source enabled and restores source order when adding one', () => {
+    expect(toggleSyncSource(['insolvency_sale'], 'insolvency_sale', false)).toBeNull()
+    expect(toggleSyncSource(['insolvency_sale'], 'court_auction', true)).toEqual([
+      'court_auction',
+      'insolvency_sale',
+    ])
+    expect(toggleSyncSource(['court_auction', 'insolvency_sale'], 'court_auction', false)).toEqual([
+      'insolvency_sale',
+    ])
   })
 })
 

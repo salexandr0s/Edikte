@@ -5,14 +5,11 @@ import type { ProviderId } from '@shared/providers'
 import {
   AnalysisQueue,
   type AnalysisJob,
+  type AnalysisJobOutcome,
   type AnalysisJobRunner,
   type AnalysisJobStore,
 } from '../../../src/main/ai/analysis/batch'
-import {
-  AnalysisRunError,
-  type AnalysisFailure,
-  type AnalysisOutcome,
-} from '../../../src/main/ai/analysis/pipeline'
+import { AnalysisRunError, type AnalysisFailure } from '../../../src/main/ai/analysis/pipeline'
 import { houseAnswer } from './helpers'
 
 interface Row {
@@ -36,7 +33,7 @@ function job(analysisId: number, provider: ProviderId = 'chatgpt'): AnalysisJob 
   }
 }
 
-function outcome(current: AnalysisJob): AnalysisOutcome {
+function outcome(current: AnalysisJob): AnalysisJobOutcome {
   return {
     provider: current.provider,
     model: current.model,
@@ -44,6 +41,8 @@ function outcome(current: AnalysisJob): AnalysisOutcome {
     accountLabel: null,
     promptVersion: 1,
     schemaVersion: 1,
+    documentIds: [1],
+    documentSha256: 'sha',
     result: houseAnswer,
     evidence: [],
     crossChecks: [],
@@ -84,7 +83,7 @@ function memoryStore(pending: readonly AnalysisJob[] = []) {
 function controlledRunner() {
   const runs: ControlledRun[] = []
   const run: AnalysisJobRunner = (current, signal, onStep) =>
-    new Promise<AnalysisOutcome>((resolve, reject) => {
+    new Promise<AnalysisJobOutcome>((resolve, reject) => {
       onStep('asking')
       signal.addEventListener(
         'abort',
