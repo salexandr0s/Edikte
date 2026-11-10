@@ -56,6 +56,12 @@ describe('resolveDocumentFile', () => {
 
   it('returns files inside the documents folder', async () => {
     expect(await resolveDocumentFile(root, `${ID}/a.pdf`)).toBe(path.join(root, ID, 'a.pdf'))
+    // A sale in insolvency proceedings keeps its files in a folder named after its `mv-` ID.
+    await mkdir(path.join(root, 'mv-990001'))
+    await writeFile(path.join(root, 'mv-990001', 'b.pdf'), '%PDF-')
+    expect(await resolveDocumentFile(root, 'mv-990001/b.pdf')).toBe(
+      path.join(root, 'mv-990001', 'b.pdf'),
+    )
   })
 
   it('refuses folders, missing files and malformed paths', async () => {

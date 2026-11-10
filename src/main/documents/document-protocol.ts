@@ -1,6 +1,6 @@
 import { realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
-import { EDICT_ID_PATTERN } from './file-names'
+import { EDICT_ID_PATTERN } from '@shared/edict-id'
 
 // Paths behind the custom scheme of the PDF window. Electron-free, so the
 // containment rules can be tested in Node.

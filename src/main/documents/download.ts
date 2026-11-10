@@ -4,8 +4,9 @@ import { mkdir, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import { EDICT_ID_PATTERN } from '@shared/edict-id'
 import { AppError } from '@shared/errors'
-import { EDICT_ID_PATTERN, safePdfFileName } from './file-names'
+import { safePdfFileName } from './file-names'
 import { parseDownloadUrl } from './url-policy'
 
 // Download logic ported from immoradar's document-worker.ts (redirect host

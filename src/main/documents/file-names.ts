@@ -1,8 +1,5 @@
 import path from 'node:path'
 
-/** Edict IDs name the per-edict folders inside the documents folder. */
-export const EDICT_ID_PATTERN = /^[0-9a-f]{32}$/
-
 const MAX_NAME_BYTES = 150
 const FALLBACK_NAME = 'document'
 const FORBIDDEN_CHARACTERS = /[<>:"/\\|?*]/g
