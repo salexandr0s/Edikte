@@ -8,7 +8,7 @@ import { EDICT_ID_PATTERN } from '@shared/edict-id'
 import { AppError } from '@shared/errors'
 import { safePdfFileName } from './file-names'
 import { DEFAULT_MAX_DOCUMENT_BYTES } from './limits'
-import { parseDownloadUrl } from './url-policy'
+import { parseDownloadUrl, parseRedirectUrl } from './url-policy'
 
 // Download logic ported from immoradar's document-worker.ts (redirect host
 // check, timeout, streamed size cap), writing to disk instead of memory.
@@ -62,18 +62,24 @@ export interface DownloadedFile {
 }
 
 /**
- * Downloads a PDF from edikte.justiz.gv.at to `<documents>/<edictId>/<file>`.
- * Every redirect hop is checked like the first URL. The body is streamed to a
- * temporary file with a size cap and a running SHA-256, then renamed into
- * place, so a failed or cancelled download never leaves a partial file.
+ * Downloads a PDF of an edict to `<documents>/<edictId>/<file>`. The file
+ * comes from edikte.justiz.gv.at for a court auction and from
+ * justizonline.gv.at for a sale in insolvency proceedings. The first URL must
+ * fit the edict, and every redirect hop must stay under the document path of
+ * the same host. The body is streamed to a temporary file with a size cap and
+ * a running SHA-256, then renamed into place, so a failed or cancelled
+ * download never leaves a partial file.
  */
 export async function downloadDocument(options: DownloadOptions): Promise<DownloadedFile> {
   if (!EDICT_ID_PATTERN.test(options.edictId)) {
     throw new AppError('invalid_request', 'Invalid edict ID')
   }
-  const startUrl = parseDownloadUrl(options.url)
+  const startUrl = parseDownloadUrl(options.url, options.edictId)
   if (startUrl === null) {
-    throw new AppError('forbidden', 'Documents can only be downloaded from edikte.justiz.gv.at')
+    throw new AppError(
+      'forbidden',
+      'Documents of this edict cannot be downloaded from this address',
+    )
   }
   const fileName = safePdfFileName(options.fileName)
   const folder = path.join(path.resolve(options.documentsDir), options.edictId)
@@ -192,9 +198,12 @@ async function fetchFollowingRedirects(
       next = null
     }
     if (next === null) throw new AppError('network', 'Redirect without a valid address')
-    const allowed = parseDownloadUrl(next.toString())
+    const allowed = parseRedirectUrl(next.toString(), url)
     if (allowed === null) {
-      throw new AppError('forbidden', 'The download was redirected away from edikte.justiz.gv.at')
+      throw new AppError(
+        'forbidden',
+        `The download was redirected away from the documents on ${url.hostname}`,
+      )
     }
     url = allowed
   }
