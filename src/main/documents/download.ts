@@ -7,12 +7,12 @@ import { pipeline } from 'node:stream/promises'
 import { EDICT_ID_PATTERN } from '@shared/edict-id'
 import { AppError } from '@shared/errors'
 import { safePdfFileName } from './file-names'
+import { DEFAULT_MAX_DOCUMENT_BYTES } from './limits'
 import { parseDownloadUrl } from './url-policy'
 
 // Download logic ported from immoradar's document-worker.ts (redirect host
 // check, timeout, streamed size cap), writing to disk instead of memory.
 
-export const DEFAULT_MAX_DOCUMENT_BYTES = 60 * 1024 * 1024
 /** A download fails when the site sends nothing for this long. */
 export const DEFAULT_IDLE_TIMEOUT_MS = 60_000
 /** Upper bound for a whole download, however steadily the bytes arrive. */
