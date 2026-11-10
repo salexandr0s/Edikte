@@ -1,0 +1,44 @@
+# Insolvency sales review
+
+Reviewed on 2026-11-10 against the approved insolvency-sales plan, including the existing feature commits and the continuation from `c5a40ee`. Changes remain on `feat/insolvency-sales`; nothing has been pushed or released.
+
+## Feature review
+
+The review covered source isolation in sync, listings and geocoding; incomplete lists and removal guards; migration 0005; `mv-` IDs in document paths and IPC; download hosts and redirects; retired documents; user-state moves; source-specific analysis versions; cancellation and automatic scheduling. Renderer review covered the list, map, detail, settings, first run, saved filters and German/English copy.
+
+Four findings were fixed during implementation and review:
+
+- A cancelled pass could immediately start its still-due second source through automatic scheduling. Cancellation now applies the existing retry delay to the pass.
+- A queued analysis could read a replacement report while retaining the old report ID in its evidence links. Completion now records the documents actually read.
+- An unreadable API file list could retire valid stored reports. Unreadable file layouts now degrade the run without changing stored records. A valid empty file list still retires its old links.
+- A saved filter for a disabled source could leave an empty view with no recovery control. The view now explains the disabled source and offers to show enabled sources without changing the saved filter. Batch actions also wait for the current query's results.
+
+Browser verification exposed a separate development-cache conflict: Vite returned HTTP 504 for the optimized Leaflet module. The renderer development server now has its own cache directory. The map loaded after the restart.
+
+## Verification
+
+Typecheck for both projects, ESLint, Prettier and 737 unit tests passed, with two opt-in tests skipped. The built Electron smoke test passed after the review fixes.
+
+The mock renderer was checked in German and English, in light and dark views, at 960, 1280 and 1440 CSS pixels. Checks included source switching, publication dates, rich and sparse sale details, settings that retain at least one source, a saved filter for a disabled source, map pins and a sale card, and keyboard operation. The filter dialog kept its footer accessible at 960 × 600 and returned focus on Escape. The ordinary mock response was too fast to observe the batch-button loading interval reliably; the query-identity guard was inspected in code.
+
+The live Vienna test passed in 1028.06 seconds using both sources and the default shared client. Both runs finished with status `ok`, the pass emitted one final idle state, and all three sample PDFs downloaded with positive byte counts. Court auctions had 154 listed/fetched/changed records and 274 requests. Vitest discarded captured console output for the passing test, so exact insolvency counts, full-run header percentiles and individual download sizes are unavailable. Temporary data and downloads were removed. This run loaded the code before the unreadable-file guard; focused tests cover that guard at the committed revision. No live AI analysis ran, and the real user-data folder has not been opened by this work.
+
+A separate three-page API list probe returned 220 records with no skipped rows or incomplete result. All three requests returned HTTP 200; headers arrived after 301/135/132 ms, with no timeouts. The default shared request pace and 10-second API timeout were preserved. This small probe measures list-page headers, not full-run retry rates. Its temporary test file was removed.
+
+All twelve README screenshots were regenerated from mock data and inspected. They show the new source controls. They can be reused if approved improvements do not change their visible content.
+
+The browser map used the mock bridge and basemap.at. The Electron tile protocol and live Nominatim lookup remain separate, previously recorded verification gaps. Contrast was reviewed visually and through the existing semantic token choices; this was not a numerical contrast audit of every state.
+
+## Improvements for approval
+
+These changes go beyond completing the feature. None has been applied.
+
+| Rank | Finding and evidence                                                                                                                                                                                                                                                                      | Proposed change                                                                                                                                                                                                                         | Effort and risk                                                                                                     |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 1    | Opening an older database applies pending migrations immediately in [client.ts](../src/main/db/client.ts). An older app build then refuses the upgraded schema. There is no automatic copy before migration.                                                                              | Make a consistent SQLite backup before the first pending migration, keep it outside the active database path, and report backup failure before changing the schema. Keep migration tests on temporary databases.                        | Medium effort; low feature risk. Recommend.                                                                         |
+| 2    | [analyzedEdicts](../src/main/db/analysis-store.ts) checks source-specific prompt versions, but a completed analysis can still refer to a report that has since been retired. The listing can continue using its areas and price calculation.                                              | Preserve analysis history, mark results stale when their report no longer matches the active report, and exclude stale derived areas from the current calculation until another analysis completes. Do not start AI work automatically. | Medium effort; medium behavior risk because current calculations change. Recommend after agreeing on this behavior. |
+| 3    | [Dialog](../src/renderer/src/components/ui/dialog.tsx) restores focus through an optional trigger. Saved-filter, fill-area, API-key and analysis dialogs opened without that trigger do not consistently return focus to their invoker. This was already recorded in the earlier handoff. | Add an explicit focus-return target for dialogs opened programmatically, with a meaningful fallback when the original control disappears. Check the four flows by keyboard.                                                             | Medium effort; low to medium focus-timing risk. Recommend.                                                          |
+| 4    | Escape in [listing-map.tsx](../src/renderer/src/features/listings/listing-map.tsx) clears a selected card without restoring marker focus. The card's close button already restores it.                                                                                                    | Reuse the close behavior for Escape and verify focus returns to the selected marker.                                                                                                                                                    | Small effort; low risk. Recommend.                                                                                  |
+| 5    | [caseClosedAt](../src/main/db/document-store.ts) returns no closure date for an open record. Disabling its source or Bundesland prevents later syncs from noticing its removal, so its unstarred downloads can remain indefinitely.                                                       | Choose an expiry policy for records outside sync scope before adding one. A rule based on time since last seen would need to explain that expiry does not establish the sale has ended.                                                 | Medium effort; policy and data-retention tradeoff. Defer until the policy is chosen.                                |
+
+Source counts in the switch remain an optional presentation change. The current view already shows filtered and total counts; the audit found no correctness failure that requires adding more counters.

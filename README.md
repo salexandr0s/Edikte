@@ -5,8 +5,8 @@
 <h1 align="center">Edikte</h1>
 
 <p align="center">
-  Gerichtliche Versteigerungen aus der Ediktsdatei: Preis pro m², Karte und KI-Auswertung der Gutachten.<br>
-  Court auctions from the Austrian Ediktsdatei: price per m², map and AI analysis of the appraisal reports.
+  Gerichtliche Versteigerungen und Insolvenzverkäufe aus der Ediktsdatei: Preis pro m², Karte und KI-Auswertung der Gutachten.<br>
+  Court auctions and insolvency sales from the Austrian Ediktsdatei: price per m², map and AI analysis of the appraisal reports.
 </p>
 
 <p align="center">
@@ -18,25 +18,25 @@
 
 ## Deutsch
 
-Edikte ist eine Desktop-App für macOS und Windows. Die App listet Versteigerungen aus der Ediktsdatei (edikte.justiz.gv.at) auf, die Sie nach dem Preis pro m² filtern können. Gutachten lädt die App bei Bedarf herunter und lässt sie von einem KI-Anbieter auswerten, bei dem Sie sich selbst anmelden.
+Edikte ist eine Desktop-App für macOS und Windows. Sie listet gerichtliche Liegenschaftsversteigerungen von edikte.justiz.gv.at und Immobilienangebote aus der Rubrik „Verkäufe und Verpachtungen in Insolvenzverfahren“ auf JustizOnline (justizonline.gv.at). Beide Quellen stehen in einer Liste, die Sie nach dem Preis pro m² filtern können. Gutachten lädt die App bei Bedarf herunter und lässt sie von einem KI-Anbieter auswerten, bei dem Sie sich selbst anmelden.
 
 Die App ist für den privaten Gebrauch gedacht. Sie ist kein Angebot des Bundesministeriums für Justiz und steht in keiner Verbindung zu ihm.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/listings-de-dark.png">
-  <img src="docs/screenshots/listings-de-light.png" alt="Die Liste der Versteigerungen mit Termin, Schätzwert, Fläche, Preis pro m² und Risikostufe" width="100%">
+  <img src="docs/screenshots/listings-de-light.png" alt="Die Objektliste mit Quellenwahl, Schätzwert, Fläche, Preis pro m² und Risikostufe" width="100%">
 </picture>
 
 <p align="center"><sub>Die Bilder zeigen erfundene Beispieldaten aus dem Entwicklungsmodus, keine echten Liegenschaften.</sub></p>
 
 ### Funktionen
 
-- **Liste:** Die App lädt die Versteigerungen der gewählten Bundesländer aus der Ediktsdatei, alle sechs Stunden, solange sie geöffnet ist, oder auf Knopfdruck. Jede Zeile zeigt Schätzwert, geringstes Gebot, Fläche und Preis pro m².
-- **Filter:** Suche nach Titel, Straße, Gericht oder Aktenzeichen; Preis, Preis pro m², Fläche, Bundesland, Bezirk, Objektart, Status, Versteigerungstermin und Risikostufe. Der Preis pro m² rechnet wahlweise mit dem Schätzwert oder dem geringsten Gebot. Filter lassen sich speichern.
+- **Liste:** Die App lädt die Objekte der gewählten Quellen und Bundesländer, alle sechs Stunden, solange sie geöffnet ist, oder auf Knopfdruck. Beide Quellen sind standardmäßig aktiv und lassen sich in den Einstellungen wählen. Die Quellenwahl über der Liste zeigt alle Objekte, Versteigerungen oder Insolvenzverkäufe. Jede Zeile zeigt Schätzwert, Fläche und Preis pro m², bei Versteigerungen auch das geringste Gebot und den Termin. Insolvenzverkäufe zeigen ihr Veröffentlichungsdatum; sie haben keinen Versteigerungstermin.
+- **Filter:** Suche nach Titel, Straße, Gericht oder Aktenzeichen; Preis, Preis pro m², Fläche, Bundesland, Bezirk, Objektart, Status, Versteigerungstermin und Risikostufe. Für Versteigerungen rechnen Preis und Preis pro m² wahlweise mit dem Schätzwert oder dem geringsten Gebot. Für Insolvenzverkäufe gilt immer der Wert aus der Bekanntmachung, in der App als Schätzwert bezeichnet. Filter lassen sich speichern.
 - **Karte:** Die Liegenschaften als Preismarken auf der Karte von basemap.at. Die Adressen sucht die App bei Nominatim (OpenStreetMap).
 - **Gutachten:** Die App lädt das Gutachten einer Liegenschaft auf Wunsch herunter und liest den Text aus. Fehlende Flächenangaben ergänzt sie aus den Gutachten.
-- **KI-Analyse:** Zusammenfassung, Flächen, Verkehrswert mit Stichtag, Zimmer, Stockwerk, Zustand und Heizung, Eigentumsanteil, Mietverhältnis, Lasten, die der Ersteher übernimmt, Rückstände, Mängel und Risiken. Zu jeder Angabe gehören, soweit das Gutachten sie hergibt, die Seite und ein Zitat. Die Analyse wird mit der Ediktsdatei abgeglichen, etwa Fläche gegen Objektgröße und Verkehrswert gegen Schätzwert. Auf Wunsch analysiert die App alle gefilterten Liegenschaften auf einmal.
-- **Merken und ausblenden:** Liegenschaften lassen sich mit einem Stern markieren oder aus der Liste ausblenden.
+- **KI-Analyse:** Zusammenfassung, Flächen, Verkehrswert mit Stichtag, Zimmer, Stockwerk, Zustand und Heizung, Eigentumsanteil, Mietverhältnis, Lasten, Rückstände, Mängel und Risiken. Bei Insolvenzverkäufen führt die Analyse die im Gutachten genannten Lasten auf und setzt keine Löschung voraus. Zu jeder Angabe gehören, soweit das Gutachten sie hergibt, die Seite und ein Zitat. Die Analyse wird mit der Bekanntmachung abgeglichen, etwa Fläche gegen Objektgröße und Verkehrswert gegen Schätzwert. Auf Wunsch analysiert die App alle gefilterten Liegenschaften auf einmal.
+- **Merken und ausblenden:** Liegenschaften lassen sich mit einem Stern markieren oder aus der Liste ausblenden. Objekte mit einem Stern oder Notizen bleiben in der Liste, wenn sie nicht mehr online sind.
 - **Zwei Sprachen, zwei Farbschemata:** Deutsch und Englisch; hell oder dunkel nach der Systemeinstellung.
 
 <table>
@@ -124,7 +124,8 @@ Um alle Daten zu löschen, beenden Sie Edikte und löschen den Ordner. Auf dem M
 
 ### Datenschutz
 
-- Edikte ruft die öffentlichen Seiten der Ediktsdatei ab, höchstens eine Anfrage pro Sekunde.
+- Edikte ruft die öffentlichen Versteigerungsseiten auf edikte.justiz.gv.at und die JSON-Schnittstelle hinter der öffentlichen Suche auf justizonline.gv.at ab, insgesamt höchstens eine Anfrage pro Sekunde.
+- Die Schuldnerfelder aus Insolvenzbekanntmachungen werden nicht gespeichert. Die Kontaktdaten der Insolvenzverwaltung und ihrer Stellvertretung sowie die Beschreibung des Objekts stehen in der Detailansicht.
 - Für die Karte sendet Edikte die Adressen der geladenen Liegenschaften je einmal an Nominatim (nominatim.openstreetmap.org) und speichert die Antworten in der Datenbank. Die Kartenkacheln lädt die App von basemap.at und behält sie 14 Tage im Datenordner.
 - Gutachten nennen die Eigentümer und enthalten Daten aus dem Grundbuch. Die heruntergeladenen Dateien bleiben im Datenordner auf Ihrem Computer.
 - Der Text eines Gutachtens geht erst an Ihren KI-Anbieter, wenn Sie eine Analyse starten. Vor der ersten Analyse fragt Edikte, ob Sie damit einverstanden sind. Für die Verarbeitung beim Anbieter gelten dessen Bedingungen.
@@ -175,25 +176,25 @@ Dieses Projekt hat noch keine Lizenz. Solange keine Lizenzdatei vorliegt, gilt d
 
 ## English
 
-Edikte is a desktop app for macOS and Windows. It lists court auctions from the Austrian edicts database (Ediktsdatei, edikte.justiz.gv.at), and you can filter the list by price per m². It downloads appraisal reports (Gutachten) on demand and has them analysed by an AI provider that you sign in to yourself.
+Edikte is a desktop app for macOS and Windows. It lists court property auctions from the Austrian edicts database (Ediktsdatei, edikte.justiz.gv.at) and real-estate sales and leases in insolvency proceedings from JustizOnline (justizonline.gv.at). Both sources share a list that you can filter by price per m². It downloads appraisal reports (Gutachten) on demand and has them analysed by an AI provider that you sign in to yourself.
 
 The app is meant for personal use. It is not a service of the Austrian Federal Ministry of Justice (Bundesministerium für Justiz) and has no connection to it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/listings-en-dark.png">
-  <img src="docs/screenshots/listings-en-light.png" alt="The list of auctions with date, appraised value, area, price per m² and risk level" width="100%">
+  <img src="docs/screenshots/listings-en-light.png" alt="The property list with source selection, appraised value, area, price per m² and risk level" width="100%">
 </picture>
 
 <p align="center"><sub>The screenshots show made-up sample data from the development mode, not real properties.</sub></p>
 
 ### Features
 
-- **List:** The app loads the auctions of the chosen Bundesländer from the Ediktsdatei, every six hours while it is open or when you press Sync. Each row shows the appraised value (Schätzwert), the minimum bid (geringstes Gebot), the area and the price per m².
-- **Filters:** Search by title, street, court or case number; price, price per m², area, Bundesland, district, property type, status, auction date and risk level. The price per m² uses either the appraised value or the minimum bid. Filters can be saved.
+- **List:** The app loads the listings of the chosen sources and Bundesländer, every six hours while it is open or when you press Sync. Both sources are enabled by default and can be chosen in Settings. The source switch above the list shows all listings, auctions or insolvency sales. Each row shows the appraised value (Schätzwert), area and price per m²; auctions also show the minimum bid (geringstes Gebot) and date. Insolvency sales show their publication date and have no auction date.
+- **Filters:** Search by title, street, court or case number; price, price per m², area, Bundesland, district, property type, status, auction date and risk level. For auctions, price and price per m² use either the appraised value or the minimum bid. For insolvency sales, they always use the value from the notice, labelled appraised value in the app. Filters can be saved.
 - **Map:** The properties as price markers on the basemap.at map. The app looks up the addresses at Nominatim (OpenStreetMap).
 - **Appraisal reports:** The app downloads the report of a property when you ask for it and extracts the text. Where a listing states no area, it takes the area from the report.
-- **AI analysis:** Summary, areas, market value (Verkehrswert) with valuation date, rooms, floor, condition and heating, ownership share, tenancy, encumbrances the buyer takes over, arrears, defects and risks. Each value comes with the page and a quote from the report, where the report provides them. The analysis is checked against the Ediktsdatei, for example area against the listed size and market value against the appraised value. You can also analyse every filtered property at once.
-- **Star and hide:** Properties can be starred or hidden from the list.
+- **AI analysis:** Summary, areas, market value (Verkehrswert) with valuation date, rooms, floor, condition and heating, ownership share, tenancy, encumbrances, arrears, defects and risks. For insolvency sales, the analysis lists the encumbrances named in the report without assuming that they are deleted. Each value comes with the page and a quote from the report, where the report provides them. The analysis is checked against the notice, for example area against the listed size and market value against the appraised value. You can also analyse every filtered property at once.
+- **Star and hide:** Properties can be starred or hidden from the list. Listings with a star or notes remain in the list after they leave the site.
 - **Two languages, two colour schemes:** German and English; light or dark following the system setting.
 
 <table>
@@ -281,7 +282,8 @@ To delete all data, quit Edikte and delete the folder. On a Mac, a keychain item
 
 ### Privacy
 
-- Edikte fetches the public pages of the Ediktsdatei, at most one request per second.
+- Edikte fetches the public auction pages on edikte.justiz.gv.at and the JSON API behind the public search on justizonline.gv.at, at most one request per second across both hosts.
+- Debtor fields from insolvency notices are not stored. The detail view shows the administrator's and deputy's contact details and the property description.
 - For the map, Edikte sends the address of each loaded property once to Nominatim (nominatim.openstreetmap.org) and stores the answers in the database. It fetches the map tiles from basemap.at and keeps them in the data folder for 14 days.
 - Appraisal reports name the owners and contain land register (Grundbuch) data. The downloaded files stay in the data folder on your computer.
 - The text of a report goes to your AI provider only when you start an analysis. Before the first analysis, Edikte asks for your consent. The provider's own terms apply to how it processes the text.
