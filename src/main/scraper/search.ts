@@ -1,6 +1,7 @@
 import { load } from 'cheerio'
 import { z } from 'zod'
 import { LocalDateSchema } from '@shared/domain'
+import { AUCTION_EDICT_ID_PATTERN } from '@shared/edict-id'
 import {
   BUNDESLAND_SITE_CODES,
   CATEGORIES,
@@ -13,7 +14,6 @@ import { BundeslandSchema, NoticeTypeSchema, type Bundesland } from '@shared/enu
 import { AppError, isAppError } from '@shared/errors'
 import { exceedsShare } from './health'
 import {
-  EDICT_ID_PATTERN,
   categoryCodesFor,
   detailUrl,
   edictIdFromHref,
@@ -66,7 +66,7 @@ export function buildSearchUrl(filter: SearchFilter): string {
 }
 
 export const SearchRowSchema = z.object({
-  id: z.string().regex(EDICT_ID_PATTERN),
+  id: z.string().regex(AUCTION_EDICT_ID_PATTERN),
   url: z.string(),
   noticeType: NoticeTypeSchema,
   /** Link text as published, such as "Verschiebung (von 17.12.2026 auf 14.12.2026)". */
