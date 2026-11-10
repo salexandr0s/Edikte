@@ -1,12 +1,12 @@
 # Session handoff: 2026-11-10
 
-Project: Edikte, the Electron desktop app for Austrian court auctions and real-estate sales in insolvency proceedings. Branch `feat/insolvency-sales`, based on `47ef51a`. Work remains local; nothing has been pushed, merged or released.
+Project: Edikte, the Electron desktop app for Austrian court auctions and real-estate sales in insolvency proceedings. The feature is merged into `main` through [PR #1](https://github.com/salexandr0s/Edikte/pull/1), merge commit `b720e2cbfbdb6002550c7053226805f66017dd15`. [Version 0.2.0](https://github.com/salexandr0s/Edikte/releases/tag/v0.2.0) is public and marked latest.
 
-The approved plan is `~/.claude/plans/edikte-insolvency-sales.md` (revision 2). Its progress file is `~/.claude/plans/edikte-insolvency-sales-progress.md`. The feature and all four recommended improvements are complete. The user approved items 1–4, including stale-analysis handling, on 2026-11-10.
+The approved plan is `~/.claude/plans/edikte-insolvency-sales.md` (revision 2). Its progress file is `~/.claude/plans/edikte-insolvency-sales-progress.md`. The feature and all four recommended improvements are complete. The user approved items 1–4, including stale-analysis handling, on 2026-11-10, then authorized push, PR, merge, downloadable releases and cleanup. See the [feature review](docs/insolvency-sales-review.md) and [release notes](docs/releases/v0.2.0.md).
 
 ## Completed
 
-Recovered Claude's clean final contract commit, `c5a40ee`, and created an active Codex goal to finish the feature, verification, review, documentation and approved improvements.
+Recovered Claude's clean final contract commit, `c5a40ee`, and created a Codex goal to finish the feature, verification, review, documentation and approved improvements.
 
 | Commit    | Work                                                                                                                                                                  |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -18,12 +18,24 @@ Recovered Claude's clean final contract commit, `c5a40ee`, and created an active
 | `bc21197` | Consistent SQLite backup before pending migrations, with failure before DDL and migration-ledger writes                                                               |
 | `a729fe6` | Return focus after programmatic dialogs and map-card Escape/Close                                                                                                     |
 | `2aaf01f` | Current-report hash provenance, stale-result UI, cached area repair and guarded legacy migration 0006                                                                 |
+| `74d85d8` | Version 0.2.0 package preparation and release notes                                                                                                                   |
+| `b720e2c` | Merged feature PR #1 into `main`; release tag `v0.2.0`                                                                                                                |
 
 The auction system prompt still has version 2 and its previous SHA-256. The insolvency prompt uses version 1. Queued analysis records now save the report actually read, even when sync replaced the report while the job waited.
 
 An unreadable file list degrades an insolvency run without changing stored records. Valid empty lists retire their old document links. Foreign document URLs still follow the skip-and-count rule. Cancellation applies the existing retry delay to the entire pass, so auto sync does not immediately run a remaining source.
 
 German and English UI copy refers to the combined list as Objekte/Listings. Insolvency sales use publication dates and the notice value as Schätzwert. The detail shows administrator/deputy contacts and description; further URLs remain plain text. At least one source must stay enabled.
+
+## Release and cleanup
+
+Version 0.2.0 was published on 2026-11-10 at 19:41:55 UTC (20:41:55 CET). Its six assets are two macOS DMGs and two ZIPs (Apple silicon and Intel), the Windows x64 installer, and `SHA256SUMS.txt`. All six uploaded assets have positive byte counts. The checksum file's hash matches its GitHub asset digest, and the five package hashes in it match GitHub's package asset digests.
+
+The [release workflow](https://github.com/salexandr0s/Edikte/actions/runs/42886436068) finished with all five jobs successful. It checked the Mac packages natively on both architectures and installed and checked the Windows x64 installer. [PR CI](https://github.com/salexandr0s/Edikte/actions/runs/42885971254) and [main CI](https://github.com/salexandr0s/Edikte/actions/runs/42886400222) also passed.
+
+Only `main` remains locally and remotely; the merged feature branch was deleted. Generated `out/` and `test-results/` were moved to the Trash. The mock renderer preview was closed and its development server stopped. The real user-data folder remains untouched, and the local application was not replaced or installed, as the user requested.
+
+Six duplicate Actions package artifacts were deleted from the successful [0.2.0](https://github.com/salexandr0s/Edikte/actions/runs/42886436068) and [0.1.0](https://github.com/salexandr0s/Edikte/actions/runs/42209782702) release runs. Published releases, tags, download assets and workflow logs were retained.
 
 ## Verification state
 
@@ -54,13 +66,13 @@ The real user-data folder has not been opened or migrated by this work. No live 
 
 ## Deferred work and known gaps
 
-No implementation work remains under the approved goal. All work is committed locally. Push, PR, merge and release require separate approval.
+No implementation or release work remains under the approved scope. Version 0.2.0 is available from the public release linked above.
 
 README and CLAUDE text, this handoff, the review, project memory and the twelve regenerated/inspected screenshots document the final behavior.
 
 Expiry of downloads outside sync scope remains deferred until the user chooses a retention policy (review item 5). Source-switch counts remain optional. Neither was among the four approved improvements.
 
-Previously recorded gaps remain: Electron map-tile protocol and live Nominatim lookup were not exercised by the browser mock checks; no live Codex analysis, Windows run, packaged-app check or release was part of this work. Contrast review used visual inspection and existing semantic tokens, not numerical measurement of every state.
+Remaining verification gaps: no live AI analysis; the Electron map-tile protocol and live Nominatim lookup were not exercised by the browser mock checks. Contrast review used visual inspection and existing semantic tokens, not numerical measurement of every state. Native Mac package and installed Windows startup checks are now covered by the successful release workflow.
 
 ## Resume commands
 
@@ -79,7 +91,7 @@ Reuse successful checks for unchanged code. A later deliberate live rerun is `ED
 
 ## Decisions
 
-- Keep the existing feature branch and prior commits; commit logical units locally.
+- Preserve the existing feature commits and finish in logical commits. The feature branch was deleted after the approved merge.
 - Use the shared source contracts from `c5a40ee`. `current.source` identifies the active sync run; `lastRuns` contains the newest finished run of each enabled source.
 - Preserve debtor-field exclusions, including old/new change-log values and free-text history notes. Store the administrator contacts needed for offers.
 - Preserve explicit sources in old saved filters. Recover a disabled-source selection through a visible action, without rewriting the saved filter.
@@ -87,4 +99,4 @@ Reuse successful checks for unchanged code. A later deliberate live rerun is `ED
 - Current analysis and local-estimate values require the active report ID and matching known byte hash. Unknown legacy provenance stays stale; history and evidence remain readable. Migration backfills only safe extraction that predates the result, invalidating unsafe cache readiness before the backfill. No automatic AI refresh.
 - Preserve the last known hash when cache files are evicted. Changed bytes invalidate extracted pages atomically; identical bytes can reuse them. Explicit area fill can repair cached estimates or interrupted extraction without another download.
 - Keep pre-migration SQLite snapshots in `migration-backups`; backup failure aborts before any schema or ledger mutation. Backups have no automatic expiry.
-- Push, PR, merge and release still require separate approval.
+- The user authorized push, PR, merge, release and cleanup. The local app was left in place; testing and release checks used isolated temporary user-data folders.

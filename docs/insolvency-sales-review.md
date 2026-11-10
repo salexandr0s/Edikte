@@ -1,6 +1,6 @@
 # Insolvency sales review
 
-Reviewed on 2026-11-10 against the approved insolvency-sales plan, including the existing feature commits and the continuation from `c5a40ee`. Changes remain on `feat/insolvency-sales`; nothing has been pushed or released.
+Reviewed on 2026-11-10 against the approved insolvency-sales plan, including the existing feature commits and the continuation from `c5a40ee`. The feature is merged into `main` through [PR #1](https://github.com/salexandr0s/Edikte/pull/1), merge commit `b720e2cbfbdb6002550c7053226805f66017dd15`, and published in [version 0.2.0](https://github.com/salexandr0s/Edikte/releases/tag/v0.2.0).
 
 ## Feature review
 
@@ -17,7 +17,7 @@ Browser verification exposed a separate development-cache conflict: Vite returne
 
 ## Verification
 
-Typecheck for both projects, ESLint, Prettier and 752 unit tests passed, with two opt-in tests skipped. The built Electron smoke test passed after all approved improvements and the final migration safeguard.
+Typecheck for both projects, ESLint, Prettier and 752 unit tests passed, with two opt-in tests skipped. The built Electron smoke test passed after all approved improvements and the final migration safeguard. [PR CI](https://github.com/salexandr0s/Edikte/actions/runs/42885971254) and [main CI](https://github.com/salexandr0s/Edikte/actions/runs/42886400222) also passed.
 
 The mock renderer was checked in German and English, in light and dark views, at 960, 1280 and 1440 CSS pixels. Checks included source switching, publication dates, rich and sparse sale details, settings that retain at least one source, a saved filter for a disabled source, map pins and a sale card, and keyboard operation. The filter dialog kept its footer accessible at 960 × 600 and returned focus on Escape. The ordinary mock response was too fast to observe the batch-button loading interval reliably; the query-identity guard was inspected in code.
 
@@ -27,7 +27,9 @@ A separate three-page API list probe returned 220 records with no skipped rows o
 
 All twelve README screenshots were regenerated from mock data and inspected after the improvements. The list includes an outdated-analysis example whose old area and risk are excluded.
 
-The browser map used the mock bridge and basemap.at. The Electron tile protocol and live Nominatim lookup remain separate, previously recorded verification gaps. Contrast was reviewed visually and through the existing semantic token choices; this was not a numerical contrast audit of every state.
+The [0.2.0 release workflow](https://github.com/salexandr0s/Edikte/actions/runs/42886436068) passed all five jobs. It checked the packaged Mac apps natively for Apple silicon and Intel, including DMG and ZIP packages, and installed and checked the Windows x64 installer. The public release is marked latest and contains those five packages plus `SHA256SUMS.txt`; all six assets have positive byte counts. The checksum file's hash matches its GitHub asset digest, and its five package hashes match GitHub's package asset digests. See the [release notes](releases/v0.2.0.md).
+
+The browser map used the mock bridge and basemap.at. The Electron tile protocol and live Nominatim lookup remain separate, previously recorded verification gaps. No live AI analysis ran. Contrast was reviewed visually and through the existing semantic token choices; this was not a numerical contrast audit of every state.
 
 ## Approved improvements and deferred policy
 
