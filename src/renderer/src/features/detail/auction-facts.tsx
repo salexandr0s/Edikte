@@ -14,6 +14,7 @@ export function AuctionFacts({ detail }: { detail: ListingDetail }) {
   const { t } = useTranslation()
   const format = useFormat()
   const notStated = t('common.notStated')
+  const auction = detail.source === 'court_auction'
 
   const landRegister = joinPresent(
     [
@@ -30,24 +31,28 @@ export function AuctionFacts({ detail }: { detail: ListingDetail }) {
   const zubehoer = detail.zubehoer === null ? null : knownZubehoer(detail.zubehoer)
 
   return (
-    <Card title={t('detail.facts.title')}>
+    <Card title={t(auction ? 'detail.facts.title' : 'detail.facts.noticeTitle')}>
       <FactList columns={2}>
-        <Fact label={t('detail.facts.auction')}>
-          {detail.auctionAt === null ? notStated : format.localDateTime(detail.auctionAt)}
-        </Fact>
-        <Fact
-          label={t('detail.facts.place')}
-          lang={detail.auctionPlace === null ? undefined : 'de'}
-        >
-          {detail.auctionPlace ?? notStated}
-        </Fact>
-        <Fact
-          label={t('detail.facts.viewing')}
-          lang={detail.viewing === null ? undefined : 'de'}
-          className="col-span-full"
-        >
-          {detail.viewing ?? notStated}
-        </Fact>
+        {auction && (
+          <>
+            <Fact label={t('detail.facts.auction')}>
+              {detail.auctionAt === null ? notStated : format.localDateTime(detail.auctionAt)}
+            </Fact>
+            <Fact
+              label={t('detail.facts.place')}
+              lang={detail.auctionPlace === null ? undefined : 'de'}
+            >
+              {detail.auctionPlace ?? notStated}
+            </Fact>
+            <Fact
+              label={t('detail.facts.viewing')}
+              lang={detail.viewing === null ? undefined : 'de'}
+              className="col-span-full"
+            >
+              {detail.viewing ?? notStated}
+            </Fact>
+          </>
+        )}
         <Fact label={t('detail.facts.court')} lang={detail.court === null ? undefined : 'de'}>
           {detail.court ?? notStated}
         </Fact>
@@ -61,7 +66,7 @@ export function AuctionFacts({ detail }: { detail: ListingDetail }) {
         {detail.plotSqm !== null && (
           <Fact label={t('detail.numbers.plot')}>{format.sqm(detail.plotSqm)}</Fact>
         )}
-        {otherPerSqm !== null && (
+        {auction && otherPerSqm !== null && (
           <Fact
             label={
               perLand

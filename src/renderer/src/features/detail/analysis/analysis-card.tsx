@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AnalysisProgress, ListingDetail } from '@shared/domain'
+import type { EdictSource } from '@shared/enums'
 import type { AppErrorCode } from '@shared/errors'
 import { useAnalysisGate } from '../../../components/analysis-gate'
 import { Button } from '../../../components/ui/button'
@@ -76,6 +77,7 @@ export function AnalysisCard({ detail, reload, reloadError }: AnalysisCardProps)
       <div className="flex flex-col gap-8">
         {viewedRun === null ? (
           <CurrentAnalysis
+            edictSource={detail.source}
             view={view}
             canAnalyze={canAnalyze}
             requesting={requesting}
@@ -86,7 +88,7 @@ export function AnalysisCard({ detail, reload, reloadError }: AnalysisCardProps)
         ) : (
           <>
             <OlderRunNotice run={viewedRun} onShowLatest={() => setViewedRunId(null)} />
-            <AnalysisResult record={viewedRun} />
+            <AnalysisResult record={viewedRun} edictSource={detail.source} />
           </>
         )}
         <AnalysisHistory
@@ -101,6 +103,7 @@ export function AnalysisCard({ detail, reload, reloadError }: AnalysisCardProps)
 }
 
 interface CurrentAnalysisProps {
+  edictSource: EdictSource
   view: AnalysisView
   canAnalyze: boolean
   requesting: boolean
@@ -109,7 +112,13 @@ interface CurrentAnalysisProps {
   onReload: () => void
 }
 
-function CurrentAnalysis({ view, reloadError, onReload, ...start }: CurrentAnalysisProps) {
+function CurrentAnalysis({
+  view,
+  edictSource,
+  reloadError,
+  onReload,
+  ...start
+}: CurrentAnalysisProps) {
   switch (view.kind) {
     case 'none':
       return <NoAnalysis {...start} />
@@ -121,6 +130,6 @@ function CurrentAnalysis({ view, reloadError, onReload, ...start }: CurrentAnaly
     case 'stopped':
       return <StoppedAnalysis record={view.record} {...start} />
     case 'done':
-      return <AnalysisResult record={view.record} />
+      return <AnalysisResult record={view.record} edictSource={edictSource} />
   }
 }

@@ -1,8 +1,8 @@
 {
   "detail": {
-    "loadFailed": "The auction could not be loaded.",
-    "notFoundTitle": "Auction not found",
-    "backToList": "Back to auctions",
+    "loadFailed": "The listing could not be loaded.",
+    "notFoundTitle": "Listing not found",
+    "backToList": "Back to listings",
     "star": "Star",
     "starFailed": "The star could not be saved.",
     "openFailed": "The page could not be opened.",
@@ -21,7 +21,9 @@
       "ez": "EZ {{value}}",
       "remarks": "Remarks",
       "showMore": "Show all",
-      "showLess": "Show less"
+      "showLess": "Show less",
+      "noticeTitle": "Notice details",
+      "noticeKind": "Notice type"
     },
     "hero": {
       "perSqm": "Price per m²",
@@ -36,7 +38,8 @@
       "inDays_other": "in {{count}} days",
       "vadium": "Deposit (Vadium) {{value}}",
       "shareOfSchaetzwert": "{{percent}} of the Schätzwert",
-      "minimumBid": "Minimum bid {{value}}"
+      "minimumBid": "Minimum bid {{value}}",
+      "noticeValue": "Value stated in the notice"
     },
     "numbers": {
       "title": "Key figures",
@@ -61,7 +64,7 @@
     },
     "areas": {
       "title": "Area values",
-      "intro": "Every area found for this auction. The price per m² uses the most trusted one.",
+      "intro": "Every area found for this listing. The price per m² uses the most trusted one.",
       "objektgroesse": "Objektgröße as published",
       "chosen": "Used for €/m²",
       "differs": "Differs by {{percent}}",
@@ -76,7 +79,9 @@
       "anschluesse": "Utilities (Anschlüsse)",
       "baubewilligung": "Building permit (Baubewilligung)",
       "stichtag": "Valuation date (Stichtag)",
-      "erstelltVon": "Prepared by"
+      "erstelltVon": "Prepared by",
+      "noticeTitle": "Facts from the notice",
+      "noticeIntro": "Read from the notice without AI."
     },
     "related": {
       "title": "Other edicts of this case",
@@ -91,19 +96,32 @@
     },
     "notes": {
       "title": "Notes",
-      "label": "Your notes on this auction",
-      "help": "Notes are saved on this computer only. They stay with the case when the auction gets a new date.",
+      "label": "Your notes on this listing",
+      "help": "Notes are saved on this computer only. They stay with the case.",
       "length": "{{used}} of {{max}} characters",
       "saving": "Saving…",
       "saved": "Saved",
       "unsaved": "Unsaved changes",
       "saveFailed": "The notes could not be saved."
+    },
+    "openOnSite": "Open on {{host}}",
+    "insolvency": {
+      "title": "Administrator and description",
+      "administrator": "Insolvency administrator (Insolvenzverwalter:in)",
+      "deputy": "Deputy (Stellvertreter:in)",
+      "name": "Name",
+      "address": "Address",
+      "phone": "Phone",
+      "fax": "Fax",
+      "email": "Email",
+      "description": "Description",
+      "link": "Further link"
     }
   },
   "analysis": {
     "title": "AI analysis",
     "intro": "The AI reads the Gutachten and lists the areas, the Verkehrswert, encumbrances, arrears, defects and risks, each with the page it comes from.",
-    "noGutachten": "This auction has no Gutachten, so there is nothing to analyze.",
+    "noGutachten": "This listing has no Gutachten, so there is nothing to analyze.",
     "start": "Analyze with AI",
     "again": "Analyze again",
     "failed": "The analysis failed.",
@@ -165,7 +183,7 @@
       "title": "Ownership",
       "share": "Share",
       "wohnungseigentum": "Condominium (Wohnungseigentum)",
-      "units": "Units in the auction",
+      "units": "Units in the appraisal report",
       "parking": "Parking space included"
     },
     "tenancy": {
@@ -190,7 +208,8 @@
       "encumbrances": "Encumbrances that remain after the sale",
       "arrears": "Arrears",
       "defects": "Defects",
-      "none": "None found"
+      "none": "None found",
+      "noticeEncumbrances": "Encumbrances stated in the appraisal report"
     },
     "pages": {
       "unread": "Pages the AI could not read: {{pages}}",
@@ -252,7 +271,8 @@
     "bytes": "{{done}} of {{total}}",
     "extractFailed": "The text of this PDF could not be read.",
     "page": "p. {{page}}",
-    "pageTitle": "Open page {{page}} in the PDF"
+    "pageTitle": "Open page {{page}} in the PDF",
+    "removed": "No longer published"
   },
   "evidence": {
     "prefix": "Evidence:",

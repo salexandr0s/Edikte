@@ -37,7 +37,7 @@ test('starts the built app, reaches main and switches language', async () => {
     // the same button; the last one saves the settings and shows the listings.
     const listingsHeading = window.getByRole('heading', {
       level: 1,
-      name: /^(Versteigerungen|Auctions)$/,
+      name: /^(Objekte|Listings)$/,
     })
     const next = window.getByRole('button', { name: /^(Weiter|Continue)$/ })
     await expect(async () => {
@@ -51,11 +51,11 @@ test('starts the built app, reaches main and switches language', async () => {
     const heading = window.getByRole('heading', { level: 1 })
     await language.click()
     await window.getByRole('option', { name: 'Deutsch' }).click()
-    await expect(heading).toHaveText('Versteigerungen')
+    await expect(heading).toHaveText('Objekte')
     await expect(window.locator('html')).toHaveAttribute('lang', 'de')
     await language.click()
     await window.getByRole('option', { name: 'English' }).click()
-    await expect(heading).toHaveText('Auctions')
+    await expect(heading).toHaveText('Listings')
     await expect(window.locator('html')).toHaveAttribute('lang', 'en')
 
     expect(consoleErrors).toEqual([])

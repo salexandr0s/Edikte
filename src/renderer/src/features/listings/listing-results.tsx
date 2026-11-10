@@ -19,7 +19,7 @@ import { Spinner } from '../../components/ui/spinner'
 import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
 import { ListingMap } from './listing-map'
-import { nextSort, type AnalysisTracker, type ListingSort } from './query-helpers'
+import { insolvencyOnly, nextSort, type AnalysisTracker, type ListingSort } from './query-helpers'
 import { ResultsTable } from './results-table'
 import { useGeocode } from './use-geocode'
 import type { ListingPageState } from './use-listing-page'
@@ -63,6 +63,7 @@ export function ListingResults({
   const { t } = useTranslation()
   const format = useFormat()
   const { page, error, loading, reload } = state
+  const salesOnly = insolvencyOnly(query)
   // Main looks addresses up only while the map is open.
   const geocode = useGeocode(view === 'map')
 
@@ -122,7 +123,9 @@ export function ListingResults({
           {loading && <Spinner className="size-3.5 text-fg-muted" />}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {view === 'list' && <SortControl sort={query.sort} onSort={onSort} />}
+          {view === 'list' && (
+            <SortControl sort={query.sort} salesOnly={salesOnly} onSort={onSort} />
+          )}
           <ViewToggle view={view} onViewChange={onViewChange} />
         </div>
       </div>
@@ -161,7 +164,8 @@ export function ListingResults({
           labelledBy={titleId}
           rows={rows}
           sort={query.sort}
-          priceBasis={query.priceBasis}
+          priceBasis={salesOnly ? 'schaetzwert' : query.priceBasis}
+          salesOnly={salesOnly}
           tracker={tracker}
           busy={loading}
           onSort={onSort}
@@ -206,7 +210,15 @@ function ViewToggle({
 }
 
 /** Every sort column, including the two without a table header, and the direction. */
-function SortControl({ sort, onSort }: { sort: ListingSort; onSort: (sort: ListingSort) => void }) {
+function SortControl({
+  sort,
+  salesOnly,
+  onSort,
+}: {
+  sort: ListingSort
+  salesOnly: boolean
+  onSort: (sort: ListingSort) => void
+}) {
   const { t } = useTranslation()
   const id = useId()
   return (
@@ -221,10 +233,12 @@ function SortControl({ sort, onSort }: { sort: ListingSort; onSort: (sort: Listi
         className="w-auto"
         value={sort.column}
         onValueChange={(column) => onSort(nextSort(sort, column))}
-        options={ListingSortColumnSchema.options.map((column) => ({
-          value: column,
-          label: t(`listings.sort.column.${column}`),
-        }))}
+        options={ListingSortColumnSchema.options
+          .filter((column) => !salesOnly || column !== 'auctionAt')
+          .map((column) => ({
+            value: column,
+            label: t(`listings.sort.column.${column}`),
+          }))}
       />
       <SegmentedControl
         aria-label={t('listings.sort.direction')}

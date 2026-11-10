@@ -80,7 +80,7 @@
   },
   "nav": {
     "label": "Hauptnavigation",
-    "listings": "Versteigerungen",
+    "listings": "Objekte",
     "settings": "Einstellungen"
   },
   "toast": {
@@ -187,8 +187,8 @@
       "accept": "Zustimmen und fortfahren"
     },
     "confirm": {
-      "title_one": "Diese Versteigerung analysieren?",
-      "title_other": "{{count}} Versteigerungen analysieren?",
+      "title_one": "Dieses Objekt analysieren?",
+      "title_other": "{{count}} Objekte analysieren?",
       "provider": "Anbieter",
       "model": "Modell",
       "defaultModel": "Standard des Anbieters",
@@ -198,15 +198,15 @@
       "cost": "Kosten",
       "estimatedCost": "Etwa {{cost}} zu Listenpreisen",
       "planCost": "Zählt zum Nutzungslimit Ihres Plans bei {{provider}}",
-      "skipped_one": "Eine Versteigerung hat kein Gutachten und wird übersprungen.",
-      "skipped_other": "{{count}} Versteigerungen haben kein Gutachten und werden übersprungen.",
-      "again_one": "Eine Versteigerung wurde schon analysiert und wird neu analysiert.",
-      "again_other": "{{count}} Versteigerungen wurden schon analysiert und werden neu analysiert.",
+      "skipped_one": "Ein Objekt hat kein Gutachten und wird übersprungen.",
+      "skipped_other": "{{count}} Objekte haben kein Gutachten und werden übersprungen.",
+      "again_one": "Ein Objekt wurde schon analysiert und wird neu analysiert.",
+      "again_other": "{{count}} Objekte wurden schon analysiert und werden neu analysiert.",
       "start": "Analyse starten"
     },
     "nothing": {
       "title": "Nichts zu analysieren",
-      "text": "Keine dieser Versteigerungen hat ein Gutachten, das analysiert werden kann."
+      "text": "Keines dieser Objekte hat ein Gutachten, das analysiert werden kann."
     }
   }
 }

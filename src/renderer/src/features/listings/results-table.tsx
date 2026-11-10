@@ -26,6 +26,7 @@ interface ResultsTableProps {
   priceBasis: PriceBasis
   tracker: AnalysisTracker
   busy: boolean
+  salesOnly: boolean
   onSort: (sort: ListingSort) => void
   onOpen: (row: ListingRow) => void
   onStar: (row: ListingRow) => void
@@ -39,6 +40,7 @@ export function ResultsTable({
   priceBasis,
   tracker,
   busy,
+  salesOnly,
   onSort,
   onOpen,
   onStar,
@@ -69,7 +71,9 @@ export function ResultsTable({
             <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
               {t('listings.columns.object')}
             </th>
-            {sortable('auctionAt', t('listings.columns.auctionAt'))}
+            {salesOnly
+              ? sortable('publishedAt', t('listings.columns.publishedAt'))
+              : sortable('auctionAt', t('listings.columns.auctionAt'))}
             {sortable('price', t(`listings.columns.price.${priceBasis}`), 'right')}
             {sortable('area', t('listings.columns.area'), 'right')}
             {sortable('pricePerSqm', t('listings.columns.pricePerSqm'), 'right')}
@@ -86,6 +90,7 @@ export function ResultsTable({
             <ListingTableRow
               key={row.id}
               row={row}
+              columnPriceBasis={priceBasis}
               analysisStatus={currentAnalysisStatus(row, tracker)}
               onOpen={() => onOpen(row)}
               onStar={() => onStar(row)}

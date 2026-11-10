@@ -7,22 +7,25 @@ import { useToast } from '../../components/ui/toast'
 import { useApp } from '../../lib/app-context'
 import { errorCode, invoke } from '../../lib/bridge'
 
-const SITE_URL = 'https://edikte.justiz.gv.at/'
+const SITES = [
+  { url: 'https://edikte.justiz.gv.at/', label: 'settings.about.openSite' },
+  { url: 'https://justizonline.gv.at/', label: 'settings.about.openJustizOnline' },
+] as const
 
 export function AboutCard() {
   const { t } = useTranslation()
   const { info } = useApp()
   const toast = useToast()
-  const [opening, setOpening] = useState(false)
+  const [opening, setOpening] = useState<string | null>(null)
 
-  async function openSite() {
-    setOpening(true)
+  async function openSite(url: string) {
+    setOpening(url)
     try {
-      await invoke('shell:openExternal', { url: SITE_URL })
+      await invoke('shell:openExternal', { url })
     } catch (error) {
       toast({ kind: 'error', title: t(`errors.${errorCode(error)}`) })
     } finally {
-      setOpening(false)
+      setOpening(null)
     }
   }
 
@@ -33,11 +36,20 @@ export function AboutCard() {
         <p>{t('settings.about.notAffiliated')}</p>
         <p>{t('settings.about.source')}</p>
         <p>{t('settings.about.personalUse')}</p>
-        <div>
-          <Button variant="outline" size="sm" loading={opening} onClick={() => void openSite()}>
-            {t('settings.about.openSite')}
-            <ExternalLinkIcon />
-          </Button>
+        <div className="flex flex-wrap gap-2">
+          {SITES.map(({ url, label }) => (
+            <Button
+              key={url}
+              variant="outline"
+              size="sm"
+              loading={opening === url}
+              disabled={opening !== null}
+              onClick={() => void openSite(url)}
+            >
+              {t(label)}
+              <ExternalLinkIcon />
+            </Button>
+          ))}
         </div>
       </div>
     </Card>

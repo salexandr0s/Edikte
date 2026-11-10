@@ -54,7 +54,10 @@ export function DetailHeader({ detail, onBack }: DetailHeaderProps) {
         <div className="flex flex-wrap gap-2">
           <StarToggle caseKey={detail.caseKey} starred={detail.starred} />
           <Button variant="outline" size="sm" onClick={() => void openExternal(detail.url)}>
-            {t('common.openOnSite')}
+            {t('detail.openOnSite', {
+              host:
+                detail.source === 'insolvency_sale' ? 'justizonline.gv.at' : 'edikte.justiz.gv.at',
+            })}
             <ExternalLinkIcon className="text-fg-muted" />
           </Button>
         </div>

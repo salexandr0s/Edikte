@@ -80,7 +80,7 @@
   },
   "nav": {
     "label": "Main navigation",
-    "listings": "Auctions",
+    "listings": "Listings",
     "settings": "Settings"
   },
   "toast": {
@@ -187,8 +187,8 @@
       "accept": "Agree and continue"
     },
     "confirm": {
-      "title_one": "Analyze this auction?",
-      "title_other": "Analyze {{count}} auctions?",
+      "title_one": "Analyze this listing?",
+      "title_other": "Analyze {{count}} listings?",
       "provider": "Provider",
       "model": "Model",
       "defaultModel": "Provider default",
@@ -198,15 +198,15 @@
       "cost": "Cost",
       "estimatedCost": "About {{cost}} at list prices",
       "planCost": "Counts towards the usage limits of your {{provider}} plan",
-      "skipped_one": "One auction has no Gutachten and is skipped.",
-      "skipped_other": "{{count}} auctions have no Gutachten and are skipped.",
-      "again_one": "One auction already has an analysis and is analyzed again.",
-      "again_other": "{{count}} auctions already have an analysis and are analyzed again.",
+      "skipped_one": "One listing has no Gutachten and is skipped.",
+      "skipped_other": "{{count}} listings have no Gutachten and are skipped.",
+      "again_one": "One listing already has an analysis and is analyzed again.",
+      "again_other": "{{count}} listings already have an analysis and are analyzed again.",
       "start": "Start analysis"
     },
     "nothing": {
       "title": "Nothing to analyze",
-      "text": "None of these auctions has a Gutachten to analyze."
+      "text": "None of these listings has a Gutachten to analyze."
     }
   }
 }

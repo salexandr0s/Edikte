@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { AnalysisRecord } from '@shared/analysis-schema'
-import type { RiskLevel } from '@shared/enums'
+import type { EdictSource, RiskLevel } from '@shared/enums'
 import { Badge, type BadgeVariant } from '../../../components/ui/badge'
 import { CrossChecks, ReadingGaps, RunDetails } from './checks'
 import {
@@ -24,7 +24,13 @@ const CONFIDENCE_VARIANTS: Readonly<Record<RiskLevel, BadgeVariant>> = {
  * is untrusted, so every value renders as plain text. Page links open the
  * Langgutachten the run read.
  */
-export function AnalysisResult({ record }: { record: AnalysisRecord }) {
+export function AnalysisResult({
+  record,
+  edictSource,
+}: {
+  record: AnalysisRecord
+  edictSource: EdictSource
+}) {
   const { t, i18n } = useTranslation()
   const { result } = record
   if (result === null) return <p className="text-sm text-fg-muted">{t('analysis.noResult')}</p>
@@ -52,7 +58,15 @@ export function AnalysisResult({ record }: { record: AnalysisRecord }) {
       <PropertySection result={result} />
       <OwnershipSection result={result} />
       <TenancySection result={result} source={source} />
-      <FindingList kind="encumbrances" result={result} source={source} german={german} />
+      <FindingList
+        kind="encumbrances"
+        result={result}
+        source={source}
+        german={german}
+        title={
+          edictSource === 'insolvency_sale' ? t('analysis.findings.noticeEncumbrances') : undefined
+        }
+      />
       <FindingList kind="arrears" result={result} source={source} german={german} />
       <FindingList kind="defects" result={result} source={source} german={german} />
       <RunDetails record={record} />

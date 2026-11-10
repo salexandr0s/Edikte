@@ -1,14 +1,14 @@
 {
   "listings": {
-    "title": "Versteigerungen",
-    "empty": "Noch keine Versteigerungen",
-    "emptyText": "Wählen Sie „Jetzt synchronisieren“, um die aktuellen Versteigerungen von edikte.justiz.gv.at zu laden.",
-    "noMatches": "Keine Versteigerungen passen zu diesen Filtern",
-    "noMatchesText": "Ändern Sie die Filter oder setzen Sie sie zurück, um mehr Versteigerungen zu sehen.",
-    "loadFailed": "Die Versteigerungen konnten nicht geladen werden.",
+    "title": "Objekte",
+    "empty": "Noch keine Objekte",
+    "emptyText": "Wählen Sie „Jetzt synchronisieren“, um aktuelle Objekte aus den gewählten Quellen zu laden.",
+    "noMatches": "Keine Objekte passen zu diesen Filtern",
+    "noMatchesText": "Ändern Sie die Filter oder setzen Sie sie zurück, um mehr Objekte zu sehen.",
+    "loadFailed": "Die Objekte konnten nicht geladen werden.",
     "updateFailed": "Die Liste konnte nicht aktualisiert werden.",
-    "count_one": "{{shown}} von {{total}} Versteigerung",
-    "count_other": "{{shown}} von {{total}} Versteigerungen",
+    "count_one": "{{shown}} von {{total}} Objekt",
+    "count_other": "{{shown}} von {{total}} Objekten",
     "columns": {
       "star": "Merken",
       "object": "Objekt",
@@ -20,7 +20,8 @@
       "area": "Fläche",
       "pricePerSqm": "€/m²",
       "analysis": "Analyse",
-      "actions": "Aktionen"
+      "actions": "Aktionen",
+      "publishedAt": "Veröffentlichung"
     },
     "sort": {
       "label": "Sortieren nach",
@@ -62,8 +63,15 @@
       "notAnalyzed": "Nicht analysiert",
       "starFailed": "Die Markierung konnte nicht gespeichert werden.",
       "hideFailed": "Die Änderung konnte nicht gespeichert werden.",
-      "hiddenToast": "Versteigerung ausgeblendet",
-      "undo": "Rückgängig"
+      "hiddenToast": "Objekt ausgeblendet",
+      "undo": "Rückgängig",
+      "published": "veröffentlicht {{date}}"
+    },
+    "sources": {
+      "label": "Quelle",
+      "all": "Alle",
+      "disabled": "Deaktiviert in den Einstellungen: {{sources}}.",
+      "showEnabled": "Aktive Quellen anzeigen"
     }
   },
   "filters": {
@@ -75,10 +83,10 @@
     "clearSearch": "Suche leeren",
     "priceBasis": "Preisgrundlage",
     "maxPricePerSqm": "Höchstpreis pro m² (€)",
-    "includeWithoutArea": "Auch Versteigerungen ohne Fläche",
-    "includeWithoutAreaHelp": "Zeigt auch Versteigerungen ohne Flächenangabe, wenn Sie nach €/m² oder Fläche filtern.",
+    "includeWithoutArea": "Auch Objekte ohne Fläche",
+    "includeWithoutAreaHelp": "Zeigt auch Objekte ohne Flächenangabe, wenn Sie nach €/m² oder Fläche filtern.",
     "price": "Preis (€)",
-    "priceHelp": "Gilt für die oben gewählte Preisgrundlage.",
+    "priceHelp": "Versteigerungen verwenden die gewählte Preisgrundlage, Insolvenzverkäufe immer den Schätzwert.",
     "area": "Fläche (m²)",
     "from": "Von",
     "to": "Bis",
@@ -94,15 +102,15 @@
     "reset": "Filter zurücksetzen",
     "dialogHint": "Änderungen wirken sofort auf die Liste.",
     "done": "Fertig",
-    "matches_one": "{{count}} Versteigerung passt",
-    "matches_other": "{{count}} Versteigerungen passen",
+    "matches_one": "{{count}} Objekt passt",
+    "matches_other": "{{count}} Objekte passen",
     "sections": {
       "search": "Suche",
       "price": "Preis",
       "area": "Fläche",
       "location": "Lage",
       "property": "Objekt",
-      "auction": "Versteigerung",
+      "auction": "Status und Termin",
       "analysis": "Analyse",
       "marks": "Gemerkt und ausgeblendet"
     },
@@ -155,7 +163,7 @@
     },
     "delete": {
       "title": "Filter „{{name}}“ löschen?",
-      "text": "Nur der gespeicherte Filter wird entfernt. Versteigerungen, Markierungen und Notizen bleiben erhalten.",
+      "text": "Nur der gespeicherte Filter wird entfernt. Objekte, Markierungen und Notizen bleiben erhalten.",
       "deleted": "Filter gelöscht",
       "failed": "Der Filter konnte nicht gelöscht werden."
     }
@@ -192,11 +200,11 @@
       "button": "Fehlende Flächen ergänzen",
       "checkFailed": "Die fehlenden Flächen konnten nicht geprüft werden.",
       "nothingTitle": "Nichts herunterzuladen",
-      "allHaveArea": "Alle Versteigerungen in diesem Filter haben eine Fläche.",
-      "noDocuments_one": "Eine Versteigerung hat keine Fläche, aber für sie gibt es kein Gutachten mehr zum Herunterladen.",
-      "noDocuments_other": "{{count}} Versteigerungen haben keine Fläche, aber für sie gibt es kein Gutachten mehr zum Herunterladen.",
+      "allHaveArea": "Alle Objekte in diesem Filter haben eine Fläche.",
+      "noDocuments_one": "Ein Objekt hat keine Fläche, aber für dieses Objekt gibt es kein Gutachten mehr zum Herunterladen.",
+      "noDocuments_other": "{{count}} Objekte haben keine Fläche, aber für diese Objekte gibt es kein Gutachten mehr zum Herunterladen.",
       "confirmTitle": "{{documents}} Gutachten herunterladen?",
-      "listings": "Versteigerungen ohne Fläche",
+      "listings": "Objekte ohne Fläche",
       "documents": "Gutachten zum Herunterladen",
       "size": "Downloadgröße",
       "confirmText": "Die App sucht die Fläche im Text jedes Gutachtens. Sie können jederzeit abbrechen.",
@@ -221,7 +229,7 @@
     "analysis": {
       "button": "Gefilterte analysieren",
       "nothingTitle": "Nichts Neues zu analysieren",
-      "nothingText": "Alle angezeigten Versteigerungen sind bereits analysiert oder warten auf die Analyse.",
+      "nothingText": "Alle angezeigten Objekte sind bereits analysiert oder warten auf die Analyse.",
       "queue": "Analysen: {{running}}, {{waiting}}",
       "running_one": "{{count}} läuft",
       "running_other": "{{count}} laufen",
@@ -238,7 +246,7 @@
       "list": "Liste",
       "map": "Karte"
     },
-    "region": "Karte der Versteigerungen",
+    "region": "Karte der Objekte",
     "loading": "Karte wird geladen …",
     "loadFailed": "Die Karte konnte nicht geladen werden.",
     "tilesFailed": "Die Karte konnte nicht von basemap.at geladen werden.",
@@ -248,18 +256,18 @@
     "zoomOut": "Verkleinern",
     "lookingUp_one": "Adressen werden gesucht, noch {{count}}",
     "lookingUp_other": "Adressen werden gesucht, noch {{count}}",
-    "missing_one": "{{count}} Versteigerung ohne Position auf der Karte",
-    "missing_other": "{{count}} Versteigerungen ohne Position auf der Karte",
+    "missing_one": "{{count}} Objekt ohne Position auf der Karte",
+    "missing_other": "{{count}} Objekte ohne Position auf der Karte",
     "missingHint": "Der Adressdienst kennt diese Adressen nicht, oder sie wurden noch nicht gesucht.",
-    "pin_one": "{{price}}, {{count}} Versteigerung",
-    "pin_other": "{{price}}, {{count}} Versteigerungen",
+    "pin_one": "{{price}}, {{count}} Objekt",
+    "pin_other": "{{price}}, {{count}} Objekte",
     "from": "ab {{value}}",
     "approximate": "Position ungefähr, nur der Ort ist bekannt",
     "approximateShort": "Ungefähre Position",
-    "atLocation_one": "{{count}} Versteigerung an dieser Adresse",
-    "atLocation_other": "{{count}} Versteigerungen an dieser Adresse",
-    "closeTogether_one": "{{count}} Versteigerung hier",
-    "closeTogether_other": "{{count}} Versteigerungen nahe beieinander",
+    "atLocation_one": "{{count}} Objekt an dieser Adresse",
+    "atLocation_other": "{{count}} Objekte an dieser Adresse",
+    "closeTogether_one": "{{count}} Objekt hier",
+    "closeTogether_other": "{{count}} Objekte nahe beieinander",
     "attribution": "Karte: basemap.at (CC BY 4.0). Adressen: OpenStreetMap-Mitwirkende (ODbL)."
   }
 }

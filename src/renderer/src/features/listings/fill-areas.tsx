@@ -144,7 +144,7 @@ export function useFillJob(query: ListingQuery): FillJob {
   }
 }
 
-export function FillAreasButton({ job }: { job: FillJob }) {
+export function FillAreasButton({ job, disabled }: { job: FillJob; disabled: boolean }) {
   const { t } = useTranslation()
   const format = useFormat()
   const { plan } = job
@@ -154,7 +154,7 @@ export function FillAreasButton({ job }: { job: FillJob }) {
         variant="outline"
         size="sm"
         loading={job.checking}
-        disabled={job.progress !== null}
+        disabled={disabled || job.progress !== null}
         onClick={job.check}
       >
         <DownloadIcon className="text-fg-muted" />

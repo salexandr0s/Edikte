@@ -1,14 +1,14 @@
 {
   "listings": {
-    "title": "Auctions",
-    "empty": "No auctions yet",
-    "emptyText": "Choose Sync now to load the current auctions from edikte.justiz.gv.at.",
-    "noMatches": "No auctions match these filters",
-    "noMatchesText": "Change the filters or reset them to see more auctions.",
-    "loadFailed": "The auctions could not be loaded.",
+    "title": "Listings",
+    "empty": "No listings yet",
+    "emptyText": "Choose Sync now to load current listings from your selected sources.",
+    "noMatches": "No listings match these filters",
+    "noMatchesText": "Change the filters or reset them to see more listings.",
+    "loadFailed": "The listings could not be loaded.",
     "updateFailed": "The list could not be updated.",
-    "count_one": "{{shown}} of {{total}} auction",
-    "count_other": "{{shown}} of {{total}} auctions",
+    "count_one": "{{shown}} of {{total}} listing",
+    "count_other": "{{shown}} of {{total}} listings",
     "columns": {
       "star": "Star",
       "object": "Property",
@@ -20,7 +20,8 @@
       "area": "Area",
       "pricePerSqm": "€/m²",
       "analysis": "Analysis",
-      "actions": "Actions"
+      "actions": "Actions",
+      "publishedAt": "Publication date"
     },
     "sort": {
       "label": "Sort by",
@@ -62,8 +63,15 @@
       "notAnalyzed": "Not analyzed",
       "starFailed": "The star could not be saved.",
       "hideFailed": "The change could not be saved.",
-      "hiddenToast": "Auction hidden",
-      "undo": "Undo"
+      "hiddenToast": "Listing hidden",
+      "undo": "Undo",
+      "published": "published {{date}}"
+    },
+    "sources": {
+      "label": "Source",
+      "all": "All",
+      "disabled": "Disabled in Settings: {{sources}}.",
+      "showEnabled": "Show enabled sources"
     }
   },
   "filters": {
@@ -75,10 +83,10 @@
     "clearSearch": "Clear search",
     "priceBasis": "Price basis",
     "maxPricePerSqm": "Max. price per m² (€)",
-    "includeWithoutArea": "Include auctions without an area",
-    "includeWithoutAreaHelp": "Also shows auctions without a stated area when you filter by €/m² or area.",
+    "includeWithoutArea": "Include listings without an area",
+    "includeWithoutAreaHelp": "Also shows listings without a stated area when you filter by €/m² or area.",
     "price": "Price (€)",
-    "priceHelp": "Applies to the price basis chosen above.",
+    "priceHelp": "Auctions use the chosen price basis. Insolvency sales always use the appraised value (Schätzwert).",
     "area": "Area (m²)",
     "from": "From",
     "to": "To",
@@ -90,19 +98,19 @@
     "riskLevels": "Risk (from the analysis)",
     "analyzedOnly": "Analyzed only",
     "starredOnly": "Starred only",
-    "showHidden": "Show hidden auctions",
+    "showHidden": "Show hidden listings",
     "reset": "Reset filters",
     "dialogHint": "Changes apply to the list at once.",
     "done": "Done",
-    "matches_one": "{{count}} auction matches",
-    "matches_other": "{{count}} auctions match",
+    "matches_one": "{{count}} listing matches",
+    "matches_other": "{{count}} listings match",
     "sections": {
       "search": "Search",
       "price": "Price",
       "area": "Area",
       "location": "Location",
       "property": "Property",
-      "auction": "Auction",
+      "auction": "Status and date",
       "analysis": "Analysis",
       "marks": "Stars and hidden"
     },
@@ -155,7 +163,7 @@
     },
     "delete": {
       "title": "Delete the filter “{{name}}”?",
-      "text": "Only the saved filter is removed. Auctions, stars and notes stay as they are.",
+      "text": "Only the saved filter is removed. Listings, stars and notes stay as they are.",
       "deleted": "Filter deleted",
       "failed": "The filter could not be deleted."
     }
@@ -192,11 +200,11 @@
       "button": "Fill missing areas",
       "checkFailed": "Missing areas could not be checked.",
       "nothingTitle": "Nothing to download",
-      "allHaveArea": "Every auction in this filter has an area.",
-      "noDocuments_one": "One auction has no area, but there is no Gutachten left to download for it.",
-      "noDocuments_other": "{{count}} auctions have no area, but there is no Gutachten left to download for them.",
+      "allHaveArea": "Every listing in this filter has an area.",
+      "noDocuments_one": "One listing has no area, but there is no appraisal report (Gutachten) left to download for it.",
+      "noDocuments_other": "{{count}} listings have no area, but there is no appraisal report (Gutachten) left to download for them.",
       "confirmTitle": "Download {{documents}} Gutachten?",
-      "listings": "Auctions without area",
+      "listings": "Listings without area",
       "documents": "Gutachten to download",
       "size": "Download size",
       "confirmText": "The app looks for the area in the text of each Gutachten. You can cancel at any time.",
@@ -221,7 +229,7 @@
     "analysis": {
       "button": "Analyze filtered",
       "nothingTitle": "Nothing new to analyze",
-      "nothingText": "Every auction shown is already analyzed or waiting for analysis.",
+      "nothingText": "Every listing shown is already analyzed or waiting for analysis.",
       "queue": "Analyses: {{running}}, {{waiting}}",
       "running_one": "{{count}} running",
       "running_other": "{{count}} running",
@@ -238,7 +246,7 @@
       "list": "List",
       "map": "Map"
     },
-    "region": "Map of the auctions",
+    "region": "Map of the listings",
     "loading": "Loading the map…",
     "loadFailed": "The map could not be loaded.",
     "tilesFailed": "The map could not be loaded from basemap.at.",
@@ -248,18 +256,18 @@
     "zoomOut": "Zoom out",
     "lookingUp_one": "Looking up addresses, {{count}} left",
     "lookingUp_other": "Looking up addresses, {{count}} left",
-    "missing_one": "{{count}} auction has no position on the map",
-    "missing_other": "{{count}} auctions have no position on the map",
+    "missing_one": "{{count}} listing has no position on the map",
+    "missing_other": "{{count}} listings have no position on the map",
     "missingHint": "The address service does not know these addresses, or they have not been looked up yet.",
-    "pin_one": "{{price}}, {{count}} auction",
-    "pin_other": "{{price}}, {{count}} auctions",
+    "pin_one": "{{price}}, {{count}} listing",
+    "pin_other": "{{price}}, {{count}} listings",
     "from": "from {{value}}",
     "approximate": "Position approximate, only the town is known",
     "approximateShort": "Approximate position",
-    "atLocation_one": "{{count}} auction at this address",
-    "atLocation_other": "{{count}} auctions at this address",
-    "closeTogether_one": "{{count}} auction here",
-    "closeTogether_other": "{{count}} auctions close together",
+    "atLocation_one": "{{count}} listing at this address",
+    "atLocation_other": "{{count}} listings at this address",
+    "closeTogether_one": "{{count}} listing here",
+    "closeTogether_other": "{{count}} listings close together",
     "attribution": "Map: basemap.at (CC BY 4.0). Addresses: OpenStreetMap contributors (ODbL)."
   }
 }

@@ -7,6 +7,7 @@ import {
 import type {
   AnalysisStatus,
   Bundesland,
+  EdictSource,
   ListingStatus,
   PriceBasis,
   PropertyType,
@@ -27,9 +28,48 @@ export function defaultQuery(priceBasis: PriceBasis): ListingQuery {
   return ListingQuerySchema.parse({ priceBasis })
 }
 
-/** Clears every filter. The sort order stays, because it is not a filter. */
+/** Clears filters while keeping the source view and sort order. */
 export function resetFilters(query: ListingQuery, priceBasis: PriceBasis): ListingQuery {
-  return { ...defaultQuery(priceBasis), sort: query.sort }
+  return { ...defaultQuery(priceBasis), sources: query.sources, sort: query.sort }
+}
+
+/** Sales have a publication date rather than an auction date. */
+export function selectSources(query: ListingQuery, sources: EdictSource[]): ListingQuery {
+  const next = applyPatch(query, { sources })
+  if (!insolvencyOnly(next)) return next
+  return applyPatch(next, {
+    auctionFrom: null,
+    auctionTo: null,
+    sort:
+      next.sort.column === 'auctionAt' ? { column: 'publishedAt', direction: 'desc' } : next.sort,
+  })
+}
+
+export function insolvencyOnly(query: Pick<ListingQuery, 'sources'>): boolean {
+  return query.sources.length === 1 && query.sources[0] === 'insolvency_sale'
+}
+
+/** A saved filter can select a source that has since been disabled. */
+export function selectsDisabledSources(
+  query: Pick<ListingQuery, 'sources'>,
+  enabled: readonly EdictSource[],
+): boolean {
+  return query.sources.length > 0 && query.sources.every((source) => !enabled.includes(source))
+}
+
+/** A hidden source switch must not keep selecting a disabled source. */
+export function forEnabledSources(
+  query: ListingQuery,
+  enabled: readonly EdictSource[],
+): ListingQuery {
+  const [source] = enabled
+  if (enabled.length === 1 && source !== undefined) {
+    return selectSources(
+      query,
+      query.sources.length === 1 && query.sources[0] === source ? query.sources : [source],
+    )
+  }
+  return selectSources(query, query.sources)
 }
 
 /**

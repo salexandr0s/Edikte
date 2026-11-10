@@ -133,11 +133,16 @@ function DocumentRow({ doc, progress, onDownloaded }: DocumentRowProps) {
             <Badge size="sm" variant={doc.downloaded ? 'success' : 'default'}>
               {doc.downloaded ? t('documents.downloaded') : t('documents.notDownloaded')}
             </Badge>
+            {doc.removedAt !== null && (
+              <Badge size="sm" variant="warning">
+                {t('documents.removed')}
+              </Badge>
+            )}
             {meta !== '' && <span>{meta}</span>}
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
-          {!doc.downloaded && (
+          {!doc.downloaded && doc.removedAt === null && (
             <Button
               size="sm"
               variant="secondary"

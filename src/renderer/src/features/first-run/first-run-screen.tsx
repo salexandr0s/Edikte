@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Bundesland } from '@shared/enums'
+import type { Bundesland, EdictSource } from '@shared/enums'
 import { Button } from '../../components/ui/button'
 import { ChevronLeftIcon, ChevronRightIcon, GavelIcon } from '../../components/ui/icons'
 import { useToast } from '../../components/ui/toast'
@@ -32,6 +32,7 @@ export function FirstRunScreen() {
   const languageSaver = useSettingsSaver()
   const [stepIndex, setStepIndex] = useState(0)
   const [bundeslaender, setBundeslaender] = useState<Bundesland[]>(settings.syncBundeslaender)
+  const [sources, setSources] = useState<EdictSource[]>(settings.syncSources)
   const [autoSync, setAutoSync] = useState(settings.autoSync)
   const [finishing, setFinishing] = useState(false)
   const step = STEPS[stepIndex] ?? 'language'
@@ -49,11 +50,12 @@ export function FirstRunScreen() {
 
   async function finish() {
     // The sync step shows why it cannot finish without a Bundesland.
-    if (bundeslaender.length === 0) return
+    if (bundeslaender.length === 0 || sources.length === 0) return
     setFinishing(true)
     try {
       await updateSettings({
         syncBundeslaender: bundeslaender,
+        syncSources: sources,
         autoSync,
         firstRunCompletedAt: new Date().toISOString(),
       })
@@ -117,9 +119,11 @@ export function FirstRunScreen() {
         {step === 'providers' && <ProvidersStep providers={providers} />}
         {step === 'sync' && (
           <SyncStep
+            sources={sources}
             bundeslaender={bundeslaender}
             autoSync={autoSync}
             onBundeslaenderChange={setBundeslaender}
+            onSourcesChange={setSources}
             onAutoSyncChange={setAutoSync}
           />
         )}
