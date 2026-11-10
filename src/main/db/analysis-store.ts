@@ -1,11 +1,11 @@
 import { and, asc, desc, eq, inArray, notInArray, type SQL } from 'drizzle-orm'
 import type { AnalysisRecord } from '@shared/analysis-schema'
-import type { AnalysisStatus } from '@shared/enums'
+import type { AnalysisStatus, EdictSource } from '@shared/enums'
 import type { ProviderId } from '@shared/providers'
 import type { AnalysisJob, AnalysisJobStore } from '../ai/analysis/batch'
 import type { AppDatabase } from './client'
 import { toAnalysisRecord, type AnalysisRow } from './records'
-import { analyses } from './schema'
+import { analyses, edicts } from './schema'
 
 // The analyses table: the jobs of AnalysisQueue (src/main/ai/analysis/batch.ts)
 // and the results the detail screen lists.
@@ -89,6 +89,7 @@ export function createAnalysisJobStore(db: AppDatabase): AnalysisJobStore {
         ...(outcome.accountLabel === null ? {} : { accountLabel: outcome.accountLabel }),
         promptVersion: outcome.promptVersion,
         schemaVersion: outcome.schemaVersion,
+        documentIds: outcome.documentIds,
         result: outcome.result,
         evidence: outcome.evidence,
         crossChecks: outcome.crossChecks,
@@ -169,16 +170,43 @@ export function pendingAnalysisEdicts(db: AppDatabase, edictIds: readonly string
   return edictsWhere(db, edictIds, inArray(analyses.status, PENDING_STATUSES))
 }
 
-/** Edicts among `edictIds` with a finished analysis made with this prompt version. */
+/** The source of each requested edict, for source-specific analysis instructions. */
+export function analysisSources(
+  db: AppDatabase,
+  edictIds: readonly string[],
+): Map<string, EdictSource> {
+  if (edictIds.length === 0) return new Map()
+  return new Map(
+    db
+      .select({ id: edicts.id, source: edicts.source })
+      .from(edicts)
+      .where(inArray(edicts.id, [...edictIds]))
+      .all()
+      .map((row) => [row.id, row.source]),
+  )
+}
+
+/** Edicts with a finished analysis made with the current prompt for their source. */
 export function analyzedEdicts(
   db: AppDatabase,
   edictIds: readonly string[],
-  promptVersion: number,
+  promptVersions: Readonly<Record<EdictSource, number>>,
 ): Set<string> {
-  return edictsWhere(
-    db,
-    edictIds,
-    and(eq(analyses.status, 'done'), eq(analyses.promptVersion, promptVersion)),
+  if (edictIds.length === 0) return new Set()
+  const rows = db
+    .selectDistinct({
+      edictId: analyses.edictId,
+      promptVersion: analyses.promptVersion,
+      source: edicts.source,
+    })
+    .from(analyses)
+    .innerJoin(edicts, eq(edicts.id, analyses.edictId))
+    .where(and(inArray(analyses.edictId, [...edictIds]), eq(analyses.status, 'done')))
+    .all()
+  return new Set(
+    rows
+      .filter((row) => row.promptVersion === promptVersions[row.source])
+      .map((row) => row.edictId),
   )
 }
 

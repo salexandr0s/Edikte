@@ -68,7 +68,7 @@ export function createJobRunner(deps: JobRunnerDeps): AnalysisJobRunner {
     const { localPath } = document.row
     if (localPath === null) throw new AppError('not_found', 'The Gutachten file is missing')
     step('reading')
-    return runAnalysis(
+    const outcome = await runAnalysis(
       {
         provider,
         model: job.model,
@@ -80,6 +80,7 @@ export function createJobRunner(deps: JobRunnerDeps): AnalysisJobRunner {
       signal,
       (event) => step(event.step),
     )
+    return { ...outcome, documentIds: [document.row.id] }
   }
 }
 

@@ -1,14 +1,17 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AnalysisProgressSchema, DEFAULT_SETTINGS, type Settings } from '@shared/domain'
 import { AppError, type AppErrorCode } from '@shared/errors'
+import type { EdictSource } from '@shared/enums'
 import type { ProviderId, ProviderState } from '@shared/providers'
 import type { AiProvider } from '../../../src/main/ai/provider'
 import { listAnalyses, queueAnalyses } from '../../../src/main/db/analysis-store'
 import { openDatabase, type AppDatabase } from '../../../src/main/db/client'
 import { createDocumentStore } from '../../../src/main/db/document-store'
+import { analyses, documents } from '../../../src/main/db/schema'
 import type { EmitEvent } from '../../../src/main/ipc/events'
 import {
   createAnalysisService,
@@ -154,14 +157,80 @@ function setup(overrides: Partial<AnalysisServiceDeps> = {}) {
 }
 
 /** A listing whose Langgutachten is downloaded and read. */
-async function readyListing(n: number): Promise<string> {
-  const edict = edictId(n)
-  insertEdict(db, edict, { propertyType: 'house', title: 'Einfamilienhaus' })
+async function readyListing(n: number, source: EdictSource = 'court_auction'): Promise<string> {
+  const edict = source === 'court_auction' ? edictId(n) : `mv-${n}`
+  insertEdict(db, edict, { source, propertyType: 'house', title: 'Einfamilienhaus' })
   await storeReadDocument(db, documentsDir, insertGutachten(db, edict), edict, housePages)
   return edict
 }
 
 describe('analysis service', () => {
+  it('links evidence to the active report read after a queued report was replaced', async () => {
+    const edict = await readyListing(201)
+    const original = createDocumentStore(db).langgutachten([edict]).get(edict)
+    expect(original).toBeDefined()
+    queueAnalyses(db, [{ ...job(edict), documentIds: [original?.id ?? -1] }], NOW)
+    db.update(documents)
+      .set({ removedAt: NOW })
+      .where(eq(documents.id, original?.id ?? -1))
+      .run()
+    const replacement = insertGutachten(db, edict, {
+      url: `https://edikte.justiz.gv.at/edikte/ex/exedi3.nsf/0/${edict}/$file/replacement.pdf`,
+      fileName: 'replacement.pdf',
+    })
+    await storeReadDocument(
+      db,
+      documentsDir,
+      replacement,
+      edict,
+      housePages.map((page) => ({
+        ...page,
+        text: page.pageNumber === 1 ? `${page.text}\nReplacement report B` : page.text,
+      })),
+    )
+    const provider = fakeProvider('openai-api', [{ json: houseAnswer }])
+    const { service } = setup({ providers: activeSource(provider) })
+
+    expect(await service.resumeQueued()).toBe(1)
+    await service.idle()
+
+    const content = provider.requests[0]?.content[0]
+    expect(content?.type === 'text' ? content.text : '').toContain('Replacement report B')
+    expect(listAnalyses(db, edict)[0]).toMatchObject({ status: 'done', documentId: replacement })
+  })
+
+  it('queues and checks prompt versions against each edict source', async () => {
+    const auction = await readyListing(101)
+    const sale = await readyListing(102, 'insolvency_sale')
+    const staleAuction = await readyListing(103)
+    const staleSale = await readyListing(104, 'insolvency_sale')
+    const { service } = setup({
+      providers: activeSource(fakeProvider('openai-api', [{ hang: true }])),
+    })
+    await service.start({ edictIds: [auction, sale] })
+    expect(listAnalyses(db, auction)[0]?.promptVersion).toBe(2)
+    expect(listAnalyses(db, sale)[0]?.promptVersion).toBe(1)
+    await service.cancel({ all: true })
+    await service.idle()
+
+    const jobs = queueAnalyses(
+      db,
+      [
+        { ...job(auction), promptVersion: 2 },
+        { ...job(sale), promptVersion: 1 },
+        { ...job(staleAuction), promptVersion: 1 },
+        { ...job(staleSale), promptVersion: 2 },
+      ],
+      NOW,
+    )
+    for (const queued of jobs) {
+      db.update(analyses).set({ status: 'done' }).where(eq(analyses.id, queued.analysisId)).run()
+    }
+    expect(
+      await service.estimate({ edictIds: [auction, sale, staleAuction, staleSale] }),
+    ).toMatchObject({ listings: 4, alreadyAnalyzed: 2 })
+  })
+
   it('checks consent, then the selected provider, then that it is ready', async () => {
     const request = { edictIds: [await readyListing(1)] }
     const cases: [Partial<AnalysisServiceDeps>, AppErrorCode][] = [

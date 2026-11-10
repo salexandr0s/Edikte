@@ -20,7 +20,7 @@ import { analysisCostUsd, roundUsd } from './estimate'
 import { checkEvidence } from './evidence'
 import { ANALYSIS_SCHEMA_NAME, analysisJsonSchema } from './json-schema'
 import { MAX_IMAGES, planPages } from './page-plan'
-import { PROMPT_VERSION, buildContent, buildSystemPrompt, correctionNote } from './prompt'
+import { PROMPT_VERSIONS, buildContent, buildSystemPrompt, correctionNote } from './prompt'
 import type { AnalysisPage, EdictFacts, RenderPages, RenderedPage } from './types'
 
 /** Room for the JSON answer plus the reasoning tokens some models count as output. */
@@ -194,6 +194,7 @@ export async function runAnalysis(
       schemaName: ANALYSIS_SCHEMA_NAME,
       maxOutputTokens: input.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
     },
+    edict.source,
     signal,
     report,
   )
@@ -216,7 +217,7 @@ export async function runAnalysis(
     model: reportedModel === '' ? model : reportedModel,
     requestedModel: model,
     accountLabel: last?.accountLabel ?? null,
-    promptVersion: PROMPT_VERSION,
+    promptVersion: PROMPT_VERSIONS[edict.source],
     schemaVersion: ANALYSIS_SCHEMA_VERSION,
     result: checked,
     evidence: checkEvidence(checked, { pages: input.pages, imagePages }),
@@ -247,6 +248,7 @@ interface Spend {
 async function ask(
   provider: AiProvider,
   request: Omit<AnalysisRequest, 'system'>,
+  source: EdictFacts['source'],
   signal: AbortSignal,
   report: (event: AnalysisStepEvent) => void,
 ): Promise<Answer> {
@@ -268,7 +270,7 @@ async function ask(
     let response: AnalysisResponse
     try {
       response = await provider.analyze(
-        { ...request, system: buildSystemPrompt(correction) },
+        { ...request, system: buildSystemPrompt(source, correction) },
         signal,
         (event) => report({ step: 'asking', attempt, outputTokens: event.outputTokens }),
       )

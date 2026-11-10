@@ -4,9 +4,10 @@ import { AppError, isAppError, type AppErrorCode } from '@shared/errors'
 import { PROVIDER_IDS, type ProviderId } from '@shared/providers'
 import { AnalysisQueue } from '../../ai/analysis/batch'
 import { buildAnalysisEstimate } from '../../ai/analysis/estimate'
-import { PROMPT_VERSION } from '../../ai/analysis/prompt'
+import { PROMPT_VERSIONS } from '../../ai/analysis/prompt'
 import {
   analyzedEdicts,
+  analysisSources,
   cancelPendingAnalyses,
   createAnalysisJobStore,
   findAnalysis,
@@ -126,7 +127,7 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
       return buildAnalysisEstimate({
         ...(await estimateTarget()),
         listings: ids.length,
-        alreadyAnalyzed: analyzedEdicts(db, ids, PROMPT_VERSION).size,
+        alreadyAnalyzed: analyzedEdicts(db, ids, PROMPT_VERSIONS).size,
         withoutDocument: ids.length - gutachten.length,
         downloadKb: gutachten.reduce(
           (sum, document) =>
@@ -163,19 +164,21 @@ export function createAnalysisService(deps: AnalysisServiceDeps): AnalysisServic
       }
       const ids = [...new Set(edictIds)]
       const gutachten = store.langgutachten(ids)
+      const sources = analysisSources(db, ids)
       const pending = pendingAnalysisEdicts(db, ids)
       const queued = queueAnalyses(
         db,
         ids.flatMap((edictId) => {
           const document = gutachten.get(edictId)
-          if (document === undefined || pending.has(edictId)) return []
+          const source = sources.get(edictId)
+          if (document === undefined || source === undefined || pending.has(edictId)) return []
           return [
             {
               edictId,
               provider: active.provider.id,
               model: active.model,
               accountLabel: active.status.accountLabel,
-              promptVersion: PROMPT_VERSION,
+              promptVersion: PROMPT_VERSIONS[source],
               schemaVersion: ANALYSIS_SCHEMA_VERSION,
               documentIds: [document.id],
             },

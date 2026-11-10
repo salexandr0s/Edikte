@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { AnalysisOutcome } from '../../src/main/ai/analysis/pipeline'
+import type { AnalysisJobOutcome } from '../../src/main/ai/analysis/batch'
 import {
   createAnalysisJobStore,
   listAnalyses,
@@ -36,7 +36,7 @@ function job(edict: string, model: string): NewAnalysisJob {
   }
 }
 
-function outcome(): AnalysisOutcome {
+function outcome(): AnalysisJobOutcome {
   return {
     provider: 'claude-cli',
     model: 'claude-opus-5-5',
@@ -44,6 +44,7 @@ function outcome(): AnalysisOutcome {
     accountLabel: 'run@example.com',
     promptVersion: 1,
     schemaVersion: 1,
+    documentIds: [1],
     result: houseAnswer,
     evidence: [],
     crossChecks: [],
