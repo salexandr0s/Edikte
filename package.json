@@ -1,7 +1,7 @@
 {
   "name": "edikte",
   "productName": "Edikte",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Desktop app for Austrian court auction listings with Gutachten review and price per m² filters",
   "license": "UNLICENSED",

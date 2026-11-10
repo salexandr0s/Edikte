@@ -403,7 +403,7 @@ function fakeAppInfo(): AppInfo {
   const agent = navigator.userAgent
   return {
     name: 'Edikte',
-    version: '0.1.0',
+    version: '0.2.0',
     platform: agent.includes('Windows') ? 'win32' : agent.includes('Mac') ? 'darwin' : 'linux',
     arch: 'unknown',
     isPackaged: false,
