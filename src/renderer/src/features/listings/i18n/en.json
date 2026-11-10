@@ -171,10 +171,11 @@
     "progress": "{{done}} of {{total}}",
     "progressLabel": "Sync progress",
     "phase": {
-      "list": "Reading the auction list",
-      "details": "Reading auction pages",
+      "list": "Reading the list",
+      "details": "Reading the notices",
       "kurzgutachten": "Reading Kurzgutachten"
     },
+    "phaseOf": "{{source}}: {{phase}}",
     "status": {
       "running": "Running",
       "ok": "Complete",
@@ -182,6 +183,7 @@
       "failed": "Failed",
       "cancelled": "Cancelled"
     },
+    "noteOf": "{{source}}: {{note}}",
     "startFailed": "The sync could not start.",
     "cancelFailed": "The sync could not be stopped."
   },

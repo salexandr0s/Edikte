@@ -86,6 +86,7 @@ export async function storeReadDocument(
 export function listingRow(id: string, area: number | null): ListingRow {
   return {
     id,
+    source: 'court_auction',
     caseKey: `case-${id}`,
     url: 'https://edikte.justiz.gv.at/',
     status: 'upcoming',

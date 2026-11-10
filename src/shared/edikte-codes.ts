@@ -1,4 +1,4 @@
-import type { Bundesland, ListingStatus, NoticeType, PropertyType } from './enums'
+import type { Bundesland, EdictSource, ListingStatus, NoticeType, PropertyType } from './enums'
 
 // Site knowledge ported from immoradar packages/source-edikte/src/constants.ts.
 
@@ -124,7 +124,7 @@ export function noticeTypeForText(text: string): NoticeType {
   return 'other'
 }
 
-export const STATUS_BY_NOTICE: Readonly<Record<NoticeType, ListingStatus>> = {
+const STATUS_BY_NOTICE: Readonly<Record<NoticeType, ListingStatus>> = {
   versteigerung: 'upcoming',
   schriftliche_anbote: 'upcoming',
   verschiebung: 'postponed',
@@ -133,7 +133,18 @@ export const STATUS_BY_NOTICE: Readonly<Record<NoticeType, ListingStatus>> = {
   zuschlag_mit_ueberbot: 'sold',
   zuschlag_nach_ueberbot: 'sold',
   meistbotsverteilung: 'closed',
+  insolvenzverkauf: 'on_offer',
+  insolvenzverpachtung: 'on_offer',
   other: 'upcoming',
+}
+
+/**
+ * The status a notice gives its listing. A sale in insolvency proceedings is
+ * on offer whatever its notice type, so a kind of transaction the app does not
+ * know never shows as an upcoming auction.
+ */
+export function statusFor(source: EdictSource, noticeType: NoticeType): ListingStatus {
+  return source === 'insolvency_sale' ? 'on_offer' : STATUS_BY_NOTICE[noticeType]
 }
 
 function normalizeLabel(text: string): string {

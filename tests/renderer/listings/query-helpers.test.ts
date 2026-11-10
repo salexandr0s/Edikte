@@ -24,6 +24,7 @@ import {
 function row(id: string, analysisStatus: ListingRow['analysisStatus']): ListingRow {
   return {
     id,
+    source: 'court_auction',
     caseKey: `case-${id}`,
     url: `https://edikte.justiz.gv.at/${id}`,
     status: 'upcoming',
@@ -209,7 +210,7 @@ describe('active filters', () => {
 
   it('counts neither the price basis nor the default statuses in any order', () => {
     const same = applyPatch(base, {
-      statuses: ['postponed', 'upcoming'],
+      statuses: ['on_offer', 'postponed', 'upcoming'],
       priceBasis: 'geringstes_gebot',
     })
     expect(activeFilters(same)).toEqual([])

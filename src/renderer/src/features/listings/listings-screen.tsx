@@ -60,7 +60,7 @@ export function ListingsScreen() {
         >
           {t('listings.title')}
         </h1>
-        <SyncBar sync={sync} />
+        <SyncBar sync={sync} sources={settings.syncSources} />
       </header>
 
       <div className="flex flex-col gap-3">

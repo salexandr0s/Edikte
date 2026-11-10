@@ -17,6 +17,7 @@ import {
   toAreaEstimate,
   toDocumentInfo,
   toFinishedAnalysis,
+  toInsolvencyFacts,
   toKurzgutachtenFacts,
   type AnalysisRow,
   type AreaEstimateRow,
@@ -39,6 +40,7 @@ import { readSettings } from './settings-store'
 
 const listingColumns = {
   id: edicts.id,
+  source: edicts.source,
   caseKey: edicts.caseKey,
   url: edicts.url,
   status: edicts.status,
@@ -126,6 +128,7 @@ export function getListing(db: AppDatabase, id: string): ListingDetail {
     remarks: edict.remarks,
     rawLabels: edict.rawLabels,
     kurzgutachten: toKurzgutachtenFacts(edict.kurzgutachten),
+    insolvency: toInsolvencyFacts(edict.insolvency),
     documents: documentRows.map((document) =>
       toDocumentInfo(document, scanned.get(document.id) ?? []),
     ),

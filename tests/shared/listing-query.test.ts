@@ -15,6 +15,7 @@ function area(sqm: number, kind: AreaValue['kind'] = 'nutzflaeche'): AreaValue {
 function row(name: string, fields: Partial<ListingRow> = {}): ListingRow {
   return {
     id: name,
+    source: 'court_auction',
     caseKey: `case-${name}`,
     url: 'https://edikte.justiz.gv.at/',
     status: 'upcoming',
@@ -48,6 +49,18 @@ function row(name: string, fields: Partial<ListingRow> = {}): ListingRow {
     removedAt: null,
     ...fields,
   }
+}
+
+/** A sale in insolvency proceedings: on offer, without an auction date or a minimum bid. */
+function sale(name: string, fields: Partial<ListingRow> = {}): ListingRow {
+  return row(name, {
+    source: 'insolvency_sale',
+    status: 'on_offer',
+    noticeType: 'insolvenzverkauf',
+    auctionAt: null,
+    geringstesGebotEur: null,
+    ...fields,
+  })
 }
 
 const rows = [
@@ -133,5 +146,37 @@ describe('applyListingQuery', () => {
       'large',
       'none',
     ])
+  })
+
+  it('shows sales in insolvency proceedings by default and filters by source', () => {
+    const input = [row('auction'), sale('sale')]
+    expect(ids({}, input)).toEqual(['auction', 'sale'])
+    expect(ids({ sources: ['insolvency_sale'] }, input)).toEqual(['sale'])
+    expect(ids({ sources: ['court_auction'] }, input)).toEqual(['auction'])
+  })
+
+  it('orders listings without an auction date by publication, newest first', () => {
+    const input = [
+      sale('a-older', { publishedAt: '2026-10-01' }),
+      sale('b-newer', { publishedAt: '2026-11-01' }),
+      sale('c-undated', { publishedAt: null }),
+      row('auction'),
+    ]
+    expect(ids({}, input)).toEqual(['auction', 'b-newer', 'a-older', 'c-undated'])
+  })
+
+  // A sale states no minimum bid. Read by that basis it would have no price,
+  // drop out of every price filter and lose its €/m².
+  it('prices a sale in insolvency proceedings by its Schätzwert under either basis', () => {
+    const input = [sale('sale', { schaetzwertEur: 200_000 })]
+    for (const priceBasis of ['schaetzwert', 'geringstes_gebot'] as const) {
+      const page = applyListingQuery(
+        input,
+        ListingQuerySchema.parse({ priceBasis, maxPrice: 250_000, maxPricePerSqm: 5000 }),
+      )
+      expect(page.rows.map((listing) => [listing.priceBasis, listing.pricePerSqm])).toEqual([
+        ['schaetzwert', 4000],
+      ])
+    }
   })
 })

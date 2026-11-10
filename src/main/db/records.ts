@@ -9,10 +9,12 @@ import {
 } from '@shared/analysis-schema'
 import { approximateReasons, chooseArea, usableAreaKinds } from '@shared/area'
 import {
+  InsolvencyFactsSchema,
   KurzgutachtenFactsSchema,
   type AreaEstimate,
   type AreaValue,
   type DocumentInfo,
+  type InsolvencyFacts,
   type KurzgutachtenFacts,
   type ListingLocation,
   type ListingRow,
@@ -52,6 +54,7 @@ export function toDocumentInfo(
     pageCount: row.pageCount,
     scannedPages: [...scannedPages].sort((a, b) => a - b),
     extractError: row.extractError,
+    removedAt: row.removedAt,
   }
 }
 
@@ -102,6 +105,11 @@ export function toKurzgutachtenFacts(value: unknown): KurzgutachtenFacts | null 
   return parsed.success ? parsed.data : null
 }
 
+export function toInsolvencyFacts(value: unknown): InsolvencyFacts | null {
+  const parsed = InsolvencyFactsSchema.safeParse(value)
+  return parsed.success ? parsed.data : null
+}
+
 function parseItems<T>(schema: z.ZodType<T>, value: unknown): T[] {
   const items: readonly unknown[] = Array.isArray(value) ? value : []
   return items.flatMap((item) => {
@@ -122,6 +130,7 @@ function toErrorShape(code: string | null, message: string | null): AppErrorShap
 export type ListingEdict = Pick<
   EdictRow,
   | 'id'
+  | 'source'
   | 'caseKey'
   | 'url'
   | 'status'
@@ -207,6 +216,7 @@ export function buildListingRow(
   const fromTitle = approximationFromTitle(edict.title, edict.categoryCodes)
   const row: ListingRow = {
     id: edict.id,
+    source: edict.source,
     caseKey: edict.caseKey,
     url: edict.url,
     status: edict.status,

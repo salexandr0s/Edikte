@@ -86,9 +86,14 @@
   "toast": {
     "region": "Notifications"
   },
+  "edictSource": {
+    "court_auction": "Auctions",
+    "insolvency_sale": "Insolvency sales"
+  },
   "listingStatus": {
     "upcoming": "Upcoming",
     "postponed": "Postponed",
+    "on_offer": "On offer",
     "cancelled": "Cancelled",
     "sold": "Sold",
     "closed": "Closed"
@@ -102,6 +107,8 @@
     "zuschlag_mit_ueberbot": "Award (Zuschlag mit Überbot)",
     "zuschlag_nach_ueberbot": "Award (Zuschlag nach Überbot)",
     "meistbotsverteilung": "Distribution of proceeds (Meistbotsverteilung)",
+    "insolvenzverkauf": "Sale in insolvency proceedings (Veräußerung)",
+    "insolvenzverpachtung": "Lease in insolvency proceedings (Verpachtung)",
     "other": "Other notice"
   },
   "propertyType": {

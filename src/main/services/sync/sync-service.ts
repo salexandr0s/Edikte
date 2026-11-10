@@ -1,5 +1,5 @@
 import type { Settings, SyncRunSummary, SyncStatus } from '@shared/domain'
-import type { Bundesland } from '@shared/enums'
+import type { Bundesland, EdictSource } from '@shared/enums'
 import { AppError } from '@shared/errors'
 import type { AppDatabase } from '../../db/client'
 import {
@@ -15,6 +15,9 @@ import { runSync } from '../../scraper/sync'
 
 const MINUTE_MS = 60 * 1000
 const HOUR_MS = 60 * MINUTE_MS
+
+/** The section of the Ediktsdatei the service syncs. */
+const EDICT_SOURCE: EdictSource = 'court_auction'
 
 /**
  * An automatic sync starts when the last run over the scope that got an
@@ -69,7 +72,7 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
   // No run can be active yet: one still marked running was cut off by a quit.
   closeOpenRuns(db, { status: 'cancelled', note: INTERRUPTED_NOTE, finishedAt: null })
 
-  let current: SyncStatus = idle(lastFinishedRun(db))
+  let current: SyncStatus = idle(readLastRuns(db))
   let controller: AbortController | null = null
   let active: Promise<void> | null = null
   let disposed = false
@@ -83,6 +86,8 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
   }
 
   const execute = async (scope: Bundesland[], full: boolean, signal: AbortSignal) => {
+    // A status during the run lists the runs that had finished before it started.
+    const earlierRuns = current.lastRuns
     try {
       const summary = await runSync({
         source,
@@ -91,14 +96,23 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
         signal,
         forceFull: full,
         now,
-        onProgress: publish,
+        onProgress: (progress) => {
+          publish({
+            ...progress,
+            state: signal.aborted ? 'cancelling' : 'running',
+            lastRuns: earlierRuns,
+          })
+        },
       })
+      // The engine reports progress only. The idle status goes out here, ahead of
+      // the event that reloads the list.
+      publish(idle(readLastRuns(db)))
       if (summary.status === 'ok' && !disposed) emit('listings:changed', { edictIds: null })
     } catch (error) {
       // runSync handles site errors itself; what reaches here is a storage error.
       log.error('sync', 'The sync could not be stored', error)
       retryNotBefore = now().getTime() + AUTO_SYNC_RETRY_MS
-      let lastFinished = current.lastFinished
+      let lastRuns = current.lastRuns
       try {
         closeOpenRuns(db, {
           status: 'failed',
@@ -106,11 +120,11 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
           finishedAt: now().toISOString(),
           failureCode: 'storage_unavailable',
         })
-        lastFinished = lastFinishedRun(db)
+        lastRuns = readLastRuns(db)
       } catch (cleanupError) {
         log.error('sync', 'The failed sync could not be closed', cleanupError)
       }
-      publish(idle(lastFinished))
+      publish(idle(lastRuns))
     }
   }
 
@@ -120,7 +134,7 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
     const scope = [...deps.readSettings().syncBundeslaender]
     const abort = new AbortController()
     controller = abort
-    publish({ ...idle(current.lastFinished), state: 'running' })
+    publish({ ...idle(current.lastRuns), state: 'running' })
     active = execute(scope, full, abort.signal).finally(() => {
       controller = null
       active = null
@@ -135,7 +149,11 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
     if (deps.offline === true) return null
     const settings = deps.readSettings()
     if (!settings.autoSync || settings.firstRunCompletedAt === null) return null
-    const { settledAt, unsettledAt } = loadSyncSchedule(db, settings.syncBundeslaender)
+    const { settledAt, unsettledAt } = loadSyncSchedule(
+      db,
+      settings.syncBundeslaender,
+      EDICT_SOURCE,
+    )
     return Math.max(
       timeAfter(settledAt, AUTO_SYNC_INTERVAL_MS),
       timeAfter(unsettledAt, AUTO_SYNC_RETRY_MS),
@@ -199,8 +217,14 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
   }
 }
 
-function idle(lastFinished: SyncRunSummary | null): SyncStatus {
-  return { state: 'idle', phase: null, done: 0, total: 0, current: null, lastFinished }
+/** The newest finished run of the source the service syncs, as the list a status carries. */
+function readLastRuns(db: AppDatabase): SyncRunSummary[] {
+  const run = lastFinishedRun(db, EDICT_SOURCE)
+  return run === null ? [] : [run]
+}
+
+function idle(lastRuns: SyncRunSummary[]): SyncStatus {
+  return { state: 'idle', phase: null, done: 0, total: 0, current: null, lastRuns }
 }
 
 /** `at` plus `ms` in ms since the epoch; 0 (due) when there is no valid time. */

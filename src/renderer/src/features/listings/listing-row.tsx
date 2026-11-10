@@ -16,6 +16,7 @@ const CELL = 'border-b border-border py-3 align-top group-last/row:border-b-0'
 export const STATUS_VARIANT: Readonly<Record<ListingStatus, BadgeVariant>> = {
   upcoming: 'primary',
   postponed: 'warning',
+  on_offer: 'primary',
   cancelled: 'danger',
   sold: 'default',
   closed: 'outline',

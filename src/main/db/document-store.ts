@@ -53,6 +53,7 @@ const INSERT_BATCH = 200
 const OPEN_STATUSES: ReadonlySet<ListingStatus> = new Set(['upcoming', 'postponed'])
 
 const factColumns = {
+  source: edicts.source,
   categoryLabel: edicts.categoryLabel,
   propertyType: edicts.propertyType,
   street: edicts.street,

@@ -1,5 +1,5 @@
 import type { KurzgutachtenFacts, SyncRunSummary, SyncStatus } from '@shared/domain'
-import type { Bundesland, NoticeType } from '@shared/enums'
+import type { Bundesland, EdictSource, NoticeType } from '@shared/enums'
 import { AppError, isAppError, type AppErrorCode } from '@shared/errors'
 import type { PageSource } from './client'
 import { parseDetailPage, type DocumentLink, type ParsedDetail } from './detail'
@@ -8,6 +8,9 @@ import { assessRunHealth, exceedsShare, type HealthSample } from './health'
 import { parseKurzgutachten } from './kurzgutachten'
 import { PARSER_VERSION } from './parser-version'
 import { SEARCH_MAX, buildSearchUrl, parseSearchResults, type SearchRow } from './search'
+
+/** The section of the Ediktsdatei this engine reads. */
+const EDICT_SOURCE: EdictSource = 'court_auction'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -37,17 +40,18 @@ export interface KnownEdict {
   removedAt: string | null
 }
 
+/** What the store holds for one source over one scope. */
 export interface SyncStoreState {
-  /** Stored edicts whose Bundesland is in scope, removed ones included. */
+  /** Stored edicts of the source whose Bundesland is in scope, removed ones included. */
   known: ReadonlyMap<string, KnownEdict>
-  /** Start of the last run with status ok whose scope covered this one. */
+  /** Start of the source's last run with status ok whose scope covered this one. */
   lastOkRunStartedAt: string | null
   /** The same for full runs. */
   lastOkFullRunStartedAt: string | null
-  lastFinished: SyncRunSummary | null
 }
 
 export interface SyncRunStart {
+  source: EdictSource
   kind: RunKind
   scope: Bundesland[]
   startedAt: string
@@ -78,19 +82,29 @@ export interface SyncCommit {
 }
 
 export interface SyncStore {
-  loadState(scope: readonly Bundesland[]): Awaitable<SyncStoreState>
+  loadState(scope: readonly Bundesland[], source: EdictSource): Awaitable<SyncStoreState>
   /** Records a run with status running and returns its ID. */
   startRun(run: SyncRunStart): Awaitable<number>
   commitRun(commit: SyncCommit): Awaitable<void>
 }
 
+/** Where a run stands. The service turns it into the status the renderer sees. */
+export interface RunProgress {
+  phase: Phase
+  done: number
+  total: number
+  /** A copy of the run's summary so far. */
+  current: SyncRunSummary
+}
+
 export interface SyncOptions {
+  /** The client that fetches the pages, not the section they belong to. */
   source: PageSource
   store: SyncStore
   scope: readonly Bundesland[]
   signal?: AbortSignal
-  /** Called during the run and once at its end; must not throw. */
-  onProgress?: (status: SyncStatus) => void
+  /** Called during the run only, so the caller reports its end; must not throw. */
+  onProgress?: (progress: RunProgress) => void
   now?: () => Date
   /** List everything even when the last full run was less than a day ago. */
   forceFull?: boolean
@@ -127,20 +141,22 @@ interface ChangedPage {
 type PageResult<T> = { ok: true; value: T } | { ok: false; gone: boolean }
 
 /**
- * Brings the stored edicts of `scope` up to date. The first run and one run a
- * day list everything; the others list only edicts published since the last
- * good run. Nothing is written unless the run ends ok. Returns the run summary
- * and does not throw for cancelled or failed runs; storage errors propagate.
+ * Brings the stored court auctions of `scope` up to date. The first run and
+ * one run a day list everything; the others list only edicts published since
+ * the last good run. Nothing is written unless the run ends ok. Returns the
+ * run summary and does not throw for cancelled or failed runs; storage errors
+ * propagate.
  */
 export async function runSync(options: SyncOptions): Promise<SyncRunSummary> {
   const { source, store, signal, onProgress } = options
   const now = options.now ?? (() => new Date())
   const scope = [...new Set(options.scope)]
-  const state = await store.loadState(scope)
+  const state = await store.loadState(scope, EDICT_SOURCE)
   const startedAt = now().toISOString()
   const kind = chooseKind(state, startedAt, options.forceFull === true)
   const summary: SyncRunSummary = {
-    id: await store.startRun({ kind, scope, startedAt }),
+    id: await store.startRun({ source: EDICT_SOURCE, kind, scope, startedAt }),
+    source: EDICT_SOURCE,
     kind,
     status: 'running',
     startedAt,
@@ -156,14 +172,7 @@ export async function runSync(options: SyncOptions): Promise<SyncRunSummary> {
   const errors: string[] = []
   const report = (phase: Phase, done: number, total: number): void => {
     summary.requests = source.requestCount - requestsAtStart
-    onProgress?.({
-      state: signal?.aborted === true ? 'cancelling' : 'running',
-      phase,
-      done,
-      total,
-      current: { ...summary },
-      lastFinished: state.lastFinished,
-    })
+    onProgress?.({ phase, done, total, current: { ...summary } })
   }
 
   let result: RunResult | null = null
@@ -207,14 +216,6 @@ export async function runSync(options: SyncOptions): Promise<SyncRunSummary> {
     unchangedIds: writes?.unchangedIds ?? [],
     removedIds: writes?.removedIds ?? [],
     at: finishedAt,
-  })
-  onProgress?.({
-    state: 'idle',
-    phase: null,
-    done: 0,
-    total: 0,
-    current: null,
-    lastFinished: { ...summary },
   })
   return summary
 }

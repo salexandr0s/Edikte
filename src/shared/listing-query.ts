@@ -1,6 +1,6 @@
 import { priceForBasis, pricePerSqm } from './area'
 import type { ListingPage, ListingQuery, ListingRow } from './domain'
-import type { PriceBasis } from './enums'
+import type { EdictSource, PriceBasis } from './enums'
 
 /**
  * Filters and sorts listings in memory. A synced scope holds a few hundred
@@ -15,12 +15,22 @@ export function applyListingQuery(rows: readonly ListingRow[], query: ListingQue
   return { rows: matches, totalInScope: rows.length }
 }
 
-/** Recomputes the row's €/m² for a price basis. */
+/**
+ * The price basis a listing uses when the user chose `basis`. A sale in
+ * insolvency proceedings states a value and no minimum bid, so it always uses
+ * the Schätzwert.
+ */
+export function effectivePriceBasis(source: EdictSource, basis: PriceBasis): PriceBasis {
+  return source === 'insolvency_sale' ? 'schaetzwert' : basis
+}
+
+/** Gives the row its price basis for the chosen one, and the €/m² that follows from it. */
 export function withPriceBasis(row: ListingRow, basis: PriceBasis): ListingRow {
+  const priceBasis = effectivePriceBasis(row.source, basis)
   return {
     ...row,
-    priceBasis: basis,
-    pricePerSqm: pricePerSqm(priceForBasis(basis, row), row.area?.sqm ?? null),
+    priceBasis,
+    pricePerSqm: pricePerSqm(priceForBasis(priceBasis, row), row.area?.sqm ?? null),
   }
 }
 
@@ -29,13 +39,15 @@ export function matchesListingQuery(row: ListingRow, query: ListingQuery): boole
   if (row.hidden && !query.showHidden) return false
   if (query.starredOnly && !row.starred) return false
   if (query.analyzedOnly && !row.hasAnalysis) return false
+  if (!isListed(query.sources, row.source)) return false
   if (!isListed(query.statuses, row.status)) return false
   if (!isListed(query.bundeslaender, row.bundesland)) return false
   if (!isListed(query.bezirke, row.bezirk)) return false
   if (!isListed(query.propertyTypes, row.propertyType)) return false
   if (!isListed(query.riskLevels, row.riskLevel)) return false
 
-  if (!inRange(priceForBasis(query.priceBasis, row), query.minPrice, query.maxPrice)) return false
+  // The row's own basis: an insolvency sale is filtered by its Schätzwert under either choice.
+  if (!inRange(priceForBasis(row.priceBasis, row), query.minPrice, query.maxPrice)) return false
 
   if (row.area === null) {
     const needsArea =
@@ -56,7 +68,11 @@ export function matchesListingQuery(row: ListingRow, query: ListingQuery): boole
   return matchesText(row, query)
 }
 
-/** Sorts by the chosen column with empty values last, then by auction date and ID. */
+/**
+ * Sorts by the chosen column with empty values last. Ties go by auction date,
+ * then by publication date with the newest first, then by ID. The publication
+ * date orders the sales in insolvency proceedings, which have no auction date.
+ */
 export function compareListings(
   sort: ListingQuery['sort'],
 ): (a: ListingRow, b: ListingRow) => number {
@@ -64,6 +80,7 @@ export function compareListings(
   return (a, b) =>
     compareNullable(sortValue(a, sort.column), sortValue(b, sort.column), direction) ||
     compareNullable(a.auctionAt, b.auctionAt, 1) ||
+    compareNullable(a.publishedAt, b.publishedAt, -1) ||
     a.id.localeCompare(b.id)
 }
 

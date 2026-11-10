@@ -175,6 +175,7 @@
       "details": "Edikte werden gelesen",
       "kurzgutachten": "Kurzgutachten werden gelesen"
     },
+    "phaseOf": "{{source}}: {{phase}}",
     "status": {
       "running": "Läuft",
       "ok": "Vollständig",
@@ -182,6 +183,7 @@
       "failed": "Fehlgeschlagen",
       "cancelled": "Abgebrochen"
     },
+    "noteOf": "{{source}}: {{note}}",
     "startFailed": "Die Synchronisierung konnte nicht starten.",
     "cancelFailed": "Die Synchronisierung konnte nicht abgebrochen werden."
   },

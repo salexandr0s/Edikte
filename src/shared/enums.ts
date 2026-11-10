@@ -39,11 +39,22 @@ export const NoticeTypeSchema = z.enum([
   'zuschlag_mit_ueberbot',
   'zuschlag_nach_ueberbot',
   'meistbotsverteilung',
+  // The two kinds of notice in "Verkäufe und Verpachtungen in Insolvenzverfahren".
+  'insolvenzverkauf',
+  'insolvenzverpachtung',
   'other',
 ])
 export type NoticeType = z.infer<typeof NoticeTypeSchema>
 
-export const ListingStatusSchema = z.enum(['upcoming', 'postponed', 'cancelled', 'sold', 'closed'])
+/** `on_offer` is a sale in insolvency proceedings, which has no auction date. */
+export const ListingStatusSchema = z.enum([
+  'upcoming',
+  'postponed',
+  'on_offer',
+  'cancelled',
+  'sold',
+  'closed',
+])
 export type ListingStatus = z.infer<typeof ListingStatusSchema>
 
 export const AreaKindSchema = z.enum([

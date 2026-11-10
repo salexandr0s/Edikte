@@ -106,7 +106,7 @@ describe('sync service', () => {
     expect(service.start({ full: false }).state).toBe('running')
     await settled(service)
 
-    expect(service.status().lastFinished).toMatchObject({ kind: 'full', status: 'ok', listed: 2 })
+    expect(service.status().lastRuns).toMatchObject([{ kind: 'full', status: 'ok', listed: 2 }])
     const rows = queryListings(db, ListingQuerySchema.parse({})).rows
     expect(rows.map((row) => row.id).sort()).toEqual([idOf(1), idOf(2)])
     expect(getListing(db, idOf(1)).documents).toHaveLength(1)
@@ -133,10 +133,7 @@ describe('sync service', () => {
     expect(service.status().state).toBe('cancelling')
     await settled(service)
 
-    expect(service.status().lastFinished).toMatchObject({
-      kind: 'incremental',
-      status: 'cancelled',
-    })
+    expect(service.status().lastRuns).toMatchObject([{ kind: 'incremental', status: 'cancelled' }])
     expect(getListing(db, idOf(1)).title).toBe(before)
     expect(reloads(events)).toBe(1)
 
@@ -198,7 +195,7 @@ describe('sync service', () => {
     site.failWith = new AppError('network', 'Could not reach edikte.justiz.gv.at')
     expect(service.startIfDue()).toBe(true)
     await settled(service)
-    expect(service.status().lastFinished?.status).toBe('failed')
+    expect(service.status().lastRuns).toMatchObject([{ status: 'failed' }])
 
     site.failWith = null
     advance(AUTO_SYNC_RETRY_MS - 1)
@@ -206,7 +203,7 @@ describe('sync service', () => {
     advance(1)
     expect(service.status().state).toBe('running')
     await settled(service)
-    expect(service.status().lastFinished?.status).toBe('ok')
+    expect(service.status().lastRuns).toMatchObject([{ status: 'ok' }])
   })
 
   it('waits for the first-run screen and never starts on its own offline', async () => {
@@ -271,7 +268,7 @@ describe('sync service', () => {
     service.start({ full: false })
     await service.dispose()
 
-    expect(lastFinishedRun(db)?.status).toBe('cancelled')
+    expect(lastFinishedRun(db, 'court_auction')?.status).toBe('cancelled')
     expect(events).toEqual(['sync:progress'])
     expect(errorCode(() => service.start({ full: false }))).toBe('cancelled')
   })

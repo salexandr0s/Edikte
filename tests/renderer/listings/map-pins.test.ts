@@ -9,6 +9,7 @@ import {
 function row(id: string, fields: Partial<ListingRow> = {}): ListingRow {
   return {
     id,
+    source: 'court_auction',
     caseKey: `case-${id}`,
     url: 'https://edikte.justiz.gv.at/',
     status: 'upcoming',
