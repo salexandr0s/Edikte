@@ -124,6 +124,12 @@
     "noGutachten": "This listing has no Gutachten, so there is nothing to analyze.",
     "start": "Analyze with AI",
     "again": "Analyze again",
+    "stale": {
+      "label": "Outdated analysis",
+      "previous": "Earlier analysis outdated",
+      "reason": "This analysis cannot be verified against the current appraisal report (Gutachten). It may refer to a changed or no longer published report.",
+      "values": "Outdated analysis values are not used for filters, risk badges or price per m²."
+    },
     "failed": "The analysis failed.",
     "cancelled": "The analysis was cancelled.",
     "noResult": "This run has no result.",

@@ -286,11 +286,12 @@ export function queueCounts(
 
 const NOT_ANALYZABLE: ReadonlySet<AnalysisStatus> = new Set(['done', 'queued', 'running'])
 
-/** Shown listings without a finished, queued or running analysis. */
+/** Shown listings without a current finished analysis or a pending job. */
 export function analyzableIds(rows: readonly ListingRow[], tracker: AnalysisTracker): string[] {
   return rows
     .filter((row) => {
       const status = currentAnalysisStatus(row, tracker)
+      if (status === 'done' && row.analysisStale) return true
       return status === null || !NOT_ANALYZABLE.has(status)
     })
     .map((row) => row.id)

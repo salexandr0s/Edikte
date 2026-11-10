@@ -12,18 +12,25 @@ export interface FillCandidate {
   propertyType: PropertyType
   /** The listing's Langgutachten; null when it has none. */
   document: Omit<PipelineDocument, 'edictId' | 'propertyType'> | null
+  /** Cached report needs interrupted preparation or stale-estimate recovery. */
+  refreshEstimate?: boolean
 }
 
 /** Counts for the confirmation dialog: listings, downloads and their stated size. */
 export function planFill(candidates: readonly FillCandidate[]): FillPlan {
   let documents = 0
   let totalKb = 0
+  let cachedDocuments = 0
   for (const candidate of candidates) {
-    if (candidate.document === null || candidate.document.localPath !== null) continue
+    if (candidate.document === null) continue
+    if (candidate.document.localPath !== null) {
+      if (candidate.refreshEstimate === true) cachedDocuments += 1
+      continue
+    }
     documents += 1
     totalKb += candidate.document.statedSizeKb ?? 0
   }
-  return { listings: candidates.length, documents, totalKb }
+  return { listings: candidates.length, documents, cachedDocuments, totalKb }
 }
 
 export interface FillOutcome {

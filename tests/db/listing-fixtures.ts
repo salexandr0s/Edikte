@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm'
 import type { AnalysisResult, EvidenceItem } from '@shared/analysis-schema'
 import type { AnalysisStatus, AreaKind, RiskLevel } from '@shared/enums'
 import type { AppDatabase } from '../../src/main/db/client'
@@ -89,6 +90,7 @@ export function insertDocument(
       title: 'Langgutachten (pdf)',
       fileName: 'gutachten.pdf',
       url: `https://edikte.justiz.gv.at/edikte/ex/exedi3.nsf/0/${edict}/$file/gutachten.pdf`,
+      sha256: 'fixture-sha',
       createdAt: T0,
       ...overrides,
     })
@@ -107,6 +109,12 @@ export function insertEstimate(
     .values({
       edictId: edict,
       documentId,
+      documentSha256:
+        db
+          .select({ sha256: documents.sha256 })
+          .from(documents)
+          .where(eq(documents.id, documentId))
+          .get()?.sha256 ?? null,
       kind,
       sqm,
       page: 4,
@@ -126,6 +134,7 @@ export function insertAnalysis(
     result?: unknown
     evidence?: EvidenceItem[]
     documentIds?: number[]
+    documentSha256?: string | null
   },
 ): number {
   return db
@@ -134,12 +143,20 @@ export function insertAnalysis(
       edictId: edict,
       provider: 'claude-cli',
       model: 'opus',
-      promptVersion: 1,
+      promptVersion: 2,
       schemaVersion: 1,
       status: values.status,
       result: values.result ?? null,
       evidence: values.evidence ?? [],
       documentIds: values.documentIds ?? [],
+      documentSha256:
+        values.documentSha256 === undefined
+          ? (db
+              .select({ sha256: documents.sha256 })
+              .from(documents)
+              .where(eq(documents.id, values.documentIds?.[0] ?? -1))
+              .get()?.sha256 ?? null)
+          : values.documentSha256,
       createdAt: T0,
     })
     .returning({ id: analyses.id })

@@ -42,6 +42,7 @@ function row(name: string, fields: Partial<ListingRow> = {}): ListingRow {
     approximate: [],
     analysisStatus: null,
     hasAnalysis: false,
+    analysisStale: false,
     riskLevel: null,
     hasLanggutachten: true,
     starred: false,

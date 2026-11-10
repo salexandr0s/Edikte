@@ -124,6 +124,12 @@
     "noGutachten": "Zu diesem Objekt gibt es kein Gutachten, das analysiert werden kann.",
     "start": "Mit KI analysieren",
     "again": "Erneut analysieren",
+    "stale": {
+      "label": "Veraltete Analyse",
+      "previous": "Frühere Analyse veraltet",
+      "reason": "Diese Analyse lässt sich dem aktuellen Gutachten nicht sicher zuordnen. Sie kann sich auf ein geändertes oder nicht mehr veröffentlichtes Gutachten beziehen.",
+      "values": "Veraltete Analysewerte werden nicht für Filter, Risikobadges oder den Preis pro m² verwendet."
+    },
     "failed": "Die Analyse ist fehlgeschlagen.",
     "cancelled": "Die Analyse wurde abgebrochen.",
     "noResult": "Dieser Lauf hat kein Ergebnis.",

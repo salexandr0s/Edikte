@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import type {
   DocumentInfo,
   DocumentProgress,
@@ -14,6 +16,7 @@ import {
 import { resolveDocumentFile } from '../../documents/document-protocol'
 import type { DownloadProgress } from '../../documents/download'
 import type { ExtractedDocument } from '../../documents/extract'
+import { estimateArea } from '../../documents/estimate'
 import {
   createFillRunner,
   planFill,
@@ -22,6 +25,7 @@ import {
 } from '../../documents/fill'
 import {
   processDocument,
+  localEstimateRows,
   type DocumentStore,
   type PipelineDeps,
   type PipelineStep,
@@ -153,16 +157,35 @@ export function createDocumentService(deps: DocumentServiceDeps): DocumentServic
     return stored
   }
 
+  const hasExtraction = (row: StoredDocument['row']): boolean =>
+    row.sha256 !== null &&
+    row.pageCount !== null &&
+    row.extractError === null &&
+    row.extractedAt !== null
+
   /** Downloaded, read, and the file is still in the documents folder. */
   const isReady = async ({ row }: StoredDocument): Promise<boolean> =>
     row.localPath !== null &&
-    row.extractedAt !== null &&
+    hasExtraction(row) &&
     (await resolveDocumentFile(documentsDir, row.localPath)) !== null
 
   /** One run per document, whoever asks for it. */
   const runs = new SharedRuns<number, PreparedDocument, PrepareEvent>(
     async (documentId, signal, onStep) => {
-      const stored = requireDocument(documentId)
+      let stored = requireDocument(documentId)
+      if (stored.row.sha256 === null && stored.row.localPath !== null) {
+        const file = await resolveDocumentFile(documentsDir, stored.row.localPath)
+        if (file !== null) {
+          const bytes = await readFile(file)
+          store.recordDownload(documentId, {
+            localPath: stored.row.localPath,
+            sha256: createHash('sha256').update(bytes).digest('hex'),
+            bytes: bytes.length,
+            downloadedAt: now().toISOString(),
+          })
+          stored = requireDocument(documentId)
+        }
+      }
       if (await isReady(stored)) return { document: stored, estimated: false }
       const result = await processDocument(toPipelineDocument(stored), pipeline, {
         signal,
@@ -190,7 +213,17 @@ export function createDocumentService(deps: DocumentServiceDeps): DocumentServic
   // The fill goes through `runs` as well: it never fetches a file twice, and
   // cancelling it leaves downloads that others wait for running.
   const fillRunner = createFillRunner(
-    (target, signal, onStep) => join(target.documentId, signal, onStep),
+    async (target, signal, onStep) => {
+      const prepared = await join(target.documentId, signal, onStep)
+      if (!store.staleEstimateDocuments([target.documentId]).has(target.documentId)) return prepared
+      if (signal.aborted) throw new AppError('cancelled', 'Cancelled')
+      onStep('estimate', null)
+      const { row, facts } = prepared.document
+      const estimate = estimateArea(store.pageTexts(row.id), facts.propertyType)
+      store.replaceEstimates(row.id, localEstimateRows(row, estimate, now().toISOString()))
+      changed(row.id)
+      return { document: prepared.document, estimated: estimate !== null }
+    },
     (progress) => emit('documents:progress', progress),
     logFillOutcome,
   )
@@ -229,23 +262,36 @@ export function createDocumentService(deps: DocumentServiceDeps): DocumentServic
     const { rows } = await deps.queryListings({ ...query, includeWithoutArea: true })
     const withoutArea = rows.filter((row) => row.area === null)
     const gutachten = store.langgutachten(withoutArea.map((row) => row.id))
-    return withoutArea.map((row) => {
-      const document = gutachten.get(row.id)
-      return {
-        edictId: row.id,
-        propertyType: row.propertyType,
-        document:
-          document === undefined
-            ? null
-            : {
-                id: document.id,
-                url: document.url,
-                fileName: document.fileName,
-                statedSizeKb: document.statedSizeKb,
-                localPath: document.localPath,
-              },
-      }
-    })
+    const staleEstimates = store.staleEstimateDocuments(
+      [...gutachten.values()].map((document) => document.id),
+    )
+    return Promise.all(
+      withoutArea.map(async (row) => {
+        const document = gutachten.get(row.id)
+        const cached =
+          document !== undefined &&
+          document.localPath !== null &&
+          (await resolveDocumentFile(documentsDir, document.localPath)) !== null
+        return {
+          edictId: row.id,
+          propertyType: row.propertyType,
+          refreshEstimate:
+            document !== undefined &&
+            cached &&
+            (staleEstimates.has(document.id) || !hasExtraction(document)),
+          document:
+            document === undefined
+              ? null
+              : {
+                  id: document.id,
+                  url: document.url,
+                  fileName: document.fileName,
+                  statedSizeKb: document.statedSizeKb,
+                  localPath: cached ? document.localPath : null,
+                },
+        }
+      }),
+    )
   }
 
   return {
@@ -262,10 +308,11 @@ export function createDocumentService(deps: DocumentServiceDeps): DocumentServic
     async fill(query) {
       if (fillRunner.running) throw new AppError('busy', 'Missing areas are already being filled')
       const candidates = await fillCandidates(query)
-      // A Gutachten already on disk has been read: another pass finds nothing new.
       fillRunner.start(
         candidates.filter(
-          (candidate) => candidate.document !== null && candidate.document.localPath === null,
+          (candidate) =>
+            candidate.document !== null &&
+            (candidate.document.localPath === null || candidate.refreshEstimate === true),
         ),
       )
       return planFill(candidates)

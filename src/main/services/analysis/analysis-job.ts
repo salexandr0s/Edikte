@@ -67,6 +67,7 @@ export function createJobRunner(deps: JobRunnerDeps): AnalysisJobRunner {
     })
     const { localPath } = document.row
     if (localPath === null) throw new AppError('not_found', 'The Gutachten file is missing')
+    const pages = deps.store.pageTexts(document.row.id)
     step('reading')
     const outcome = await runAnalysis(
       {
@@ -74,13 +75,17 @@ export function createJobRunner(deps: JobRunnerDeps): AnalysisJobRunner {
         model: job.model,
         imagesSupported: await modelTakesImages(provider, job.model, signal),
         edict: document.facts,
-        pages: deps.store.pageTexts(document.row.id),
+        pages,
         renderPages: renderFrom(localPath, deps),
       },
       signal,
       (event) => step(event.step),
     )
-    return { ...outcome, documentIds: [document.row.id] }
+    return {
+      ...outcome,
+      documentIds: [document.row.id],
+      documentSha256: document.row.sha256,
+    }
   }
 }
 

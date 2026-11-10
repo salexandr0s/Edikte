@@ -189,6 +189,8 @@ export const areaEstimates = sqliteTable(
     documentId: integer('document_id')
       .notNull()
       .references(() => documents.id, { onDelete: 'cascade' }),
+    /** SHA-256 of the report bytes from which this estimate was extracted. */
+    documentSha256: text('document_sha256'),
     kind: text('kind').$type<AreaKind>().notNull(),
     sqm: real('sqm').notNull(),
     page: integer('page').notNull(),
@@ -231,6 +233,8 @@ export const analyses = sqliteTable(
       .$type<number[]>()
       .notNull()
       .default(jsonArray),
+    /** SHA-256 of the report bytes read by this analysis. Null when provenance is unknown. */
+    documentSha256: text('document_sha256'),
     droppedPages: text('dropped_pages', { mode: 'json' })
       .$type<number[]>()
       .notNull()

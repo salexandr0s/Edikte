@@ -39,6 +39,7 @@ export function AnalysisResult({
 
   return (
     <div className="flex flex-col gap-6 [&>section+section]:border-t [&>section+section]:border-border [&>section+section]:pt-6">
+      {record.stale && <StaleAnalysisNotice />}
       <ResultSection title={t('analysis.summary')}>
         <p className="text-base leading-relaxed">
           {german ? result.summary_de : result.summary_en}
@@ -70,6 +71,24 @@ export function AnalysisResult({
       <FindingList kind="arrears" result={result} source={source} german={german} />
       <FindingList kind="defects" result={result} source={source} german={german} />
       <RunDetails record={record} />
+    </div>
+  )
+}
+
+export function StaleAnalysisNotice({ previous = false }: { previous?: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <div
+      role="note"
+      className="flex flex-col gap-2 rounded-md border border-warning-subtle bg-warning-subtle/40 p-4 text-sm"
+    >
+      <div>
+        <Badge variant="warning">
+          {t(previous ? 'analysis.stale.previous' : 'analysis.stale.label')}
+        </Badge>
+      </div>
+      <p>{t('analysis.stale.reason')}</p>
+      <p className="text-fg-muted">{t('analysis.stale.values')}</p>
     </div>
   )
 }

@@ -16,6 +16,8 @@ export interface AnalysisJob {
 /** A finished analysis with the documents the job actually read. */
 export interface AnalysisJobOutcome extends AnalysisOutcome {
   documentIds: number[]
+  /** Bytes of the first report when its pages were read. */
+  documentSha256: string | null
 }
 
 /**

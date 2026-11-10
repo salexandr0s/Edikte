@@ -70,17 +70,34 @@ export function toAreaEstimate(row: AreaEstimateRow): AreaEstimate {
   }
 }
 
+export function isAnalysisStale(
+  row: Pick<AnalysisRow, 'status' | 'documentIds' | 'documentSha256'>,
+  report: Pick<DocumentRow, 'id' | 'sha256'> | null,
+): boolean {
+  if (row.status !== 'done') return false
+  return (
+    report === null ||
+    firstDocumentId(row.documentIds) !== report.id ||
+    row.documentSha256 === null ||
+    row.documentSha256 !== report.sha256
+  )
+}
+
 /** Never throws. A stored result that fails the analysis schema becomes null. */
-export function toAnalysisRecord(row: AnalysisRow): AnalysisRecord {
+export function toAnalysisRecord(
+  row: AnalysisRow,
+  report: Pick<DocumentRow, 'id' | 'sha256'> | null = null,
+): AnalysisRecord {
   return {
     id: row.id,
     edictId: row.edictId,
-    documentId: parseItems(IntSchema, row.documentIds)[0] ?? null,
+    documentId: firstDocumentId(row.documentIds),
     provider: row.provider,
     model: row.model,
     promptVersion: row.promptVersion,
     schemaVersion: row.schemaVersion,
     status: row.status,
+    stale: isAnalysisStale(row, report),
     result: parseAnalysisResult(row.result),
     evidence: parseItems(EvidenceItemSchema, row.evidence),
     crossChecks: parseItems(CrossCheckSchema, row.crossChecks),
@@ -116,6 +133,11 @@ function parseItems<T>(schema: z.ZodType<T>, value: unknown): T[] {
     const parsed = schema.safeParse(item)
     return parsed.success ? [parsed.data] : []
   })
+}
+
+function firstDocumentId(value: unknown): number | null {
+  const parsed = IntSchema.safeParse(Array.isArray(value) ? value[0] : null)
+  return parsed.success ? parsed.data : null
 }
 
 function toErrorShape(code: string | null, message: string | null): AppErrorShape | null {
@@ -169,6 +191,8 @@ export interface ListingSources {
   hasLanggutachten: boolean
   /** Status of the latest analysis, finished or not. */
   analysisStatus: AnalysisStatus | null
+  /** Completed history exists, but none matches the current report. */
+  analysisStale: boolean
   finished: FinishedAnalysis | null
   estimates: ReadonlyArray<Pick<AreaEstimateRow, 'documentId' | 'kind' | 'sqm' | 'page' | 'quote'>>
   location: ListingLocation | null
@@ -180,7 +204,7 @@ export function toFinishedAnalysis(
   return {
     result: parseAnalysisResult(row.result),
     evidence: parseItems(EvidenceItemSchema, row.evidence),
-    documentId: parseItems(IntSchema, row.documentIds)[0] ?? null,
+    documentId: firstDocumentId(row.documentIds),
   }
 }
 
@@ -248,6 +272,7 @@ export function buildListingRow(
       areaMismatch: choice.mismatch,
     }),
     analysisStatus: sources.analysisStatus,
+    analysisStale: sources.analysisStale,
     hasAnalysis: sources.finished !== null,
     riskLevel: highestRisk(result),
     hasLanggutachten: sources.hasLanggutachten,

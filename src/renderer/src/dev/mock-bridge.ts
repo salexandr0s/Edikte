@@ -448,6 +448,7 @@ function fakeListing(fields: FakeListingFields): ListingRow {
       approximate: [],
       analysisStatus: null,
       hasAnalysis: false,
+      analysisStale: false,
       riskLevel: null,
       hasLanggutachten: true,
       starred: false,
@@ -677,11 +678,9 @@ function fakeListings(): ListingRow[] {
 function fakeDetail(state: MockState, row: ListingRow, n: number): ListingDetail {
   const documents = state.documents.filter((doc) => doc.edictId === row.id)
   const analyses = state.analyses.filter((record) => record.edictId === row.id)
-  const estimates = state.estimates.filter((estimate) =>
-    documents.some((doc) => doc.id === estimate.documentId),
-  )
-  const gutachten = documents.find((doc) => doc.kind === 'langgutachten')
-  const latestDone = analyses.findLast((record) => record.status === 'done')
+  const gutachten = documents.find((doc) => doc.kind === 'langgutachten' && doc.removedAt === null)
+  const estimates = state.estimates.filter((estimate) => estimate.documentId === gutachten?.id)
+  const latestDone = analyses.findLast((record) => record.status === 'done' && !record.stale)
   const aiArea = latestDone === undefined ? null : analysisArea(latestDone, gutachten?.id ?? null)
   const areaCandidates: AreaValue[] = [
     ...(row.area?.source === 'listing' ? [row.area] : []),

@@ -73,7 +73,16 @@ describe('planFill', () => {
       candidate(3, false, null),
       { edictId: ID, propertyType: 'house', document: null },
     ])
-    expect(plan).toEqual({ listings: 4, documents: 2, totalKb: 300 })
+    expect(plan).toEqual({ listings: 4, documents: 2, cachedDocuments: 0, totalKb: 300 })
+  })
+
+  it('counts cached repairs separately from downloads and their size', () => {
+    const plan = planFill([
+      { ...candidate(1, true, 300), refreshEstimate: true },
+      candidate(2, true),
+      candidate(3, false, 100),
+    ])
+    expect(plan).toEqual({ listings: 3, documents: 1, cachedDocuments: 1, totalKb: 100 })
   })
 })
 

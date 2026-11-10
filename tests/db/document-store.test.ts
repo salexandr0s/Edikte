@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openDatabase, type AppDatabase } from '../../src/main/db/client'
 import { createDocumentStore } from '../../src/main/db/document-store'
-import { edicts, userState } from '../../src/main/db/schema'
+import { areaEstimates, edicts, userState } from '../../src/main/db/schema'
 import { NOW, edictId, insertEdict, insertGutachten } from '../services/documents/seed'
 
 let db: AppDatabase
@@ -79,6 +79,10 @@ describe('document store', () => {
         createdAt: NOW,
       },
     ])
+    expect(db.select().from(areaEstimates).get()).toMatchObject({
+      documentId,
+      documentSha256: 'abc',
+    })
 
     expect(store.find(documentId)).toMatchObject({
       edictTitle: 'Einfamilienhaus',

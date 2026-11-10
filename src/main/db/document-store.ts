@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, isNull, min, ne, or } from 'drizzle-orm'
 import type { DocumentInfo } from '@shared/domain'
 import type { ListingStatus } from '@shared/enums'
 import type { AnalysisPage, EdictFacts } from '../ai/analysis/types'
@@ -37,13 +37,15 @@ export interface AppDocumentStore {
   edictIdOf(documentId: number): string | null
   /** Each edict's first still-published Langgutachten, ordered by ID. */
   langgutachten(edictIds: readonly string[]): Map<string, DocumentRow>
+  /** Active reports with local estimates made from other or unknown bytes. */
+  staleEstimateDocuments(documentIds: readonly number[]): Set<number>
   /** Every page of a read document, in page order. */
   pageTexts(documentId: number): AnalysisPage[]
   /** Every stored file, with the day its case closed and whether the user keeps it. */
   retentionCandidates(): RetentionCandidate[]
   /**
-   * Forgets deleted files: clears the download columns and the page texts,
-   * which quote the report too. Returns the edicts whose documents changed.
+   * Forgets cached files and page texts, retaining the content hash that
+   * identifies saved results. Returns the edicts whose documents changed.
    */
   clearDownloads(documentIds: readonly number[]): string[]
 }
@@ -70,6 +72,33 @@ interface CaseEdict {
   removedAt: string | null
 }
 
+/** Subquery: the first still-published report of each edict. */
+export function activeReportIds(db: AppDatabase) {
+  return db
+    .select({ id: min(documents.id) })
+    .from(documents)
+    .where(and(eq(documents.kind, 'langgutachten'), isNull(documents.removedAt)))
+    .groupBy(documents.edictId)
+}
+
+export function loadActiveReports(
+  db: AppDatabase,
+  edictIds: readonly string[],
+): Map<string, DocumentRow> {
+  if (edictIds.length === 0) return new Map()
+  return new Map(
+    db
+      .select()
+      .from(documents)
+      .where(
+        and(inArray(documents.edictId, [...edictIds]), inArray(documents.id, activeReportIds(db))),
+      )
+      .orderBy(asc(documents.id))
+      .all()
+      .map((row) => [row.edictId, row]),
+  )
+}
+
 export function createDocumentStore(db: AppDatabase): AppDocumentStore {
   const scannedPages = (documentId: number): number[] =>
     db
@@ -82,7 +111,24 @@ export function createDocumentStore(db: AppDatabase): AppDocumentStore {
 
   return {
     recordDownload(documentId, patch) {
-      db.update(documents).set(patch).where(eq(documents.id, documentId)).run()
+      db.transaction((tx) => {
+        const previous = tx
+          .select({ sha256: documents.sha256 })
+          .from(documents)
+          .where(eq(documents.id, documentId))
+          .get()
+        const changed = previous?.sha256 !== patch.sha256
+        if (changed) {
+          tx.delete(documentPages).where(eq(documentPages.documentId, documentId)).run()
+        }
+        tx.update(documents)
+          .set({
+            ...patch,
+            ...(changed ? { pageCount: null, extractedAt: null, extractError: null } : {}),
+          })
+          .where(eq(documents.id, documentId))
+          .run()
+      })
     },
     recordPages(documentId, patch, pages) {
       db.transaction((tx) => {
@@ -100,8 +146,17 @@ export function createDocumentStore(db: AppDatabase): AppDocumentStore {
     },
     replaceEstimates(documentId, rows) {
       db.transaction((tx) => {
+        const document = tx
+          .select({ sha256: documents.sha256 })
+          .from(documents)
+          .where(eq(documents.id, documentId))
+          .get()
         tx.delete(areaEstimates).where(eq(areaEstimates.documentId, documentId)).run()
-        if (rows.length > 0) tx.insert(areaEstimates).values(rows).run()
+        if (rows.length > 0) {
+          tx.insert(areaEstimates)
+            .values(rows.map((row) => ({ ...row, documentSha256: document?.sha256 ?? null })))
+            .run()
+        }
       })
     },
     find(documentId) {
@@ -123,23 +178,32 @@ export function createDocumentStore(db: AppDatabase): AppDocumentStore {
         .get()
       return found?.edictId ?? null
     },
-    langgutachten(edictIds) {
-      const found = new Map<string, DocumentRow>()
-      if (edictIds.length === 0) return found
+    langgutachten: (edictIds) => loadActiveReports(db, edictIds),
+    staleEstimateDocuments(documentIds) {
+      if (documentIds.length === 0) return new Set()
       const rows = db
-        .select()
-        .from(documents)
-        .where(
+        .selectDistinct({ id: documents.id })
+        .from(areaEstimates)
+        .innerJoin(
+          documents,
           and(
-            eq(documents.kind, 'langgutachten'),
-            isNull(documents.removedAt),
-            inArray(documents.edictId, [...edictIds]),
+            eq(documents.id, areaEstimates.documentId),
+            eq(documents.edictId, areaEstimates.edictId),
           ),
         )
-        .orderBy(asc(documents.id))
+        .where(
+          and(
+            inArray(documents.id, [...documentIds]),
+            inArray(documents.id, activeReportIds(db)),
+            or(
+              isNull(documents.sha256),
+              isNull(areaEstimates.documentSha256),
+              ne(areaEstimates.documentSha256, documents.sha256),
+            ),
+          ),
+        )
         .all()
-      for (const row of rows) if (!found.has(row.edictId)) found.set(row.edictId, row)
-      return found
+      return new Set(rows.map((row) => row.id))
     },
     pageTexts(documentId) {
       return db
@@ -207,7 +271,7 @@ export function createDocumentStore(db: AppDatabase): AppDocumentStore {
           .update(documents)
           .set({
             localPath: null,
-            sha256: null,
+            // The hash identifies saved results after the cached bytes expire.
             bytes: null,
             downloadedAt: null,
             pageCount: null,

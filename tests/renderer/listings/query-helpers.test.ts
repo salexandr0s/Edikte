@@ -55,6 +55,7 @@ function row(id: string, analysisStatus: ListingRow['analysisStatus']): ListingR
     approximate: [],
     analysisStatus,
     hasAnalysis: false,
+    analysisStale: false,
     riskLevel: null,
     hasLanggutachten: true,
     starred: false,
@@ -170,6 +171,19 @@ describe('analysis queue', () => {
     })
     expect(queueCounts(rows, tracker)).toEqual({ running: 1, waiting: 2 })
     expect(analyzableIds(rows, tracker)).toEqual(['c', 'd'])
+  })
+
+  it('offers stale completed analyses again without duplicating pending jobs', () => {
+    const stale = { ...row('old-report', 'done'), analysisStale: true }
+    expect(analyzableIds([row('current', 'done'), stale], EMPTY_TRACKER)).toEqual(['old-report'])
+    const tracker = trackAnalysis(EMPTY_TRACKER, {
+      analysisId: 10,
+      edictId: stale.id,
+      status: 'queued',
+      step: 'waiting',
+      queued: 1,
+    })
+    expect(analyzableIds([stale], tracker)).toEqual([])
   })
 })
 

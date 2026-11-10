@@ -123,6 +123,7 @@ export function listingRow(id: string, area: number | null): ListingRow {
     approximate: [],
     analysisStatus: null,
     hasAnalysis: false,
+    analysisStale: false,
     riskLevel: null,
     hasLanggutachten: true,
     starred: false,

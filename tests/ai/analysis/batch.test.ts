@@ -42,6 +42,7 @@ function outcome(current: AnalysisJob): AnalysisJobOutcome {
     promptVersion: 1,
     schemaVersion: 1,
     documentIds: [1],
+    documentSha256: 'sha',
     result: houseAnswer,
     evidence: [],
     crossChecks: [],

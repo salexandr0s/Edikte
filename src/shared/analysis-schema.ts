@@ -154,6 +154,8 @@ export const AnalysisRecordSchema = z.object({
   promptVersion: z.number().int(),
   schemaVersion: z.number().int(),
   status: AnalysisStatusSchema,
+  /** A finished result refers to a report that is no longer the current active report. */
+  stale: z.boolean(),
   result: AnalysisResultSchema.nullable(),
   evidence: z.array(EvidenceItemSchema),
   crossChecks: z.array(CrossCheckSchema),

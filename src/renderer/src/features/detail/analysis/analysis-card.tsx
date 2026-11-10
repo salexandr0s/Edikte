@@ -10,7 +10,7 @@ import { RefreshIcon } from '../../../components/ui/icons'
 import { useBridgeEvent } from '../../../lib/use-bridge-event'
 import { analysisView, isPending, type AnalysisView } from '../detail-helpers'
 import { AnalysisHistory, OlderRunNotice, useAnalysisHistory } from './analysis-history'
-import { AnalysisResult } from './analysis-result'
+import { AnalysisResult, StaleAnalysisNotice } from './analysis-result'
 import { EndedAnalysis, NoAnalysis, PendingAnalysis, StoppedAnalysis } from './analysis-states'
 
 interface AnalysisCardProps {
@@ -43,9 +43,12 @@ export function AnalysisCard({ detail, reload, reloadError }: AnalysisCardProps)
   // While a newer run is pending or loading, the previous one stays reachable in the history.
   const latestId =
     view.kind === 'pending' || view.kind === 'ended' ? view.analysisId : (record?.id ?? null)
+  const report = detail.documents.find(
+    (document) => document.kind === 'langgutachten' && document.removedAt === null,
+  )
   const history = useAnalysisHistory(
     detail.id,
-    record === null ? 'none' : `${record.id}:${record.status}`,
+    `${record?.id ?? 'none'}:${record?.status ?? ''}:${record?.stale ?? false}:${detail.analysisStale}:${report?.id ?? 'none'}:${report?.downloadedAt ?? ''}`,
   )
   const viewedRun =
     history.runs?.find((run) => run.id === viewedRunId && run.status === 'done') ?? null
@@ -75,6 +78,9 @@ export function AnalysisCard({ detail, reload, reloadError }: AnalysisCardProps)
       }
     >
       <div className="flex flex-col gap-8">
+        {detail.analysisStale && view.kind !== 'done' && viewedRun === null && (
+          <StaleAnalysisNotice previous />
+        )}
         {viewedRun === null ? (
           <CurrentAnalysis
             edictSource={detail.source}

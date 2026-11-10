@@ -10,7 +10,9 @@ import type {
 import type { Bundesland, EdictSource, NoticeType, PriceBasis } from '@shared/enums'
 import { AppError } from '@shared/errors'
 import { applyListingQuery } from '@shared/listing-query'
+import { analysisColumns, latestCurrentAnalysisIds } from './analysis-store'
 import type { AppDatabase } from './client'
+import { activeReportIds, loadActiveReports } from './document-store'
 import {
   buildListingRow,
   toAnalysisRecord,
@@ -96,14 +98,15 @@ export function getListing(db: AppDatabase, id: string): ListingDetail {
     db,
     documentRows.map((row) => row.id),
   )
-  const estimateRows = db
-    .select()
-    .from(areaEstimates)
-    .where(eq(areaEstimates.edictId, id))
-    .orderBy(asc(areaEstimates.id))
-    .all()
+  const estimateRows = currentEstimates(db, [id])
+  const report = loadActiveReports(db, [id]).get(id) ?? null
   const latest = latestAnalysis(db, id)
   const latestDone = latest?.status === 'done' ? latest : latestAnalysis(db, id, 'done')
+  const currentDone = db
+    .select(analysisColumns)
+    .from(analyses)
+    .where(and(eq(analyses.edictId, id), inArray(analyses.id, latestCurrentAnalysisIds(db))))
+    .get()
   const user = db.select().from(userState).where(eq(userState.caseKey, edict.caseKey)).get()
   const { row, areaCandidates } = buildListingRow(
     edict,
@@ -114,7 +117,8 @@ export function getListing(db: AppDatabase, id: string): ListingDetail {
         (document) => document.kind === 'langgutachten' && document.removedAt === null,
       ),
       analysisStatus: latest?.status ?? null,
-      finished: latestDone === undefined ? null : toFinishedAnalysis(latestDone),
+      analysisStale: latestDone !== undefined && currentDone === undefined,
+      finished: currentDone === undefined ? null : toFinishedAnalysis(currentDone),
       estimates: estimateRows,
       location: loadLocations(db, [id]).get(id) ?? null,
     },
@@ -145,7 +149,7 @@ export function getListing(db: AppDatabase, id: string): ListingDetail {
     estimates: estimateRows.map(toAreaEstimate),
     areaCandidates,
     related: loadRelated(db, edict),
-    analysis: latest === undefined ? null : toAnalysisRecord(latest),
+    analysis: latest === undefined ? null : toAnalysisRecord(latest, report),
     notes: user?.notes ?? '',
     firstSeenAt: edict.firstSeenAt,
     lastSeenAt: edict.lastSeenAt,
@@ -218,16 +222,23 @@ function loadListingRows(
       .all()
       .map((state) => [state.caseKey, state]),
   )
-  const withGutachten = new Set(
+  const reports = loadActiveReports(
+    db,
+    rows.map((row) => row.id),
+  )
+  const withFinished = new Set(
     db
-      .selectDistinct({ edictId: documents.edictId })
-      .from(documents)
-      .where(and(eq(documents.kind, 'langgutachten'), isNull(documents.removedAt)))
+      .select({ edictId: analyses.edictId })
+      .from(analyses)
+      .where(inArray(analyses.id, latestAnalysisIds(db, 'done')))
       .all()
-      .map((document) => document.edictId),
+      .map((analysis) => analysis.edictId),
   )
   const estimates = new Map<string, AreaEstimateRow[]>()
-  for (const estimate of db.select().from(areaEstimates).orderBy(asc(areaEstimates.id)).all()) {
+  for (const estimate of currentEstimates(
+    db,
+    rows.map((row) => row.id),
+  )) {
     estimates.set(estimate.edictId, [...(estimates.get(estimate.edictId) ?? []), estimate])
   }
   const statuses = new Map(
@@ -247,7 +258,7 @@ function loadListingRows(
         documentIds: analyses.documentIds,
       })
       .from(analyses)
-      .where(inArray(analyses.id, latestAnalysisIds(db, 'done')))
+      .where(inArray(analyses.id, latestCurrentAnalysisIds(db)))
       .all()
       .map((analysis) => [analysis.edictId, toFinishedAnalysis(analysis)]),
   )
@@ -270,8 +281,9 @@ function loadListingRows(
     const sources = {
       starred: user?.starred ?? false,
       hidden: user?.hidden ?? false,
-      hasLanggutachten: withGutachten.has(edict.id),
+      hasLanggutachten: reports.has(edict.id),
       analysisStatus: statuses.get(edict.id) ?? null,
+      analysisStale: withFinished.has(edict.id) && !finished.has(edict.id),
       finished: finished.get(edict.id) ?? null,
       estimates: estimates.get(edict.id) ?? [],
       location: locations.get(edict.id) ?? null,
@@ -279,6 +291,27 @@ function loadListingRows(
     const { row } = buildListingRow(edict, sources, basis)
     return { ...row, status: decider.status, noticeType: decider.noticeType }
   })
+}
+
+/** Local values may contribute only while their report and byte identity are current. */
+function currentEstimates(db: AppDatabase, edictIds: readonly string[]): AreaEstimateRow[] {
+  if (edictIds.length === 0) return []
+  return db
+    .select({ estimate: areaEstimates })
+    .from(areaEstimates)
+    .innerJoin(
+      documents,
+      and(
+        eq(documents.id, areaEstimates.documentId),
+        eq(documents.edictId, areaEstimates.edictId),
+        inArray(documents.id, activeReportIds(db)),
+        eq(documents.sha256, areaEstimates.documentSha256),
+      ),
+    )
+    .where(inArray(areaEstimates.edictId, [...edictIds]))
+    .orderBy(asc(areaEstimates.id))
+    .all()
+    .map(({ estimate }) => estimate)
 }
 
 /** Positions the geocoder found, by edict ID; edicts it looked up without a hit are left out. */
@@ -381,7 +414,7 @@ function latestAnalysis(
   status?: 'done',
 ): AnalysisRow | undefined {
   return db
-    .select()
+    .select(analysisColumns)
     .from(analyses)
     .where(
       and(

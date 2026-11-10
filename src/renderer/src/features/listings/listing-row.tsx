@@ -196,7 +196,16 @@ export function ListingTableRow({
         <PricePerSqm row={row} />
       </td>
       <td className={cx(CELL, 'px-4')}>
-        <AnalysisBadge status={analysisStatus} risk={row.riskLevel} />
+        <div className="flex flex-col items-start gap-1">
+          {row.analysisStale && (
+            <Badge size="sm" variant="warning" title={t('listings.row.analysisStaleHint')}>
+              {t('listings.row.analysisStale')}
+            </Badge>
+          )}
+          {(!row.analysisStale || (analysisStatus !== null && analysisStatus !== 'done')) && (
+            <AnalysisBadge status={analysisStatus} risk={row.riskLevel} />
+          )}
+        </div>
       </td>
       <td className={cx(CELL, 'px-1')}>
         <Button

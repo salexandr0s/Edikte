@@ -21,6 +21,9 @@ interface FillProgress {
 }
 
 export interface FillJob {
+  /** Replacement focus target while the opening button is disabled by the running job. */
+  setCancelButton: (button: HTMLButtonElement | null) => void
+  focusCancel: () => HTMLButtonElement | null
   progress: FillProgress | null
   checking: boolean
   cancelling: boolean
@@ -44,6 +47,7 @@ export function useFillJob(query: ListingQuery): FillJob {
   // True from the start of a fill until its last event. Events can arrive
   // before documents:fill answers.
   const running = useRef(false)
+  const cancelButton = useRef<HTMLButtonElement>(null)
 
   const fail = (title: string, error: unknown) =>
     toast({ kind: 'error', title, description: t(`errors.${errorCode(error)}`) })
@@ -52,7 +56,7 @@ export function useFillJob(query: ListingQuery): FillJob {
     setChecking(true)
     try {
       const plan = await invoke('documents:planFill', query)
-      if (plan.documents > 0) {
+      if (plan.documents + plan.cachedDocuments > 0) {
         setPending({ plan, query })
       } else {
         toast({
@@ -75,17 +79,19 @@ export function useFillJob(query: ListingQuery): FillJob {
     if (pending === null) return
     setPending(null)
     running.current = true
-    const total = pending.plan.documents
-    setProgress({ phase: 'download', done: 0, total, bytesDone: null, bytesTotal: null })
+    const total = pending.plan.documents + pending.plan.cachedDocuments
+    const phase = pending.plan.documents > 0 ? 'download' : 'estimate'
+    setProgress({ phase, done: 0, total, bytesDone: null, bytesTotal: null })
     try {
       const plan = await invoke('documents:fill', pending.query)
       if (!running.current) return
-      if (plan.documents === 0) {
-        // Nothing left to download, and no event will follow.
+      const remaining = plan.documents + plan.cachedDocuments
+      if (remaining === 0) {
+        // Nothing left to read, and no event will follow.
         running.current = false
         setProgress(null)
       } else {
-        setProgress((current) => current && { ...current, total: plan.documents })
+        setProgress((current) => current && { ...current, total: remaining })
       }
     } catch (error) {
       running.current = false
@@ -133,6 +139,10 @@ export function useFillJob(query: ListingQuery): FillJob {
   })
 
   return {
+    setCancelButton: (button) => {
+      cancelButton.current = button
+    },
+    focusCancel: () => cancelButton.current,
     progress,
     checking,
     cancelling,
@@ -148,9 +158,11 @@ export function FillAreasButton({ job, disabled }: { job: FillJob; disabled: boo
   const { t } = useTranslation()
   const format = useFormat()
   const { plan } = job
+  const button = useRef<HTMLButtonElement>(null)
   return (
     <>
       <Button
+        ref={button}
         variant="outline"
         size="sm"
         loading={job.checking}
@@ -163,10 +175,13 @@ export function FillAreasButton({ job, disabled }: { job: FillJob; disabled: boo
       {plan !== null && (
         <Dialog
           open
+          returnFocus={() => (button.current?.disabled ? job.focusCancel() : button.current)}
           onOpenChange={(open) => {
             if (!open) job.dismiss()
           }}
-          title={t('batch.fill.confirmTitle', { documents: format.number(plan.documents) })}
+          title={t('batch.fill.confirmTitle', {
+            documents: format.number(plan.documents + plan.cachedDocuments),
+          })}
           footer={
             <>
               <Button variant="outline" onClick={job.dismiss}>
@@ -181,8 +196,22 @@ export function FillAreasButton({ job, disabled }: { job: FillJob; disabled: boo
             <dd className="text-right font-medium tabular-nums">{format.number(plan.listings)}</dd>
             <dt className="text-fg-muted">{t('batch.fill.documents')}</dt>
             <dd className="text-right font-medium tabular-nums">{format.number(plan.documents)}</dd>
-            <dt className="text-fg-muted">{t('batch.fill.size')}</dt>
-            <dd className="text-right font-medium tabular-nums">{format.fileSize(plan.totalKb)}</dd>
+            {plan.cachedDocuments > 0 && (
+              <>
+                <dt className="text-fg-muted">{t('batch.fill.cachedDocuments')}</dt>
+                <dd className="text-right font-medium tabular-nums">
+                  {format.number(plan.cachedDocuments)}
+                </dd>
+              </>
+            )}
+            {plan.documents > 0 && (
+              <>
+                <dt className="text-fg-muted">{t('batch.fill.size')}</dt>
+                <dd className="text-right font-medium tabular-nums">
+                  {format.fileSize(plan.totalKb)}
+                </dd>
+              </>
+            )}
           </dl>
           <p className="mt-4 text-fg-muted">{t('batch.fill.confirmText')}</p>
         </Dialog>
@@ -194,7 +223,7 @@ export function FillAreasButton({ job, disabled }: { job: FillJob; disabled: boo
 export function FillProgressPanel({ job }: { job: FillJob }) {
   const { t } = useTranslation()
   const format = useFormat()
-  const { progress } = job
+  const { progress, setCancelButton, cancelling, cancel } = job
   const counts =
     progress === null || progress.total === 0
       ? null
@@ -239,11 +268,12 @@ export function FillProgressPanel({ job }: { job: FillJob }) {
             <span className="text-fg-muted">{t(`batch.fill.phase.${progress.phase}`)}</span>
             {bytes !== null && <span className="text-fg-muted tabular-nums">{bytes}</span>}
             <Button
+              ref={setCancelButton}
               variant="outline"
               size="sm"
               className="ml-auto"
-              loading={job.cancelling}
-              onClick={job.cancel}
+              loading={cancelling}
+              onClick={cancel}
             >
               {t('common.cancel')}
             </Button>

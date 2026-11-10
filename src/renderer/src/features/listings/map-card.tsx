@@ -132,6 +132,11 @@ function PinCardRow({
                 {t('listings.row.risk', { level: t(`riskLevel.${row.riskLevel}`) })}
               </Badge>
             )}
+            {row.analysisStale && (
+              <Badge size="sm" variant="warning" title={t('listings.row.analysisStaleHint')}>
+                {t('listings.row.analysisStale')}
+              </Badge>
+            )}
           </span>
           {withAddress && (
             <span lang="de" title={address(row, t)} className="truncate text-xs text-fg-muted">

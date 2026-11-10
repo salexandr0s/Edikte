@@ -213,6 +213,7 @@ describe('analysis service', () => {
     await service.cancel({ all: true })
     await service.idle()
 
+    const reports = createDocumentStore(db).langgutachten([auction, sale, staleAuction, staleSale])
     const jobs = queueAnalyses(
       db,
       [
@@ -220,11 +221,14 @@ describe('analysis service', () => {
         { ...job(sale), promptVersion: 1 },
         { ...job(staleAuction), promptVersion: 1 },
         { ...job(staleSale), promptVersion: 2 },
-      ],
+      ].map((queued) => ({ ...queued, documentIds: [reports.get(queued.edictId)?.id ?? -1] })),
       NOW,
     )
     for (const queued of jobs) {
-      db.update(analyses).set({ status: 'done' }).where(eq(analyses.id, queued.analysisId)).run()
+      db.update(analyses)
+        .set({ status: 'done', documentSha256: 'sha' })
+        .where(eq(analyses.id, queued.analysisId))
+        .run()
     }
     expect(
       await service.estimate({ edictIds: [auction, sale, staleAuction, staleSale] }),

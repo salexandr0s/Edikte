@@ -90,8 +90,10 @@ export const ListingRowSchema = z.object({
   approximate: z.array(ApproximateReasonSchema),
   /** Status of the newest analysis run, finished or not. */
   analysisStatus: AnalysisStatusSchema.nullable(),
-  /** A finished analysis exists. Its risk level and area stay while a newer run is queued, running or failed. */
+  /** A finished analysis of the active report exists, even while a newer run is unfinished. */
   hasAnalysis: z.boolean(),
+  /** Finished history exists, but none of it describes the current active report. */
+  analysisStale: z.boolean(),
   riskLevel: RiskLevelSchema.nullable(),
   hasLanggutachten: z.boolean(),
   starred: z.boolean(),
@@ -324,6 +326,8 @@ export const FillPlanSchema = z.object({
   listings: z.number().int().nonnegative(),
   /** Documents that would be downloaded. */
   documents: z.number().int().nonnegative(),
+  /** Cached documents whose local area estimate needs to be read again. */
+  cachedDocuments: z.number().int().nonnegative(),
   totalKb: z.number().int().nonnegative(),
 })
 export type FillPlan = z.infer<typeof FillPlanSchema>
