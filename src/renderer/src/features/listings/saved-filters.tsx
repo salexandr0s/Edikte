@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ListingQuery, SavedFilter } from '@shared/domain'
 import type { AppErrorCode } from '@shared/errors'
@@ -34,6 +34,7 @@ interface SavedFiltersProps {
 
 export function SavedFilters({ query, onApply }: SavedFiltersProps) {
   const { t } = useTranslation()
+  const menuButton = useRef<HTMLButtonElement>(null)
   const [filters, setFilters] = useState<SavedFilter[] | null>(null)
   const [error, setError] = useState<AppErrorCode | null>(null)
   const [loads, setLoads] = useState(0)
@@ -68,13 +69,18 @@ export function SavedFilters({ query, onApply }: SavedFiltersProps) {
       {/* Not modal: a dialog opened from an item then gets focus without a fight. */}
       <Menu modal={false}>
         <MenuTrigger asChild>
-          <Button variant="outline" size="sm" className="group">
+          <Button ref={menuButton} variant="outline" size="sm" className="group">
             <BookmarkIcon className="text-fg-muted" />
             {t('filters.saved.menu')}
             <ChevronDownIcon className="size-3.5 text-fg-muted transition-transform duration-160 ease-standard group-data-[state=open]:rotate-180" />
           </Button>
         </MenuTrigger>
-        <MenuContent align="start">
+        <MenuContent
+          align="start"
+          onCloseAutoFocus={(event) => {
+            if (saving || deleting !== null) event.preventDefault()
+          }}
+        >
           {error !== null ? (
             <>
               <MenuLabel>{t('filters.saved.loadFailed')}</MenuLabel>
@@ -122,11 +128,17 @@ export function SavedFilters({ query, onApply }: SavedFiltersProps) {
       </Menu>
 
       {saving && (
-        <SaveFilterDialog query={query} onClose={() => setSaving(false)} onSaved={reload} />
+        <SaveFilterDialog
+          query={query}
+          returnFocus={() => menuButton.current}
+          onClose={() => setSaving(false)}
+          onSaved={reload}
+        />
       )}
       {deleting !== null && (
         <DeleteFilterDialog
           filter={deleting}
+          returnFocus={() => menuButton.current}
           onClose={() => setDeleting(null)}
           onDeleted={reload}
         />
@@ -136,15 +148,17 @@ export function SavedFilters({ query, onApply }: SavedFiltersProps) {
 }
 
 interface SaveFilterDialogProps {
+  returnFocus: () => HTMLElement | null
   query: ListingQuery
   onClose: () => void
   onSaved: () => void
 }
 
-function SaveFilterDialog({ query, onClose, onSaved }: SaveFilterDialogProps) {
+function SaveFilterDialog({ query, returnFocus, onClose, onSaved }: SaveFilterDialogProps) {
   const { t } = useTranslation()
   const toast = useToast()
   const formId = useId()
+  const input = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [pending, setPending] = useState(false)
@@ -176,6 +190,8 @@ function SaveFilterDialog({ query, onClose, onSaved }: SaveFilterDialogProps) {
   return (
     <Dialog
       open
+      returnFocus={returnFocus}
+      initialFocus={() => input.current}
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
@@ -206,10 +222,10 @@ function SaveFilterDialog({ query, onClose, onSaved }: SaveFilterDialogProps) {
           {(control) => (
             <Input
               {...control}
+              ref={input}
               value={name}
               maxLength={80}
               autoComplete="off"
-              autoFocus
               onChange={(event) => setName(event.target.value)}
             />
           )}
@@ -225,12 +241,13 @@ function SaveFilterDialog({ query, onClose, onSaved }: SaveFilterDialogProps) {
 }
 
 interface DeleteFilterDialogProps {
+  returnFocus: () => HTMLElement | null
   filter: SavedFilter
   onClose: () => void
   onDeleted: () => void
 }
 
-function DeleteFilterDialog({ filter, onClose, onDeleted }: DeleteFilterDialogProps) {
+function DeleteFilterDialog({ filter, returnFocus, onClose, onDeleted }: DeleteFilterDialogProps) {
   const { t } = useTranslation()
   const toast = useToast()
   const [pending, setPending] = useState(false)
@@ -253,6 +270,7 @@ function DeleteFilterDialog({ filter, onClose, onDeleted }: DeleteFilterDialogPr
   return (
     <Dialog
       open
+      returnFocus={returnFocus}
       onOpenChange={(open) => {
         if (!open) onClose()
       }}

@@ -19,8 +19,20 @@ interface ApiKeyActionsProps {
 
 /** A key goes from the field straight to main; the renderer keeps no copy. */
 export function ApiKeyActions({ provider, status, action }: ApiKeyActionsProps) {
-  if (status.state === 'ready') return <RemoveKey provider={provider} action={action} />
-  return <ApiKeyForm provider={provider} action={action} />
+  const container = useRef<HTMLDivElement>(null)
+  return (
+    <div ref={container}>
+      {status.state === 'ready' ? (
+        <RemoveKey
+          provider={provider}
+          action={action}
+          returnFocus={() => container.current?.querySelector<HTMLElement>('input, button') ?? null}
+        />
+      ) : (
+        <ApiKeyForm provider={provider} action={action} />
+      )}
+    </div>
+  )
 }
 
 function ApiKeyForm({ provider, action }: { provider: ApiKeyProviderId; action: ProviderAction }) {
@@ -85,7 +97,15 @@ function ApiKeyForm({ provider, action }: { provider: ApiKeyProviderId; action: 
   )
 }
 
-function RemoveKey({ provider, action }: { provider: ApiKeyProviderId; action: ProviderAction }) {
+function RemoveKey({
+  provider,
+  action,
+  returnFocus,
+}: {
+  provider: ApiKeyProviderId
+  action: ProviderAction
+  returnFocus: () => HTMLElement | null
+}) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const vendor = t(`providers.vendor.${provider}`)
@@ -105,6 +125,7 @@ function RemoveKey({ provider, action }: { provider: ApiKeyProviderId; action: P
       </Button>
       <Dialog
         open={open}
+        returnFocus={returnFocus}
         onOpenChange={(next) => {
           if (!busy) setOpen(next)
         }}

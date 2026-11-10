@@ -98,6 +98,15 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
     ? VIENNA_BOUNDS
     : AUSTRIA_BOUNDS
 
+  const closeCard = () => {
+    const marker =
+      selectedKey === null ? undefined : markerByKey.current.get(selectedKey)?.getElement()
+    setSelectedKey(null)
+    // A zoom can replace the selected cluster; the map remains a keyboard target.
+    const target = marker?.isConnected ? marker : map?.getContainer()
+    if (target?.isConnected) target.focus()
+  }
+
   useEffect(() => {
     let cancelled = false
     let created: Leaflet.Map | null = null
@@ -317,7 +326,7 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
       onKeyDown={(event) => {
         if (event.key === 'Escape' && selectedKey !== null) {
           event.stopPropagation()
-          setSelectedKey(null)
+          closeCard()
         }
       }}
     >
@@ -349,10 +358,7 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
               <PinCard
                 pin={selected}
                 onOpen={onOpen}
-                onClose={() => {
-                  setSelectedKey(null)
-                  markerByKey.current.get(selected.key)?.getElement()?.focus()
-                }}
+                onClose={closeCard}
                 className="pointer-events-auto w-full"
               />
             )}
