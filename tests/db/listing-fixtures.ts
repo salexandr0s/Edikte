@@ -17,6 +17,7 @@ export function edictRecord(n: number, overrides: Partial<EdictRecord> = {}): Ed
   const id = edictId(n)
   return {
     id,
+    source: 'court_auction',
     caseKey: `case-${n}`,
     noticeType: 'versteigerung',
     status: 'upcoming',
@@ -53,6 +54,7 @@ export function edictRecord(n: number, overrides: Partial<EdictRecord> = {}): Ed
     rawLabels: {},
     kurzgutachten: null,
     kurzgutachtenUrl: null,
+    insolvency: null,
     relatedIds: [],
     contentHash: `hash-${n}`,
     parserVersion: PARSER_VERSION,

@@ -37,6 +37,7 @@ export function buildEdictRecord(input: EdictRecordInput): EdictRecord {
   const plz = fields.plz ?? row?.plz ?? null
   return {
     id,
+    source: 'court_auction',
     caseKey: buildCaseKey({
       court: fields.court,
       caseNumber: fields.caseNumber,
@@ -79,6 +80,7 @@ export function buildEdictRecord(input: EdictRecordInput): EdictRecord {
     rawLabels: detail.rawLabels,
     kurzgutachten: input.kurzgutachten ?? null,
     kurzgutachtenUrl: detail.kurzgutachtenUrl,
+    insolvency: null,
     relatedIds: [
       ...new Set(
         detail.related
