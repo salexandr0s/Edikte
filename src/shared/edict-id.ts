@@ -13,13 +13,17 @@ export const INSOLVENCY_EDICT_ID_PATTERN = /^mv-[1-9]\d{0,11}$/
 /** An ID of either kind. Both forms are safe as a folder name. */
 export const EDICT_ID_PATTERN = /^(?:[0-9a-f]{32}|mv-[1-9]\d{0,11})$/
 
+/** True for a JustizOnline record number: a positive integer of at most twelve digits. */
+export function isInsolvencyRecordNumber(value: number): boolean {
+  return Number.isSafeInteger(value) && INSOLVENCY_EDICT_ID_PATTERN.test(`mv-${value}`)
+}
+
 /** The stored ID of a JustizOnline record. */
 export function insolvencyEdictId(recordNumber: number): string {
-  const id = `mv-${recordNumber}`
-  if (!Number.isSafeInteger(recordNumber) || !INSOLVENCY_EDICT_ID_PATTERN.test(id)) {
+  if (!isInsolvencyRecordNumber(recordNumber)) {
     throw new RangeError(`Not a JustizOnline record number: ${recordNumber}`)
   }
-  return id
+  return `mv-${recordNumber}`
 }
 
 /** The JustizOnline record number of a stored ID, or null for an ID of the other kind. */

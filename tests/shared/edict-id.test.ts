@@ -5,6 +5,7 @@ import {
   INSOLVENCY_EDICT_ID_PATTERN,
   insolvencyEdictId,
   insolvencyRecordNumber,
+  isInsolvencyRecordNumber,
 } from '@shared/edict-id'
 
 const AUCTION_ID = '0123456789abcdef0123456789abcdef'
@@ -42,7 +43,9 @@ describe('edict IDs', () => {
     expect(insolvencyEdictId(990001)).toBe('mv-990001')
     expect(insolvencyRecordNumber('mv-990001')).toBe(990001)
     expect(insolvencyRecordNumber(AUCTION_ID)).toBeNull()
+    expect(isInsolvencyRecordNumber(990001)).toBe(true)
     for (const bad of [0, -1, 1.5, Number.NaN, 1e21]) {
+      expect(isInsolvencyRecordNumber(bad)).toBe(false)
       expect(() => insolvencyEdictId(bad)).toThrow(RangeError)
     }
   })
