@@ -36,6 +36,7 @@ Die App ist für den privaten Gebrauch gedacht. Sie ist kein Angebot des Bundesm
 - **Karte:** Die Liegenschaften als Preismarken auf der Karte von basemap.at. Die Adressen sucht die App bei Nominatim (OpenStreetMap).
 - **Gutachten:** Die App lädt das Gutachten einer Liegenschaft auf Wunsch herunter und liest den Text aus. Fehlende Flächenangaben ergänzt sie aus den Gutachten.
 - **KI-Analyse:** Zusammenfassung, Flächen, Verkehrswert mit Stichtag, Zimmer, Stockwerk, Zustand und Heizung, Eigentumsanteil, Mietverhältnis, Lasten, Rückstände, Mängel und Risiken. Bei Insolvenzverkäufen führt die Analyse die im Gutachten genannten Lasten auf und setzt keine Löschung voraus. Zu jeder Angabe gehören, soweit das Gutachten sie hergibt, die Seite und ein Zitat. Die Analyse wird mit der Bekanntmachung abgeglichen, etwa Fläche gegen Objektgröße und Verkehrswert gegen Schätzwert. Auf Wunsch analysiert die App alle gefilterten Liegenschaften auf einmal.
+- **Veraltete Ergebnisse:** Passt eine Analyse nicht mehr zum aktuellen Gutachten oder lässt sich die Zuordnung nicht belegen, bleibt sie als veraltet sichtbar. Ihre Werte fließen nicht in Filter, Risikobadges oder den Preis pro m² ein. Eine neue KI-Analyse starten Sie selbst. „Fehlende Flächen ergänzen“ kann gespeicherte Gutachten erneut lokal lesen.
 - **Merken und ausblenden:** Liegenschaften lassen sich mit einem Stern markieren oder aus der Liste ausblenden. Objekte mit einem Stern oder Notizen bleiben in der Liste, wenn sie nicht mehr online sind.
 - **Zwei Sprachen, zwei Farbschemata:** Deutsch und Englisch; hell oder dunkel nach der Systemeinstellung.
 
@@ -120,6 +121,8 @@ Edikte speichert alle Daten in einem Ordner:
 
 Darin liegen die Datenbank (`edikte.sqlite`), die heruntergeladenen Gutachten (`documents`), die Kartenkacheln (`tiles`) und die verschlüsselten Anmeldedaten (`secrets.json`). Den genauen Pfad zeigt das App-Fenster nach „Datenordner:“ an. Heruntergeladene Gutachten löscht die App, sobald ein Verfahren länger als die eingestellte Frist abgeschlossen ist, standardmäßig 90 Tage.
 
+Vor einer anstehenden Datenbankmigration legt Edikte eine konsistente Sicherung im Unterordner `migration-backups` an. Schlägt die Sicherung fehl, wird die Datenbank nicht aktualisiert. Sicherungen bleiben erhalten, bis Sie sie selbst entfernen.
+
 Um alle Daten zu löschen, beenden Sie Edikte und löschen den Ordner. Auf dem Mac bleibt danach im Schlüsselbund ein Eintrag „Edikte Safe Storage“, den Sie in der Schlüsselbundverwaltung löschen können. Unter Windows deinstallieren Sie die App unter „Einstellungen“ > „Apps“ > „Installierte Apps“. Der Datenordner bleibt dabei erhalten.
 
 ### Datenschutz
@@ -194,6 +197,7 @@ The app is meant for personal use. It is not a service of the Austrian Federal M
 - **Map:** The properties as price markers on the basemap.at map. The app looks up the addresses at Nominatim (OpenStreetMap).
 - **Appraisal reports:** The app downloads the report of a property when you ask for it and extracts the text. Where a listing states no area, it takes the area from the report.
 - **AI analysis:** Summary, areas, market value (Verkehrswert) with valuation date, rooms, floor, condition and heating, ownership share, tenancy, encumbrances, arrears, defects and risks. For insolvency sales, the analysis lists the encumbrances named in the report without assuming that they are deleted. Each value comes with the page and a quote from the report, where the report provides them. The analysis is checked against the notice, for example area against the listed size and market value against the appraised value. You can also analyse every filtered property at once.
+- **Outdated results:** An analysis that no longer matches the current report, or whose match cannot be verified, stays visible as outdated. Its values do not feed filters, risk badges or price per m². You choose when to start another AI analysis. “Fill missing areas” can read saved reports again locally.
 - **Star and hide:** Properties can be starred or hidden from the list. Listings with a star or notes remain in the list after they leave the site.
 - **Two languages, two colour schemes:** German and English; light or dark following the system setting.
 
@@ -277,6 +281,8 @@ Edikte keeps all its data in one folder:
 - Windows: `%APPDATA%\Edikte`
 
 It holds the database (`edikte.sqlite`), the downloaded appraisal reports (`documents`), the map tiles (`tiles`) and the encrypted sign-in data (`secrets.json`). The app window shows the exact path after "Data folder:". The app deletes a downloaded report once its case has been closed for longer than the retention setting, 90 days by default.
+
+Before a pending database migration, Edikte saves a consistent backup in the `migration-backups` subfolder. If the backup fails, the database is not upgraded. Backups remain until you remove them.
 
 To delete all data, quit Edikte and delete the folder. On a Mac, a keychain item named "Edikte Safe Storage" remains, which you can delete in Keychain Access. On Windows, uninstall the app under "Settings" > "Apps" > "Installed apps". This keeps the data folder.
 

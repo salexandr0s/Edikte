@@ -2,7 +2,7 @@
 
 Project: Edikte, the Electron desktop app for Austrian court auctions and real-estate sales in insolvency proceedings. Branch `feat/insolvency-sales`, based on `47ef51a`. Work remains local; nothing has been pushed, merged or released.
 
-The approved plan is `~/.claude/plans/edikte-insolvency-sales.md` (revision 2). Its progress file is `~/.claude/plans/edikte-insolvency-sales-progress.md`. The feature was already approved through implementation, verification and review. The improvement pass has a separate approval gate.
+The approved plan is `~/.claude/plans/edikte-insolvency-sales.md` (revision 2). Its progress file is `~/.claude/plans/edikte-insolvency-sales-progress.md`. The feature and all four recommended improvements are complete. The user approved items 1–4, including stale-analysis handling, on 2026-11-10.
 
 ## Completed
 
@@ -14,6 +14,10 @@ Recovered Claude's clean final contract commit, `c5a40ee`, and created an active
 | `7a0e835` | Shared sync engine, auction and insolvency strategies, record builder, sequential multi-source service/scheduling, unreadable-file guard and opt-in live verification |
 | `d6970e7` | Source-specific analysis prompts and versions, and the actual report IDs in completed analysis evidence                                                               |
 | `c900595` | Source-aware list/map/detail/settings/first-run UI, disabled-source recovery, batch query guards, paired copy and e2e heading updates                                 |
+| `4aad949` | Feature verification, review and screenshots                                                                                                                          |
+| `bc21197` | Consistent SQLite backup before pending migrations, with failure before DDL and migration-ledger writes                                                               |
+| `a729fe6` | Return focus after programmatic dialogs and map-card Escape/Close                                                                                                     |
+| `2aaf01f` | Current-report hash provenance, stale-result UI, cached area repair and guarded legacy migration 0006                                                                 |
 
 The auction system prompt still has version 2 and its previous SHA-256. The insolvency prompt uses version 1. Queued analysis records now save the report actually read, even when sync replaced the report while the job waited.
 
@@ -23,14 +27,16 @@ German and English UI copy refers to the combined list as Objekte/Listings. Inso
 
 ## Verification state
 
-- Both-project typecheck, ESLint and Prettier passed after the review fixes.
-- Unit tests: 737 passed, two opt-in tests skipped.
-- Built Electron smoke test: passed after the review fixes. It used a temporary user-data folder and offline mode.
+- Both-project typecheck, ESLint and Prettier passed after all approved improvements.
+- Unit tests: 752 passed, two opt-in tests skipped.
+- Built Electron smoke test: passed after all approved improvements and the final migration safeguard. It used a temporary user-data folder and offline mode.
 - Browser checks: mock renderer, both languages, light/dark views, 960/1280/1440 CSS pixel widths; source switch/sort/date behavior; rich and sparse sale detail; map pins and a sale card; source settings; saved-filter recovery when its source is disabled; keyboard operation. Filter dialog footer remained accessible at 960 × 600 and Escape returned focus to its trigger.
 - Batch actions now require the page to answer the current query. The normal mock response was too fast to observe the loading interval reliably; the identity guard and handler guard were inspected in code.
 - Browser map initially failed because a shared Vite optimizer cache served HTTP 504 for Leaflet. `vite.renderer.config.ts` now uses its own cache directory. The map and real basemap tiles loaded after restarting the development server.
 - Independent backend review ran 202 focused tests across 20 suites and found two concrete report-integrity defects, both fixed and covered by regressions.
 - README screenshots were regenerated with the existing script and all twelve images were inspected. They show made-up mock data and the new source controls.
+- Improvement review found no remaining actionable backend or UI findings. Regressions cover malformed legacy IDs, stale report areas/risks/filter counts, changed-byte extraction invalidation, cached local-estimate recovery and unsafe legacy migration backfills. The backup test proves committed WAL changes appear in the standalone snapshot and that backup failure leaves schema, ledger and data untouched.
+- Browser improvement checks covered saved-filter, fill, API-key and analysis dialog focus; map Escape and Close from inside a selected card; a plan with two downloads plus one cached read; local area recovery while old AI history stays stale; and the warning in both languages/themes at the 960-pixel minimum width. Provider controls used the mock bridge only.
 - Live verification passed in 1028.06 seconds (about 17 minutes): a fresh temporary Vienna database, both sources, one shared default client at one request per second. Both sources finished with status `ok`; the service emitted one final idle state and all three sample PDFs downloaded with positive byte counts. Court auctions had 154 listed/fetched/changed, zero removed and 274 requests. Vitest discarded captured logs for the passing test, so exact insolvency counts, full-run header percentiles and individual byte counts are unavailable. The temporary directory and downloads were removed. This run loaded the code before the unreadable-file guard; focused tests cover that guard at the committed revision.
 - A separate three-page insolvency search probe returned HTTP 200 in all three requests, with response headers after 301/135/132 ms and no timeouts. Pages held 100/100/20 readable rows, total 220, `incomplete=false`, no skipped rows. It used the same default client and one-request-per-second queue; the 10-second API timeout stays unchanged. These measurements cover list headers, not full-run retries. The temporary probe test was removed.
 
@@ -43,15 +49,16 @@ The real user-data folder has not been opened or migrated by this work. No live 
 - `src/main/services/{sync/sync-service,geocode/geocode-service,analysis/analysis-service,analysis/analysis-job}.ts` and `src/main/ai/analysis/{prompt,pipeline,batch}.ts`.
 - `src/renderer/src/features/{listings,detail,settings,first-run}/`, shared translation pairs, and `vite.renderer.config.ts`.
 - `tests/scraper/insolvency/live.test.ts`: opt-in live sync and sample downloads, temporary data only, aggregate logs without record contents.
-- `docs/insolvency-sales-review.md`: verification, fixed findings and ranked improvements for approval.
+- `src/main/db/backup.ts`, migration `0006_analysis_document_hash.sql`, document/analysis stores and services: backups, current-report provenance and cached recovery.
+- `docs/insolvency-sales-review.md`: verification, approved improvements and the deferred retention policy.
 
-## Remaining work and known gaps
+## Deferred work and known gaps
 
-Await the user's improvement choice. An async question offered migration backups plus dialog/map focus fixes (recommended), all four recommended fixes including stale-analysis handling, or deferring all improvements. No answer has arrived and no improvement changes have been applied. The Codex goal remains active for this choice and the approved work that follows.
+No implementation work remains under the approved goal. All work is committed locally. Push, PR, merge and release require separate approval.
 
-README and CLAUDE text, this handoff, the review and the twelve inspected screenshots complete the feature documentation. Reuse the images if approved changes do not alter their visible content.
+README and CLAUDE text, this handoff, the review, project memory and the twelve regenerated/inspected screenshots document the final behavior.
 
-The review recommends a consistent pre-migration database backup, a stale-analysis marker when its report is retired/replaced, focus return for programmatically opened dialogs, and marker focus after closing a map card with Escape. Expiry of downloads outside sync scope needs a policy choice first. The saved plan explicitly requires approval before the improvement pass changes anything.
+Expiry of downloads outside sync scope remains deferred until the user chooses a retention policy (review item 5). Source-switch counts remain optional. Neither was among the four approved improvements.
 
 Previously recorded gaps remain: Electron map-tile protocol and live Nominatim lookup were not exercised by the browser mock checks; no live Codex analysis, Windows run, packaged-app check or release was part of this work. Contrast review used visual inspection and existing semantic tokens, not numerical measurement of every state.
 
@@ -77,4 +84,7 @@ Reuse successful checks for unchanged code. A later deliberate live rerun is `ED
 - Preserve debtor-field exclusions, including old/new change-log values and free-text history notes. Store the administrator contacts needed for offers.
 - Preserve explicit sources in old saved filters. Recover a disabled-source selection through a visible action, without rewriting the saved filter.
 - Never analyse a retired report merely because it has a lower document ID. Preserve downloaded retired files for viewing and record the actual analysed report in evidence.
+- Current analysis and local-estimate values require the active report ID and matching known byte hash. Unknown legacy provenance stays stale; history and evidence remain readable. Migration backfills only safe extraction that predates the result, invalidating unsafe cache readiness before the backfill. No automatic AI refresh.
+- Preserve the last known hash when cache files are evicted. Changed bytes invalidate extracted pages atomically; identical bytes can reuse them. Explicit area fill can repair cached estimates or interrupted extraction without another download.
+- Keep pre-migration SQLite snapshots in `migration-backups`; backup failure aborts before any schema or ledger mutation. Backups have no automatic expiry.
 - Push, PR, merge and release still require separate approval.

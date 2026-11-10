@@ -17,7 +17,7 @@ Browser verification exposed a separate development-cache conflict: Vite returne
 
 ## Verification
 
-Typecheck for both projects, ESLint, Prettier and 737 unit tests passed, with two opt-in tests skipped. The built Electron smoke test passed after the review fixes.
+Typecheck for both projects, ESLint, Prettier and 752 unit tests passed, with two opt-in tests skipped. The built Electron smoke test passed after all approved improvements and the final migration safeguard.
 
 The mock renderer was checked in German and English, in light and dark views, at 960, 1280 and 1440 CSS pixels. Checks included source switching, publication dates, rich and sparse sale details, settings that retain at least one source, a saved filter for a disabled source, map pins and a sale card, and keyboard operation. The filter dialog kept its footer accessible at 960 × 600 and returned focus on Escape. The ordinary mock response was too fast to observe the batch-button loading interval reliably; the query-identity guard was inspected in code.
 
@@ -25,13 +25,13 @@ The live Vienna test passed in 1028.06 seconds using both sources and the defaul
 
 A separate three-page API list probe returned 220 records with no skipped rows or incomplete result. All three requests returned HTTP 200; headers arrived after 301/135/132 ms, with no timeouts. The default shared request pace and 10-second API timeout were preserved. This small probe measures list-page headers, not full-run retry rates. Its temporary test file was removed.
 
-All twelve README screenshots were regenerated from mock data and inspected. They show the new source controls. They can be reused if approved improvements do not change their visible content.
+All twelve README screenshots were regenerated from mock data and inspected after the improvements. The list includes an outdated-analysis example whose old area and risk are excluded.
 
 The browser map used the mock bridge and basemap.at. The Electron tile protocol and live Nominatim lookup remain separate, previously recorded verification gaps. Contrast was reviewed visually and through the existing semantic token choices; this was not a numerical contrast audit of every state.
 
-## Improvements for approval
+## Approved improvements and deferred policy
 
-These changes go beyond completing the feature. None has been applied.
+The user approved all four recommended fixes (items 1–4) on 2026-11-10, including stale-analysis handling. All four are implemented. The table records the findings presented for that decision; item 5 remains deferred.
 
 | Rank | Finding and evidence                                                                                                                                                                                                                                                                      | Proposed change                                                                                                                                                                                                                         | Effort and risk                                                                                                     |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -42,3 +42,14 @@ These changes go beyond completing the feature. None has been applied.
 | 5    | [caseClosedAt](../src/main/db/document-store.ts) returns no closure date for an open record. Disabling its source or Bundesland prevents later syncs from noticing its removal, so its unstarred downloads can remain indefinitely.                                                       | Choose an expiry policy for records outside sync scope before adding one. A rule based on time since last seen would need to explain that expiry does not establish the sale has ended.                                                 | Medium effort; policy and data-retention tradeoff. Defer until the policy is chosen.                                |
 
 Source counts in the switch remain an optional presentation change. The current view already shows filtered and total counts; the audit found no correctness failure that requires adding more counters.
+
+### Implementation and review
+
+- Pending migrations on existing file databases first save a standalone, WAL-aware SQLite snapshot under `migration-backups`. Failure aborts before schema or migration-ledger changes. Fresh, current, newer-schema and in-memory databases do not create unnecessary copies. Backup permissions and failure behavior are tested on temporary data.
+- Completed analyses and local estimates snapshot the report hash. Current values require the active report ID and a matching known hash. Unknown legacy provenance is treated as stale. History and original evidence links remain readable; stale values do not affect areas, price per m², risks, filters or already-analyzed counts. No AI starts automatically.
+- Changed downloads atomically invalidate their old extracted pages. Cache eviction retains the last known hash; identical bytes can reuse valid extraction. Explicit area fill repairs stale local estimates and interrupted cached extraction, with separate download and cached-read counts. Empty results are cleared so ready reports without an area are not repeatedly scanned.
+- Programmatic dialogs have explicit initial and return-focus targets. Saved-filter dialogs return to the persistent menu trigger; fill returns to its launcher or running Cancel control; API-key removal returns to the replacement field; analysis questions preserve the original invoker. Map Escape and Close share marker-focus restoration with a map fallback.
+
+Independent review reproduced and fixed malformed legacy document IDs, old extraction surviving a changed download, and cached reports being skipped by area fill. Migration review also guards against attaching a new hash to legacy results produced from old page text after an interrupted replacement.
+
+Browser checks verified all four dialog flows, map Escape and Close from inside the selected card, and a mixed fill plan with two downloads plus one cached read. The cached report supplied a current local area while the old AI result stayed outdated. The German warning fit at 960 × 600 without horizontal overflow; both languages and colour schemes were checked. These checks used the mock bridge only, including provider controls; no real credential or AI request was used.
