@@ -7,7 +7,7 @@ import type {
   ListingRow,
   RelatedEdict,
 } from '@shared/domain'
-import type { Bundesland, NoticeType, PriceBasis } from '@shared/enums'
+import type { Bundesland, EdictSource, NoticeType, PriceBasis } from '@shared/enums'
 import { AppError } from '@shared/errors'
 import { applyListingQuery } from '@shared/listing-query'
 import type { AppDatabase } from './client'
@@ -67,11 +67,14 @@ const listingColumns = {
 
 /**
  * The `listings:query` response: one row per case in the Bundesländer of the
- * sync settings. Edicts the site no longer lists stay out.
+ * sync settings. Removed cases stay when starred or carrying notes.
  */
 export function queryListings(db: AppDatabase, query: ListingQuery): ListingPage {
-  const { syncBundeslaender } = readSettings(db)
-  return applyListingQuery(loadListingRows(db, syncBundeslaender, query.priceBasis), query)
+  const { syncBundeslaender, syncSources } = readSettings(db)
+  return applyListingQuery(
+    loadListingRows(db, syncBundeslaender, syncSources, query.priceBasis),
+    query,
+  )
 }
 
 /** The `listings:get` response. Opens removed edicts too. */
@@ -81,7 +84,12 @@ export function getListing(db: AppDatabase, id: string): ListingDetail {
   const documentRows = db
     .select()
     .from(documents)
-    .where(eq(documents.edictId, id))
+    .where(
+      and(
+        eq(documents.edictId, id),
+        or(isNull(documents.removedAt), isNotNull(documents.localPath)),
+      ),
+    )
     .orderBy(asc(documents.id))
     .all()
   const scanned = loadScannedPages(
@@ -102,7 +110,9 @@ export function getListing(db: AppDatabase, id: string): ListingDetail {
     {
       starred: user?.starred ?? false,
       hidden: user?.hidden ?? false,
-      hasLanggutachten: documentRows.some((document) => document.kind === 'langgutachten'),
+      hasLanggutachten: documentRows.some(
+        (document) => document.kind === 'langgutachten' && document.removedAt === null,
+      ),
       analysisStatus: latest?.status ?? null,
       finished: latestDone === undefined ? null : toFinishedAnalysis(latestDone),
       estimates: estimateRows,
@@ -185,13 +195,21 @@ export function loadScannedPages(
 function loadListingRows(
   db: AppDatabase,
   scope: readonly Bundesland[],
+  enabledSources: readonly EdictSource[],
   basis: PriceBasis,
 ): ListingRow[] {
-  if (scope.length === 0) return []
+  if (scope.length === 0 || enabledSources.length === 0) return []
   const rows = db
     .select(listingColumns)
     .from(edicts)
-    .where(and(isNull(edicts.removedAt), inArray(edicts.bundesland, [...scope])))
+    .leftJoin(userState, eq(userState.caseKey, edicts.caseKey))
+    .where(
+      and(
+        inArray(edicts.bundesland, [...scope]),
+        inArray(edicts.source, [...enabledSources]),
+        or(isNull(edicts.removedAt), eq(userState.starred, true), ne(userState.notes, '')),
+      ),
+    )
     .all()
   const users = new Map(
     db
@@ -204,7 +222,7 @@ function loadListingRows(
     db
       .selectDistinct({ edictId: documents.edictId })
       .from(documents)
-      .where(eq(documents.kind, 'langgutachten'))
+      .where(and(eq(documents.kind, 'langgutachten'), isNull(documents.removedAt)))
       .all()
       .map((document) => document.edictId),
   )
@@ -244,7 +262,10 @@ function loadListingRows(
     else group.push(edict)
   }
   return [...cases.values()].map((group) => {
-    const { representative: edict, decider } = pickCaseEdicts(group)
+    const [firstActive, ...otherActive] = group.filter((edict) => edict.removedAt === null)
+    const selected: [ListingEdict, ...ListingEdict[]] =
+      firstActive === undefined ? group : [firstActive, ...otherActive]
+    const { representative: edict, decider } = pickCaseEdicts(selected)
     const user = users.get(edict.caseKey)
     const sources = {
       starred: user?.starred ?? false,

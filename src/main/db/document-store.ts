@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import type { DocumentInfo } from '@shared/domain'
 import type { ListingStatus } from '@shared/enums'
 import type { AnalysisPage, EdictFacts } from '../ai/analysis/types'
@@ -35,7 +35,7 @@ export interface AppDocumentStore {
   /** A document with its edict; null when there is no such document. */
   find(documentId: number): StoredDocument | null
   edictIdOf(documentId: number): string | null
-  /** Each edict's Langgutachten; the lowest ID wins when an edict lists several. */
+  /** Each edict's first still-published Langgutachten, ordered by ID. */
   langgutachten(edictIds: readonly string[]): Map<string, DocumentRow>
   /** Every page of a read document, in page order. */
   pageTexts(documentId: number): AnalysisPage[]
@@ -50,7 +50,7 @@ export interface AppDocumentStore {
 
 /** Rows per INSERT, far below SQLite's limit on bound parameters. */
 const INSERT_BATCH = 200
-const OPEN_STATUSES: ReadonlySet<ListingStatus> = new Set(['upcoming', 'postponed'])
+const OPEN_STATUSES: ReadonlySet<ListingStatus> = new Set(['upcoming', 'postponed', 'on_offer'])
 
 const factColumns = {
   source: edicts.source,
@@ -129,7 +129,13 @@ export function createDocumentStore(db: AppDatabase): AppDocumentStore {
       const rows = db
         .select()
         .from(documents)
-        .where(and(eq(documents.kind, 'langgutachten'), inArray(documents.edictId, [...edictIds])))
+        .where(
+          and(
+            eq(documents.kind, 'langgutachten'),
+            isNull(documents.removedAt),
+            inArray(documents.edictId, [...edictIds]),
+          ),
+        )
         .orderBy(asc(documents.id))
         .all()
       for (const row of rows) if (!found.has(row.edictId)) found.set(row.edictId, row)

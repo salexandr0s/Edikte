@@ -122,7 +122,7 @@ describe('sync store', () => {
     // A degraded run records its summary and writes nothing.
     const fourth = { id: 0, kind: 'full' as const, startedAt: T4 }
     fourth.id = await startRun(store, { kind: 'full', scope: ['wien'], startedAt: T4 })
-    await store.commitRun(commit(fourth, {}, 'degraded'))
+    await store.commitRun(commit(fourth, { removedIds: [edictId(1)] }, 'degraded'))
 
     const stored = new Map(
       database
@@ -171,7 +171,15 @@ describe('sync store', () => {
       auctionAt: null,
     })
     const id = await startRun(store, { kind: 'full', scope: ['wien'], startedAt: T1 })
-    await store.commitRun(commit({ id, kind: 'full', startedAt: T1 }))
+    await store.commitRun(
+      commit(
+        { id, kind: 'full', startedAt: T1 },
+        {
+          removedIds: ['mv-990001'],
+          unchangedIds: ['mv-990001'],
+        },
+      ),
+    )
 
     const auctions = loadSyncState(database, ['wien'], 'court_auction')
     expect([...auctions.known.keys()]).toEqual([edictId(1)])
@@ -179,6 +187,46 @@ describe('sync store', () => {
     const sales = loadSyncState(database, ['wien'], 'insolvency_sale')
     expect([...sales.known.keys()]).toEqual(['mv-990001'])
     expect(sales).toMatchObject({ lastOkRunStartedAt: null, lastOkFullRunStartedAt: null })
+    expect(sales.known.get('mv-990001')).toMatchObject({
+      removedAt: null,
+      fetchedAt: '2026-11-01T08:00:00.000Z',
+    })
+  })
+
+  it('retires missing document links and restores returning links without losing downloads', async () => {
+    const database = open()
+    const store = createSyncStore(database)
+    const sync = async (at: string, fileNames: string[]) => {
+      const id = await startRun(store, { kind: 'full', scope: ['wien'], startedAt: at })
+      await store.commitRun(
+        commit(
+          { id, kind: 'full', startedAt: at },
+          {
+            upserts: [{ edict: edictRecord(1, seenAt(at)), documents: fileNames.map(link) }],
+          },
+        ),
+      )
+    }
+    await sync(T1, ['old.pdf', 'kept.pdf'])
+    database.update(documents).set({ localPath: 'retained.pdf', downloadedAt: T1 }).run()
+    await sync(T2, ['kept.pdf', 'new.pdf'])
+    expect(database.select().from(documents).orderBy(asc(documents.id)).all()).toMatchObject([
+      { fileName: 'old.pdf', removedAt: T2, localPath: 'retained.pdf' },
+      { fileName: 'kept.pdf', removedAt: null },
+      { fileName: 'new.pdf', removedAt: null },
+    ])
+    await sync(T3, [])
+    expect(database.select().from(documents).orderBy(asc(documents.id)).all()).toMatchObject([
+      { fileName: 'old.pdf', removedAt: T2 },
+      { fileName: 'kept.pdf', removedAt: T3 },
+      { fileName: 'new.pdf', removedAt: T3 },
+    ])
+    await sync(T4, ['old.pdf'])
+    expect(database.select().from(documents).orderBy(asc(documents.id)).all()).toMatchObject([
+      { fileName: 'old.pdf', removedAt: null, localPath: 'retained.pdf', downloadedAt: T1 },
+      { fileName: 'kept.pdf', removedAt: T3 },
+      { fileName: 'new.pdf', removedAt: T3 },
+    ])
   })
 
   it('moves star, hide and notes to a new case key, merging cases that now share one', async () => {

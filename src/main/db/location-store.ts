@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { ListingLocation } from '@shared/domain'
-import type { Bundesland } from '@shared/enums'
+import type { Bundesland, EdictSource } from '@shared/enums'
 import { geocodeQuery, type GeocodeQuery } from '../geocode/address'
 import type { AppDatabase } from './client'
 import { edictLocations, edicts } from './schema'
@@ -30,8 +30,9 @@ export interface LocationAnswer {
 export function loadPendingLocations(
   db: AppDatabase,
   scope: readonly Bundesland[],
+  sources: readonly EdictSource[],
 ): PendingLocation[] {
-  if (scope.length === 0) return []
+  if (scope.length === 0 || sources.length === 0) return []
   const rows = db
     .select({
       id: edicts.id,
@@ -42,8 +43,19 @@ export function loadPendingLocations(
     })
     .from(edicts)
     .leftJoin(edictLocations, eq(edictLocations.edictId, edicts.id))
-    .where(and(isNull(edicts.removedAt), inArray(edicts.bundesland, [...scope])))
-    .orderBy(asc(edicts.auctionAt), asc(edicts.id))
+    .where(
+      and(
+        isNull(edicts.removedAt),
+        inArray(edicts.bundesland, [...scope]),
+        inArray(edicts.source, [...sources]),
+      ),
+    )
+    .orderBy(
+      asc(isNull(edicts.auctionAt)),
+      asc(edicts.auctionAt),
+      desc(edicts.publishedAt),
+      asc(edicts.id),
+    )
     .all()
   const pending: PendingLocation[] = []
   for (const row of rows) {

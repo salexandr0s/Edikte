@@ -226,23 +226,35 @@ function applyCommit(db: AppDatabase, commit: SyncCommit): void {
       })
       .where(eq(syncRuns.id, summary.id))
       .run()
-    for (const write of commit.upserts) upsertEdict(tx, write, at)
+    if (summary.status !== 'ok') return
+    for (const write of commit.upserts) {
+      if (write.edict.source === summary.source) upsertEdict(tx, write, at)
+    }
     for (const ids of chunks(commit.seenIds)) {
-      tx.update(edicts).set({ lastSeenAt: at }).where(inArray(edicts.id, ids)).run()
+      tx.update(edicts)
+        .set({ lastSeenAt: at })
+        .where(and(eq(edicts.source, summary.source), inArray(edicts.id, ids)))
+        .run()
     }
     for (const ids of chunks(commit.unchangedIds)) {
-      tx.update(edicts).set({ lastSeenAt: at, fetchedAt: at }).where(inArray(edicts.id, ids)).run()
+      tx.update(edicts)
+        .set({ lastSeenAt: at, fetchedAt: at })
+        .where(and(eq(edicts.source, summary.source), inArray(edicts.id, ids)))
+        .run()
     }
     for (const ids of chunks(commit.removedIds)) {
-      tx.update(edicts).set({ removedAt: at }).where(inArray(edicts.id, ids)).run()
+      tx.update(edicts)
+        .set({ removedAt: at })
+        .where(and(eq(edicts.source, summary.source), inArray(edicts.id, ids)))
+        .run()
     }
   })
 }
 
 /**
  * Inserts or replaces the edict, keeping the stored firstSeenAt, and adds
- * document links it does not know yet. Known documents keep their download
- * and extraction state.
+ * document links it does not know yet. Missing links are retired; returning
+ * links keep their download and extraction state.
  */
 function upsertEdict(tx: Transaction, write: EdictWrite, at: string): void {
   const { edict } = write
@@ -262,6 +274,18 @@ function upsertEdict(tx: Transaction, write: EdictWrite, at: string): void {
       set: { ...edict, firstSeenAt: sql`${edicts.firstSeenAt}` },
     })
     .run()
+  const publishedUrls = new Set(write.documents.map((link) => link.url))
+  const storedDocuments = tx
+    .select({ id: documents.id, url: documents.url, removedAt: documents.removedAt })
+    .from(documents)
+    .where(eq(documents.edictId, edict.id))
+    .all()
+  for (const document of storedDocuments) {
+    const removedAt = publishedUrls.has(document.url) ? null : (document.removedAt ?? at)
+    if (removedAt !== document.removedAt) {
+      tx.update(documents).set({ removedAt }).where(eq(documents.id, document.id)).run()
+    }
+  }
   if (write.documents.length === 0) return
   tx.insert(documents)
     .values(

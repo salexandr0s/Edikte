@@ -51,7 +51,7 @@ function harness(database: AppDatabase, geocoder: Geocoder, offline = false) {
     emit: <E extends EventChannel>(event: E, payload: EventPayload<E>) => {
       events.push({ event, payload })
     },
-    readSettings: () => ({ syncBundeslaender: ['wien'] }),
+    readSettings: () => ({ syncBundeslaender: ['wien'], syncSources: ['court_auction'] }),
     offline,
     now: () => clock,
   })
@@ -101,7 +101,7 @@ describe('createGeocodeService', () => {
     await service.idle()
     expect(geocoder.queries).toHaveLength(2)
     expect(findLocationByKey(database, 'nirgendwo 1|1030|wien')).toBeNull()
-    expect(loadPendingLocations(database, ['wien'])).toEqual([])
+    expect(loadPendingLocations(database, ['wien'], ['court_auction'])).toEqual([])
 
     // A second run has nothing left to ask.
     expect(service.run()).toEqual({ pending: 0, running: false })
@@ -116,11 +116,11 @@ describe('createGeocodeService', () => {
     const { service } = harness(database, geocoder)
     service.run()
     await service.idle()
-    expect(loadPendingLocations(database, ['wien'])).toEqual([])
+    expect(loadPendingLocations(database, ['wien'], ['court_auction'])).toEqual([])
     database.$client
       .prepare('UPDATE edicts SET street = ? WHERE id = ?')
       .run('Andere Gasse 1', edictId(1))
-    expect(loadPendingLocations(database, ['wien'])).toMatchObject([
+    expect(loadPendingLocations(database, ['wien'], ['court_auction'])).toMatchObject([
       { edictId: edictId(1), query: { street: 'Andere Gasse 1' } },
     ])
   })

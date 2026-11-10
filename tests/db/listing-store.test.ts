@@ -44,6 +44,48 @@ function errorCode(run: () => unknown): string | null {
 }
 
 describe('listing rows', () => {
+  it('keeps the enabled source in scope and retains starred or noted removed cases', () => {
+    const database = open()
+    insertEdict(database, 1)
+    insertEdict(database, 2, {
+      id: 'mv-990001',
+      source: 'insolvency_sale',
+      caseKey: 'insolvency:990001',
+      status: 'on_offer',
+      noticeType: 'insolvenzverkauf',
+      auctionAt: null,
+    })
+    insertEdict(database, 3, { removedAt: T0 })
+    insertEdict(database, 4, { removedAt: T0 })
+    insertEdict(database, 5, { removedAt: T0 })
+    updateUserState(database, { caseKey: 'case-3', starred: true })
+    updateUserState(database, { caseKey: 'case-4', notes: 'Unterlagen prüfen' })
+    expect([...rowsById(database).keys()]).toEqual([
+      edictId(1),
+      edictId(3),
+      edictId(4),
+      'mv-990001',
+    ])
+    updateSettings(database, { syncSources: ['insolvency_sale'] })
+    expect([...rowsById(database).keys()]).toEqual(['mv-990001'])
+    expect(
+      queryListings(database, ListingQuerySchema.parse({ sources: ['court_auction'] })).rows,
+    ).toEqual([])
+    updateSettings(database, { syncSources: ['court_auction'] })
+    expect([...rowsById(database).keys()]).toEqual([edictId(1), edictId(3), edictId(4)])
+
+    // A surviving notice decides a pinned case before any removed notice does.
+    insertEdict(database, 6, {
+      caseKey: 'case-3',
+      status: 'sold',
+      noticeType: 'zuschlag_mit_ueberbot',
+    })
+    const pinned = queryListings(database, ListingQuerySchema.parse({ statuses: [] })).rows.find(
+      (row) => row.caseKey === 'case-3',
+    )
+    expect(pinned).toMatchObject({ id: edictId(6), removedAt: null, status: 'sold' })
+  })
+
   it('take the area from the edict, then the latest finished analysis, then local estimates', () => {
     const database = open()
     const verified = [{ path: 'areas.0', page: 3, status: 'verified' as const }]
@@ -312,6 +354,31 @@ describe('listing cases', () => {
 })
 
 describe('listing detail', () => {
+  it('hides retired files unless downloaded and reports only published Gutachten as available', () => {
+    const database = open()
+    insertEdict(database, 1)
+    const retained = insertDocument(database, edictId(1), {
+      removedAt: T0,
+      localPath: `${edictId(1)}/gutachten.pdf`,
+    })
+    insertDocument(database, edictId(1), {
+      url: 'https://example.invalid/retired.pdf',
+      removedAt: T0,
+    })
+    const published = insertDocument(database, edictId(1), {
+      kind: 'plan',
+      url: 'https://example.invalid/plan.pdf',
+    })
+    expect(getListing(database, edictId(1))).toMatchObject({
+      hasLanggutachten: false,
+      documents: [
+        { id: retained, removedAt: T0, downloaded: true },
+        { id: published, removedAt: null },
+      ],
+    })
+    expect(rowsById(database).get(edictId(1))?.hasLanggutachten).toBe(false)
+  })
+
   it('collects documents, estimates, the latest analysis, user state and related edicts', () => {
     const database = open()
     insertEdict(database, 1, {
