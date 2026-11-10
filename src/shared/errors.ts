@@ -21,6 +21,7 @@ export const AppErrorCodeSchema = z.enum([
   'document_unreadable',
   'storage_unavailable',
   'database_newer',
+  'database_backup_failed',
   'consent_required',
   'provider_not_selected',
   'provider_not_connected',

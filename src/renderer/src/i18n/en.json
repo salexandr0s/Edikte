@@ -62,6 +62,7 @@
     "document_unreadable": "The PDF could not be read. It may be damaged or protected.",
     "storage_unavailable": "The app cannot write to its data folder. Check free disk space and folder permissions.",
     "database_newer": "The data folder was created by a newer version of Edikte. Install that version to open it.",
+    "database_backup_failed": "The database backup could not be created. The database was not upgraded. Check free disk space and data-folder permissions, then start Edikte again.",
     "consent_required": "Confirm first that the appraisal report text may be sent to your AI provider.",
     "provider_not_selected": "Choose an AI provider in Settings first.",
     "provider_not_connected": "The selected AI provider is not signed in. Sign in under Settings.",

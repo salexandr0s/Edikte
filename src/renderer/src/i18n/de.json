@@ -62,6 +62,7 @@
     "document_unreadable": "Das PDF konnte nicht gelesen werden. Es ist möglicherweise beschädigt oder geschützt.",
     "storage_unavailable": "Die App kann nicht in ihren Datenordner schreiben. Prüfen Sie den freien Speicherplatz und die Zugriffsrechte des Ordners.",
     "database_newer": "Der Datenordner stammt von einer neueren Edikte-Version. Installieren Sie diese Version, um ihn zu öffnen.",
+    "database_backup_failed": "Die Sicherungskopie der Datenbank konnte nicht erstellt werden. Die Datenbank wurde nicht aktualisiert. Prüfen Sie den freien Speicherplatz und die Zugriffsrechte des Datenordners und starten Sie Edikte erneut.",
     "consent_required": "Bestätigen Sie zuerst, dass der Text des Gutachtens an Ihren KI-Anbieter gesendet werden darf.",
     "provider_not_selected": "Wählen Sie zuerst in den Einstellungen einen KI-Anbieter aus.",
     "provider_not_connected": "Beim gewählten KI-Anbieter sind Sie nicht angemeldet. Melden Sie sich in den Einstellungen an.",
