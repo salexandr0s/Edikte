@@ -148,7 +148,7 @@ describe('parseInsolvencyDetail on a record with every section', () => {
 
   // Catches a deleted file, a Word file or the file of another record reaching the download list.
   it('counts the files it leaves out', () => {
-    expect(detail.skippedFiles).toEqual({ deleted: 1, notPdf: 1, foreignUrl: 1 })
+    expect(detail.skippedFiles).toEqual({ deleted: 1, notPdf: 1, foreignUrl: 1, unreadable: 0 })
     expect(detail.documents.every((file) => file.url.startsWith(FILES))).toBe(true)
   })
 
@@ -203,7 +203,7 @@ describe('parseInsolvencyDetail on a sparse record', () => {
       facts: null,
       deputy: null,
       documents: [],
-      skippedFiles: { deleted: 0, notPdf: 0, foreignUrl: 0 },
+      skippedFiles: { deleted: 0, notPdf: 0, foreignUrl: 0, unreadable: 0 },
       changeLog: [],
       missing: [],
     })

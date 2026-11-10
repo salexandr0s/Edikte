@@ -107,6 +107,8 @@ export type InsolvencyMissingPart =
 
 /** Files of a record that are not offered for download, by reason. */
 export interface SkippedFiles {
+  /** A declared file or file list no longer has a readable layout or URL field. */
+  unreadable: number
   /** The notice marks the file as deleted. */
   deleted: number
   /** The file has another type than PDF. */
@@ -295,6 +297,7 @@ interface Section {
   /** Title as published. */
   title: string
   elements: InsolvencyElement[]
+  unreadableFiles: number
 }
 
 /** The sections and elements the parser can read. Anything else is passed over. */
@@ -304,14 +307,15 @@ function readSections(published: readonly unknown[]): Section[] {
     const section = InsolvencySectionSchema.safeParse(candidate)
     if (!section.success) continue
     const title = normalizeSpace(section.data.title)
-    sections.push({
-      key: labelKey(title),
-      title,
-      elements: section.data.elements.flatMap((element) => {
-        const parsed = InsolvencyElementSchema.safeParse(element)
-        return parsed.success ? [parsed.data] : []
-      }),
-    })
+    const key = labelKey(title)
+    const elements: InsolvencyElement[] = []
+    let unreadableFiles = 0
+    for (const element of section.data.elements) {
+      const parsed = InsolvencyElementSchema.safeParse(element)
+      if (parsed.success) elements.push(parsed.data)
+      else if (isFileSection(key) || isDeclaredFileList(element)) unreadableFiles += 1
+    }
+    sections.push({ key, title, elements, unreadableFiles })
   }
   return sections
 }
@@ -524,6 +528,19 @@ const REPORT_SECTIONS: ReadonlySet<string> = new Set(
 const PHOTO_SECTION = labelKey('Fotos')
 const OTHER_DOCUMENTS_SECTION = labelKey('Weitere Dokumente')
 
+function isFileSection(key: string): boolean {
+  return REPORT_SECTIONS.has(key) || key === PHOTO_SECTION || key === OTHER_DOCUMENTS_SECTION
+}
+
+function isDeclaredFileList(element: unknown): boolean {
+  return (
+    typeof element === 'object' &&
+    element !== null &&
+    'type' in element &&
+    element.type === 'FILE_LIST'
+  )
+}
+
 // A report section can also hold photos ("Fotos zum Gutachten") and annexes
 // ("Beilage zum Gutachten"). Only the report itself is offered for analysis.
 // The word that comes first in the name decides: "Gutachten samt Beilagen" is
@@ -557,8 +574,9 @@ function readDocuments(
   recordNumber: number,
 ): Pick<InsolvencyDetail, 'documents' | 'skippedFiles'> {
   const found = new Map<string, DocumentLink>()
-  const skippedFiles: SkippedFiles = { deleted: 0, notPdf: 0, foreignUrl: 0 }
+  const skippedFiles: SkippedFiles = { deleted: 0, notPdf: 0, foreignUrl: 0, unreadable: 0 }
   for (const section of sections) {
+    skippedFiles.unreadable += section.unreadableFiles
     for (const element of section.elements) {
       if (element.type !== 'FILE_LIST') continue
       for (const candidate of element.items) {
@@ -572,9 +590,12 @@ function readDocuments(
           skippedFiles.notPdf += 1
           continue
         }
-        const fileUrl = file.success ? file.data.fileUrl : null
-        const url = fileUrl == null ? null : insolvencyFileUrl(fileUrl, recordNumber)
-        if (!file.success || url === null) {
+        if (!file.success || file.data.fileUrl == null) {
+          skippedFiles.unreadable += 1
+          continue
+        }
+        const url = insolvencyFileUrl(file.data.fileUrl, recordNumber)
+        if (url === null) {
           skippedFiles.foreignUrl += 1
           continue
         }

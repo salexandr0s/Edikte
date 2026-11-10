@@ -3,7 +3,9 @@ import type { SyncRunSummary } from '@shared/domain'
 import type { Bundesland, EdictSource } from '@shared/enums'
 import { AppError } from '@shared/errors'
 import type { PageSource } from '../../src/main/scraper/client'
-import type { DocumentLink } from '../../src/main/scraper/detail'
+import { createAuctionSite } from '../../src/main/scraper/auction-site'
+import type { SearchRow } from '../../src/main/scraper/search'
+import type { DocumentLink, ParsedDetail } from '../../src/main/scraper/detail'
 import type { EdictRecord } from '../../src/main/scraper/edict-record'
 import { PARSER_VERSION } from '../../src/main/scraper/parser-version'
 import {
@@ -210,9 +212,9 @@ function setup(...pages: SitePage[]) {
   const store = new MemoryStore()
   let time = Date.parse('2026-11-04T08:00:00.000Z')
   const progress: RunProgress[] = []
-  const sync = (options: Partial<SyncOptions> = {}) =>
+  const sync = (options: Partial<SyncOptions<SearchRow, ParsedDetail>> = {}) =>
     runSync({
-      source: site,
+      site: createAuctionSite(site),
       store,
       scope: ['wien'],
       now: () => new Date(time),
