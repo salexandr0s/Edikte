@@ -1,0 +1,87 @@
+{
+  "alerts": {
+    "title": "Benachrichtigung einrichten",
+    "criteria": "Suchkriterien",
+    "insolvencyBasis": "Insolvenzverkäufe: Schätzwert",
+    "enabled": "Über neue Objekte benachrichtigen",
+    "enabledHelp": "Gilt für künftig gefundene Objekte. Bereits vorhandene Objekte lösen keine Benachrichtigung aus.",
+    "frequency": "Häufigkeit",
+    "cadence": {
+      "after_sync": "Nach jeder Synchronisierung",
+      "daily": "Tägliche Zusammenfassung",
+      "weekly": "Wöchentliche Zusammenfassung"
+    },
+    "weekday": "Wochentag",
+    "weekdays": {
+      "monday": "Montag",
+      "tuesday": "Dienstag",
+      "wednesday": "Mittwoch",
+      "thursday": "Donnerstag",
+      "friday": "Freitag",
+      "saturday": "Samstag",
+      "sunday": "Sonntag"
+    },
+    "time": "Uhrzeit",
+    "timezone": "Wiener Zeit (Europe/Vienna)",
+    "invalidTime": "Geben Sie eine Uhrzeit zwischen 00:00 und 23:59 ein.",
+    "desktop": "Desktop-Mitteilungen anzeigen",
+    "desktopHelp": "Jede Zusammenfassung bleibt auch im Benachrichtigungsverlauf der App erhalten.",
+    "discoveryHelp": "Ein Objekt muss zu Ihrer Suche passen, wenn die App es erstmals findet. Fehlende Flächenangaben oder Analysen können einen Treffer verhindern. Spätere Änderungen lösen keine Benachrichtigung über ein neues Objekt aus. Benachrichtigungen laden keine Gutachten herunter und starten keine KI-Analyse.",
+    "lifecycleHelp": "Benachrichtigungen werden erstellt, solange die App läuft. Nach dem erneuten Öffnen und Synchronisieren werden versäumte Zusammenfassungen je Suche in einer Zusammenfassung nachgeholt.",
+    "disabledSources": "Diese Suche enthält in den Einstellungen deaktivierte Quellen: {{sources}}. Benachrichtigungen verwenden nur aktive Quellen.",
+    "outsideRegions": "Diese Suche liegt außerhalb der zur Synchronisierung gewählten Bundesländer. Ändern Sie die Einstellungen, um passende Objekte zu laden.",
+    "openSettings": "Einstellungen öffnen",
+    "saved": "Benachrichtigung gespeichert",
+    "loadFailed": "Die Benachrichtigungseinstellung konnte nicht geladen werden.",
+    "saveFailed": "Die Benachrichtigungseinstellung konnte nicht gespeichert werden."
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "description": "Neue Objekte zu Ihren gespeicherten Suchen, mit den ursprünglichen Treffern.",
+    "filter": "Benachrichtigungsfilter",
+    "all": "Alle",
+    "unread": "Ungelesen",
+    "unreadCount_one": "Benachrichtigungen, {{count}} ungelesen",
+    "unreadCount_other": "Benachrichtigungen, {{count}} ungelesen",
+    "manyUnread": "99+",
+    "markAllRead": "Alle als gelesen markieren",
+    "markFailed": "Der Lesestatus konnte nicht gespeichert werden.",
+    "refresh": "Aktualisieren",
+    "loadFailed": "Die Benachrichtigungen konnten nicht geladen werden.",
+    "loadMore": "Ältere Benachrichtigungen laden",
+    "empty": "Noch keine Benachrichtigungen",
+    "emptyHelp": "Richten Sie eine Benachrichtigung für eine gespeicherte Suche ein. Passende Objekte, die danach erstmals gefunden werden, erscheinen hier.",
+    "noUnread": "Alle Benachrichtigungen gelesen",
+    "noUnreadHelp": "Neue Zusammenfassungen erscheinen hier, sobald eine Suche passende neue Objekte findet.",
+    "openDashboard": "Übersicht öffnen",
+    "matchCount_one": "{{count}} neues Objekt passt zu dieser Suche",
+    "matchCount_other": "{{count}} neue Objekte passen zu dieser Suche",
+    "period": "Zeitraum: {{from}} bis {{to}}",
+    "created": "Erstellt am {{time}}",
+    "partialCoverage": "Einige Quellen konnten nicht aktualisiert werden. Diese Zusammenfassung enthält Ergebnisse erfolgreicher Synchronisierungen.",
+    "attempt": {
+      "failed": "Die Desktop-Mitteilung konnte nicht angezeigt werden. Die Zusammenfassung bleibt hier verfügbar.",
+      "unsupported": "Desktop-Mitteilungen sind auf diesem System nicht verfügbar."
+    },
+    "delivery": {
+      "title": "Desktop-Mitteilungen",
+      "help": "Das Betriebssystem bestimmt, ob Mitteilungen erscheinen. Die Zusammenfassungen in der App bleiben unabhängig davon verfügbar.",
+      "test": "Testmitteilung senden",
+      "unknown": "Es wurde noch keine Desktop-Mitteilung angefordert.",
+      "attempted": "Eine Desktop-Mitteilung wurde angefordert. Das bestätigt nicht, dass sie angezeigt oder gelesen wurde.",
+      "failed": "Der letzte Versuch einer Desktop-Mitteilung ist fehlgeschlagen.",
+      "unsupported": "Desktop-Mitteilungen sind auf diesem System nicht verfügbar.",
+      "lastAttempt": "Letzter Versuch: {{time}}",
+      "settingsHelp": "Prüfen Sie die Mitteilungsberechtigung für Edikte in den Einstellungen Ihres Betriebssystems.",
+      "loadFailed": "Der Status der Desktop-Mitteilungen konnte nicht geprüft werden."
+    },
+    "desktop": {
+      "digestTitle": "{{name}}",
+      "digestBody_one": "{{count}} neues Objekt passt zu dieser Suche.",
+      "digestBody_other": "{{count}} neue Objekte passen zu dieser Suche.",
+      "period": "{{from}} bis {{to}}",
+      "testTitle": "Edikte-Mitteilungen",
+      "testBody": "Dies ist eine Testmitteilung. Zusammenfassungen zu neuen Objekten bleiben auch in der App erhalten."
+    }
+  }
+}

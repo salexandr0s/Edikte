@@ -1,5 +1,5 @@
 import { Select as RadixSelect } from 'radix-ui'
-import type { ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { cx } from '../../lib/cx'
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from './icons'
 
@@ -51,9 +51,18 @@ export function Select<T extends string>({
   className,
   ...aria
 }: SelectProps<T>) {
+  const trigger = useRef<HTMLButtonElement>(null)
+  const [insideDialog, setInsideDialog] = useState(false)
   return (
-    <RadixSelect.Root value={value} onValueChange={(next) => onValueChange(next as T)}>
+    <RadixSelect.Root
+      value={value}
+      onValueChange={(next) => onValueChange(next as T)}
+      onOpenChange={(open) => {
+        if (open) setInsideDialog(Boolean(trigger.current?.closest('[role="dialog"]')))
+      }}
+    >
       <RadixSelect.Trigger
+        ref={trigger}
         id={id}
         disabled={disabled}
         {...aria}
@@ -87,7 +96,8 @@ export function Select<T extends string>({
           sideOffset={6}
           collisionPadding={8}
           className={cx(
-            'z-(--edk-z-dropdown) max-h-(--radix-select-content-available-height) min-w-(--radix-select-trigger-width) origin-(--radix-select-content-transform-origin) overflow-hidden rounded-md bg-surface-elevated text-fg shadow-popover',
+            'max-h-(--radix-select-content-available-height) min-w-(--radix-select-trigger-width) origin-(--radix-select-content-transform-origin) overflow-hidden rounded-md bg-surface-elevated text-fg shadow-popover',
+            insideDialog ? 'z-(--edk-z-modal)' : 'z-(--edk-z-dropdown)',
             'data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out',
           )}
         >

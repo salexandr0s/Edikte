@@ -318,3 +318,19 @@ export function SortableIcon(props: IconProps) {
     </Icon>
   )
 }
+
+export function HomeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2 7l6-5 6 5M3.5 6v8h9V6M6.5 14V9.5h3V14" />
+    </Icon>
+  )
+}
+
+export function BellIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 6a4.5 4.5 0 019 0c0 4 1.5 4 1.5 5H2c0-1 1.5-1 1.5-5M6.5 13.5a1.5 1.5 0 003 0" />
+    </Icon>
+  )
+}

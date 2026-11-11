@@ -11,6 +11,12 @@ import type {
   SyncStoreState,
 } from '../scraper/sync'
 import type { AppDatabase } from './client'
+import {
+  loadCanonicalCaseKeys,
+  moveDiscoveryCase,
+  recordDiscoveries,
+  seedDiscoveryBaseline,
+} from './discovery-store'
 import { documents, edicts, syncRuns, userState } from './schema'
 
 /** IDs per `UPDATE … WHERE id IN (…)`, far below SQLite's variable limit. */
@@ -227,8 +233,10 @@ function applyCommit(db: AppDatabase, commit: SyncCommit): void {
       .where(eq(syncRuns.id, summary.id))
       .run()
     if (summary.status !== 'ok') return
+    seedDiscoveryBaseline(db, new Date(at))
+    const canonicalKeys = loadCanonicalCaseKeys(db)
     for (const write of commit.upserts) {
-      if (write.edict.source === summary.source) upsertEdict(tx, write, at)
+      if (write.edict.source === summary.source) upsertEdict(tx, db, write, at, canonicalKeys)
     }
     for (const ids of chunks(commit.seenIds)) {
       tx.update(edicts)
@@ -248,6 +256,7 @@ function applyCommit(db: AppDatabase, commit: SyncCommit): void {
         .where(and(eq(edicts.source, summary.source), inArray(edicts.id, ids)))
         .run()
     }
+    recordDiscoveries(db, commit)
   })
 }
 
@@ -256,8 +265,17 @@ function applyCommit(db: AppDatabase, commit: SyncCommit): void {
  * document links it does not know yet. Missing links are retired; returning
  * links keep their download and extraction state.
  */
-function upsertEdict(tx: Transaction, write: EdictWrite, at: string): void {
-  const { edict } = write
+function upsertEdict(
+  tx: Transaction,
+  db: AppDatabase,
+  write: EdictWrite,
+  at: string,
+  canonicalKeys: Map<string, string>,
+): void {
+  const edict = {
+    ...write.edict,
+    caseKey: canonicalKeys.get(write.edict.caseKey) ?? write.edict.caseKey,
+  }
   const stored = tx
     .select({ caseKey: edicts.caseKey })
     .from(edicts)
@@ -265,6 +283,15 @@ function upsertEdict(tx: Transaction, write: EdictWrite, at: string): void {
     .get()
   if (stored !== undefined && stored.caseKey !== edict.caseKey) {
     moveUserState(tx, stored.caseKey, edict.caseKey, at)
+    moveDiscoveryCase(db, stored.caseKey, edict.caseKey)
+    tx.update(edicts)
+      .set({ caseKey: edict.caseKey })
+      .where(eq(edicts.caseKey, stored.caseKey))
+      .run()
+    for (const [alias, key] of canonicalKeys) {
+      if (key === stored.caseKey) canonicalKeys.set(alias, edict.caseKey)
+    }
+    canonicalKeys.set(stored.caseKey, edict.caseKey)
   }
   tx.insert(edicts)
     .values(edict)

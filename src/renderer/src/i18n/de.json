@@ -80,6 +80,7 @@
     "internal": "In der App ist ein unerwarteter Fehler aufgetreten."
   },
   "nav": {
+    "dashboard": "Übersicht",
     "label": "Hauptnavigation",
     "listings": "Objekte",
     "settings": "Einstellungen"

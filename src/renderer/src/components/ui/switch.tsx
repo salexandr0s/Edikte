@@ -8,6 +8,7 @@ interface SwitchProps {
   onCheckedChange: (checked: boolean) => void
   disabled?: boolean
   'aria-label'?: string
+  'aria-labelledby'?: string
   'aria-describedby'?: string
   className?: string
 }
@@ -30,7 +31,10 @@ export function Switch({ className, ...props }: SwitchProps) {
   )
 }
 
-interface SwitchRowProps extends Omit<SwitchProps, 'id' | 'aria-label' | 'aria-describedby'> {
+interface SwitchRowProps extends Omit<
+  SwitchProps,
+  'id' | 'aria-label' | 'aria-labelledby' | 'aria-describedby'
+> {
   label: ReactNode
   description?: ReactNode
 }
@@ -38,6 +42,7 @@ interface SwitchRowProps extends Omit<SwitchProps, 'id' | 'aria-label' | 'aria-d
 /** Label and description on the left, the switch on the right; the row is the click target. */
 export function SwitchRow({ label, description, className, ...props }: SwitchRowProps) {
   const id = useId()
+  const labelId = `${id}-label`
   const descriptionId = description === undefined ? undefined : `${id}-description`
   return (
     <div className={cx('flex items-start justify-between gap-4', className)}>
@@ -48,14 +53,22 @@ export function SwitchRow({ label, description, className, ...props }: SwitchRow
           props.disabled === true && 'cursor-not-allowed opacity-55',
         )}
       >
-        <span className="text-sm text-fg">{label}</span>
+        <span id={labelId} className="text-sm text-fg">
+          {label}
+        </span>
         {description !== undefined && (
           <span id={descriptionId} className="text-xs text-fg-muted">
             {description}
           </span>
         )}
       </label>
-      <Switch id={id} aria-describedby={descriptionId} className="mt-0.5" {...props} />
+      <Switch
+        id={id}
+        aria-labelledby={labelId}
+        aria-describedby={descriptionId}
+        className="mt-0.5"
+        {...props}
+      />
     </div>
   )
 }

@@ -49,7 +49,10 @@ it('backfills report hashes only when the stored extraction predates the same-ed
     estimate.run(2, 2, at)
     estimate.run(3, 3, at)
 
-    expect(runMigrations(sqlite)).toEqual(['0006_analysis_document_hash'])
+    expect(runMigrations(sqlite)).toEqual([
+      '0006_analysis_document_hash',
+      '0007_saved_search_notifications',
+    ])
     expect(
       sqlite.prepare('SELECT document_sha256 AS hash FROM analyses ORDER BY id').all(),
     ).toEqual([

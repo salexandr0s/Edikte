@@ -17,6 +17,7 @@ import {
 } from '../../components/ui/dropdown-menu'
 import { Field, Input } from '../../components/ui/field'
 import {
+  BellIcon,
   BookmarkIcon,
   ChevronDownIcon,
   PlusIcon,
@@ -25,6 +26,8 @@ import {
 } from '../../components/ui/icons'
 import { useToast } from '../../components/ui/toast'
 import { errorCode, invoke } from '../../lib/bridge'
+import { useBridgeEvent } from '../../lib/use-bridge-event'
+import { AlertDialog } from '../notifications/alert-dialog'
 
 interface SavedFiltersProps {
   query: ListingQuery
@@ -40,6 +43,7 @@ export function SavedFilters({ query, onApply }: SavedFiltersProps) {
   const [loads, setLoads] = useState(0)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<SavedFilter | null>(null)
+  const [alerting, setAlerting] = useState<SavedFilter | null>(null)
 
   useEffect(() => {
     let ignore = false
@@ -59,6 +63,7 @@ export function SavedFilters({ query, onApply }: SavedFiltersProps) {
   }, [loads])
 
   const reload = () => setLoads((count) => count + 1)
+  useBridgeEvent('filters:changed', reload)
   // Presets show a translated name and cannot be deleted.
   const nameOf = (filter: SavedFilter) =>
     filter.presetKey === null ? filter.name : t(`filters.presets.${filter.presetKey}`)
@@ -78,7 +83,7 @@ export function SavedFilters({ query, onApply }: SavedFiltersProps) {
         <MenuContent
           align="start"
           onCloseAutoFocus={(event) => {
-            if (saving || deleting !== null) event.preventDefault()
+            if (saving || deleting !== null || alerting !== null) event.preventDefault()
           }}
         >
           {error !== null ? (
@@ -107,6 +112,22 @@ export function SavedFilters({ query, onApply }: SavedFiltersProps) {
           <MenuItem icon={<PlusIcon />} onSelect={() => setSaving(true)}>
             {t('filters.saved.save')}
           </MenuItem>
+          {filters !== null && filters.length > 0 && (
+            <MenuSub>
+              <MenuSubTrigger icon={<BellIcon />}>{t('filters.saved.alerts')}</MenuSubTrigger>
+              <MenuSubContent>
+                {filters.map((filter) => (
+                  <MenuItem
+                    key={filter.id}
+                    title={nameOf(filter)}
+                    onSelect={() => setAlerting(filter)}
+                  >
+                    {nameOf(filter)}
+                  </MenuItem>
+                ))}
+              </MenuSubContent>
+            </MenuSub>
+          )}
           {userFilters.length > 0 && (
             <MenuSub>
               <MenuSubTrigger icon={<TrashIcon />}>{t('filters.saved.delete')}</MenuSubTrigger>
@@ -141,6 +162,13 @@ export function SavedFilters({ query, onApply }: SavedFiltersProps) {
           returnFocus={() => menuButton.current}
           onClose={() => setDeleting(null)}
           onDeleted={reload}
+        />
+      )}
+      {alerting !== null && (
+        <AlertDialog
+          filter={alerting}
+          returnFocus={() => menuButton.current}
+          onClose={() => setAlerting(null)}
         />
       )}
     </>

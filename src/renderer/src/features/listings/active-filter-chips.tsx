@@ -52,7 +52,7 @@ export function ActiveFilterChips({ query, onChange, onReset }: ActiveFilterChip
 }
 
 /** One short label per active filter, in the UI language. */
-function useFilterLabel(): (filter: ActiveFilter) => string {
+export function useFilterLabel(): (filter: ActiveFilter) => string {
   const { t } = useTranslation()
   const format = useFormat()
 

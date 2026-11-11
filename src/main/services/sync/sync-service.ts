@@ -47,6 +47,8 @@ export interface SyncServiceDeps {
   offline?: boolean
   /** Subscribes to the computer waking from sleep; returns a function that unsubscribes. */
   onResume?: (listener: () => void) => () => void
+  /** Runs once after every requested source has settled and its result has committed. */
+  onPassSettled?: () => void | Promise<void>
   now?: () => Date
 }
 
@@ -146,6 +148,13 @@ export function createSyncService(deps: SyncServiceDeps): SyncService {
       }
       publish(idle(finishedRuns))
       if (changed && !disposed) emit('listings:changed', { edictIds: null })
+      if (!disposed) {
+        try {
+          await deps.onPassSettled?.()
+        } catch (error) {
+          log.error('sync', 'Post-sync processing failed', error)
+        }
+      }
     }
   }
 

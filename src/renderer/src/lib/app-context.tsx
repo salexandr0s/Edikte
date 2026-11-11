@@ -1,11 +1,18 @@
 import { createContext, useContext } from 'react'
 import type { AppInfo, Settings, SettingsPatch } from '@shared/domain'
+import type { ListingCollection } from '@shared/notifications'
+
+export type CollectionOrigin = 'dashboard' | 'notifications'
+export type DetailOrigin = 'dashboard' | 'listings' | 'collection'
 
 /** The screen in the main area. Listings stay mounted under the others. */
 export type View =
   | { screen: 'firstRun' }
+  | { screen: 'dashboard' }
   | { screen: 'listings' }
-  | { screen: 'detail'; id: string }
+  | { screen: 'notifications' }
+  | { screen: 'collection'; collection: ListingCollection; origin: CollectionOrigin }
+  | { screen: 'detail'; id: string; origin?: DetailOrigin }
   | { screen: 'settings' }
 
 export interface AppContextValue {

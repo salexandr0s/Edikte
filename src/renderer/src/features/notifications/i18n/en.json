@@ -1,0 +1,87 @@
+{
+  "alerts": {
+    "title": "Set up alert",
+    "criteria": "Search criteria",
+    "insolvencyBasis": "Insolvency sales: appraised value (Schätzwert)",
+    "enabled": "Notify me about new listings",
+    "enabledHelp": "Starts with future discoveries. Existing listings do not trigger an alert.",
+    "frequency": "Frequency",
+    "cadence": {
+      "after_sync": "After each sync",
+      "daily": "Daily digest",
+      "weekly": "Weekly digest"
+    },
+    "weekday": "Day of the week",
+    "weekdays": {
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
+    },
+    "time": "Delivery time",
+    "timezone": "Vienna time (Europe/Vienna)",
+    "invalidTime": "Enter a time between 00:00 and 23:59.",
+    "desktop": "Show desktop notifications",
+    "desktopHelp": "Every digest also stays in the app's notification history.",
+    "discoveryHelp": "A property must match when the app first discovers it. Missing area or analysis can prevent a match. Later changes do not trigger a new-listing alert. Alerts do not download reports or start AI analysis.",
+    "lifecycleHelp": "Alerts run while the app is running. After reopening and syncing, missed digests are combined into one catch-up digest per search.",
+    "disabledSources": "This search includes sources disabled in Settings: {{sources}}. Alerts only use enabled sources.",
+    "outsideRegions": "This search is outside the federal states selected for sync. Change the sync settings to load matching listings.",
+    "openSettings": "Open Settings",
+    "saved": "Alert saved",
+    "loadFailed": "The alert could not be loaded.",
+    "saveFailed": "The alert could not be saved."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "New listings found for your saved searches, kept with their original results.",
+    "filter": "Notification filter",
+    "all": "All",
+    "unread": "Unread",
+    "unreadCount_one": "Notifications, {{count}} unread",
+    "unreadCount_other": "Notifications, {{count}} unread",
+    "manyUnread": "99+",
+    "markAllRead": "Mark all read",
+    "markFailed": "The read status could not be saved.",
+    "refresh": "Refresh",
+    "loadFailed": "Notifications could not be loaded.",
+    "loadMore": "Load older notifications",
+    "empty": "No notifications yet",
+    "emptyHelp": "Set up an alert on a saved search. Matching properties discovered afterward will appear here.",
+    "noUnread": "All notifications read",
+    "noUnreadHelp": "New digests will appear here when an alert finds matching listings.",
+    "openDashboard": "Open dashboard",
+    "matchCount_one": "{{count}} new listing matches this search",
+    "matchCount_other": "{{count}} new listings match this search",
+    "period": "Coverage: {{from}} to {{to}}",
+    "created": "Created {{time}}",
+    "partialCoverage": "Some sources could not be refreshed. This digest contains results from successful syncs.",
+    "attempt": {
+      "failed": "The desktop notification could not be shown. This digest remains available here.",
+      "unsupported": "Desktop notifications are unavailable on this system."
+    },
+    "delivery": {
+      "title": "Desktop delivery",
+      "help": "The operating system controls whether notifications appear. In-app digests remain available regardless of desktop delivery.",
+      "test": "Send test notification",
+      "unknown": "No desktop notification has been attempted yet.",
+      "attempted": "A desktop notification was requested. This does not confirm that it appeared or was read.",
+      "failed": "The last desktop notification attempt failed.",
+      "unsupported": "Desktop notifications are unavailable on this system.",
+      "lastAttempt": "Last attempt: {{time}}",
+      "settingsHelp": "Check the notification permissions for Edikte in your operating system settings.",
+      "loadFailed": "Desktop delivery status could not be checked."
+    },
+    "desktop": {
+      "digestTitle": "{{name}}",
+      "digestBody_one": "{{count}} new listing matches this search.",
+      "digestBody_other": "{{count}} new listings match this search.",
+      "period": "{{from}} to {{to}}",
+      "testTitle": "Edikte notifications",
+      "testBody": "This is a test notification. Listing digests also remain in the app."
+    }
+  }
+}

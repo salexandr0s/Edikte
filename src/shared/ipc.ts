@@ -21,6 +21,17 @@ import { EDICT_ID_PATTERN } from './edict-id'
 import type { AppErrorShape } from './errors'
 import type { EventChannel, InvokeChannel } from './ipc-channels'
 import {
+  AlertConfigSchema,
+  AlertRuleSchema,
+  CollectionPageSchema,
+  DashboardDataSchema,
+  DeliveryStatusSchema,
+  ListingCollectionSchema,
+  NotificationDetailSchema,
+  NotificationListPageSchema,
+  NotificationListRequestSchema,
+} from './notifications'
+import {
   ApiKeyProviderIdSchema,
   CliProviderIdSchema,
   ModelOptionSchema,
@@ -63,6 +74,36 @@ export const ipcContract = {
   'sync:status': { request: none, response: SyncStatusSchema },
 
   'listings:query': { request: ListingQuerySchema, response: ListingPageSchema },
+  'listings:queryCollection': { request: ListingCollectionSchema, response: CollectionPageSchema },
+  'dashboard:get': {
+    request: z.object({ filterId: z.number().int().positive().nullable() }).strict(),
+    response: DashboardDataSchema,
+  },
+  'alerts:get': {
+    request: z.object({ filterId: z.number().int().positive() }).strict(),
+    response: AlertRuleSchema,
+  },
+  'alerts:update': { request: AlertConfigSchema, response: AlertRuleSchema },
+  'notifications:list': {
+    request: NotificationListRequestSchema,
+    response: NotificationListPageSchema,
+  },
+  'notifications:get': {
+    request: z.object({ id: z.number().int().positive() }).strict(),
+    response: NotificationDetailSchema,
+  },
+  'notifications:markRead': {
+    request: z.object({ id: z.number().int().positive() }).strict(),
+    response: none,
+  },
+  'notifications:markAllRead': { request: none, response: none },
+  'notifications:deliveryStatus': { request: none, response: DeliveryStatusSchema },
+  'notifications:testDesktop': { request: none, response: DeliveryStatusSchema },
+  'notifications:pendingOpen': { request: none, response: z.number().int().positive().nullable() },
+  'notifications:ackOpen': {
+    request: z.object({ id: z.number().int().positive() }).strict(),
+    response: none,
+  },
   'listings:get': {
     request: z.object({ id: EdictIdSchema }).strict(),
     response: ListingDetailSchema,
@@ -173,6 +214,10 @@ export const eventContract = {
   'documents:progress': DocumentProgressSchema,
   'analysis:progress': AnalysisProgressSchema,
   'providers:changed': ProviderListSchema,
+  'filters:changed': z.object({}),
+  'alerts:changed': z.object({}),
+  'notifications:changed': z.object({}),
+  'notifications:open': z.object({ id: z.number().int().positive() }),
 } as const satisfies { [E in EventChannel]: z.ZodType }
 
 type Contract = typeof ipcContract

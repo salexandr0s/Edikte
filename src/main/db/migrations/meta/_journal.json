@@ -50,6 +50,13 @@
       "when": 1794337048810,
       "tag": "0006_analysis_document_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1794424861006,
+      "tag": "0007_saved_search_notifications",
+      "breakpoints": true
     }
   ]
 }

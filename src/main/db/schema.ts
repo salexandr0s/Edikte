@@ -5,6 +5,8 @@ import type {
   InsolvencyFacts,
   KurzgutachtenFacts,
   ListingQueryInput,
+  ListingQuery,
+  ListingRow,
   LocationPrecision,
 } from '@shared/domain'
 import type {
@@ -19,6 +21,7 @@ import type {
 } from '@shared/enums'
 import type { AppErrorCode } from '@shared/errors'
 import type { ProviderId } from '@shared/providers'
+import type { AlertConfig, DesktopAttempt, SourceCoverage } from '@shared/notifications'
 import type { ChangeLogEntry } from '../scraper/detail'
 
 // Only type imports from @shared: drizzle-kit loads this file without the alias.
@@ -300,3 +303,95 @@ export const settings = sqliteTable('settings', {
   value: text('value', { mode: 'json' }).$type<unknown>().notNull(),
   updatedAt: text('updated_at').notNull(),
 })
+
+/** One stable identity per case, including aliases retained after a correction. */
+export const listingDiscoveries = sqliteTable(
+  'listing_discoveries',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    caseKey: text('case_key').unique(),
+    mergedIntoId: integer('merged_into_id'),
+    source: text('source').$type<EdictSource>().notNull(),
+    bundesland: text('bundesland').$type<Bundesland>(),
+    firstSeenAt: text('first_seen_at').notNull(),
+    committedAt: text('committed_at').notNull(),
+    kind: text('kind').$type<'baseline' | 'live'>().notNull(),
+    snapshot: text('snapshot', { mode: 'json' }).$type<ListingRow>(),
+  },
+  (table) => [index('listing_discoveries_committed_idx').on(table.kind, table.committedAt)],
+)
+
+/** Alert configuration is independent of the shipped preset's protected query. */
+export const filterAlerts = sqliteTable('filter_alerts', {
+  filterId: integer('filter_id')
+    .primaryKey()
+    .references(() => savedFilters.id, { onDelete: 'cascade' }),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
+  cadence: text('cadence').$type<AlertConfig['cadence']>().notNull().default('weekly'),
+  time: text('time').notNull().default('09:00'),
+  weekday: integer('weekday').notNull().default(1),
+  desktopEnabled: integer('desktop_enabled', { mode: 'boolean' }).notNull().default(true),
+  revision: integer('revision').notNull().default(1),
+  query: text('query', { mode: 'json' }).$type<ListingQuery>().notNull(),
+  scopeKey: text('scope_key').notNull(),
+  lastProcessedDiscoveryId: integer('last_processed_discovery_id').notNull().default(0),
+  lastWindowEndAt: text('last_window_end_at').notNull(),
+  nextDueAt: text('next_due_at'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+/** Immutable digest metadata; personal read/delivery state is kept alongside it. */
+export const notificationBatches = sqliteTable(
+  'notification_batches',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    filterId: integer('filter_id').references(() => savedFilters.id, { onDelete: 'set null' }),
+    filterName: text('filter_name').notNull(),
+    presetKey: text('preset_key').$type<'wien_under_5000'>(),
+    query: text('query', { mode: 'json' }).$type<ListingQuery>().notNull(),
+    revision: integer('revision').notNull(),
+    createdAt: text('created_at').notNull(),
+    periodFrom: text('period_from').notNull(),
+    periodTo: text('period_to').notNull(),
+    count: integer('count').notNull(),
+    coverage: text('coverage', { mode: 'json' }).$type<SourceCoverage[]>().notNull(),
+    readAt: text('read_at'),
+    desktopStatus: text('desktop_status').$type<DesktopAttempt>().notNull(),
+    desktopError: text('desktop_error'),
+    desktopAttemptedAt: text('desktop_attempted_at'),
+    pendingOpenAt: text('pending_open_at'),
+  },
+  (table) => [
+    uniqueIndex('notification_batches_window_idx').on(
+      table.filterId,
+      table.revision,
+      table.periodTo,
+    ),
+  ],
+)
+
+/** Qualifying discoveries become historical items when assigned to a digest. */
+export const alertMatches = sqliteTable(
+  'alert_matches',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    filterId: integer('filter_id').references(() => savedFilters.id, { onDelete: 'set null' }),
+    revision: integer('revision').notNull(),
+    discoveryId: integer('discovery_id')
+      .notNull()
+      .references(() => listingDiscoveries.id),
+    state: text('state').$type<'pending' | 'discarded' | 'notified'>().notNull(),
+    notificationId: integer('notification_id').references(() => notificationBatches.id),
+    snapshot: text('snapshot', { mode: 'json' }).$type<ListingRow>().notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('alert_matches_discovery_idx').on(
+      table.filterId,
+      table.revision,
+      table.discoveryId,
+    ),
+    index('alert_matches_notification_idx').on(table.notificationId),
+  ],
+)

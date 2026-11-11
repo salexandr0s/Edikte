@@ -79,6 +79,26 @@ export function queryListings(db: AppDatabase, query: ListingQuery): ListingPage
   )
 }
 
+export interface ListingSnapshotOptions {
+  includeRemoved?: boolean
+  allScopes?: boolean
+}
+
+/** A single case snapshot reused by dashboard collections and discovery commits. */
+export function loadListingSnapshot(
+  db: AppDatabase,
+  options: ListingSnapshotOptions = {},
+): ListingRow[] {
+  const settings = readSettings(db)
+  return loadListingRows(
+    db,
+    settings.syncBundeslaender,
+    settings.syncSources,
+    settings.priceBasis,
+    options,
+  )
+}
+
 /** The `listings:get` response. Opens removed edicts too. */
 export function getListing(db: AppDatabase, id: string): ListingDetail {
   const edict = db.select().from(edicts).where(eq(edicts.id, id)).get()
@@ -201,17 +221,20 @@ function loadListingRows(
   scope: readonly Bundesland[],
   enabledSources: readonly EdictSource[],
   basis: PriceBasis,
+  options: ListingSnapshotOptions = {},
 ): ListingRow[] {
-  if (scope.length === 0 || enabledSources.length === 0) return []
+  if (!options.allScopes && (scope.length === 0 || enabledSources.length === 0)) return []
   const rows = db
     .select(listingColumns)
     .from(edicts)
     .leftJoin(userState, eq(userState.caseKey, edicts.caseKey))
     .where(
       and(
-        inArray(edicts.bundesland, [...scope]),
-        inArray(edicts.source, [...enabledSources]),
-        or(isNull(edicts.removedAt), eq(userState.starred, true), ne(userState.notes, '')),
+        options.allScopes ? undefined : inArray(edicts.bundesland, [...scope]),
+        options.allScopes ? undefined : inArray(edicts.source, [...enabledSources]),
+        options.includeRemoved
+          ? undefined
+          : or(isNull(edicts.removedAt), eq(userState.starred, true), ne(userState.notes, '')),
       ),
     )
     .all()

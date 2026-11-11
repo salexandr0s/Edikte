@@ -3,7 +3,6 @@ import { Button } from '../../components/ui/button'
 import { EmptyState } from '../../components/ui/empty-state'
 import { AlertCircleIcon, SearchIcon } from '../../components/ui/icons'
 import { Skeleton } from '../../components/ui/skeleton'
-import { useApp } from '../../lib/app-context'
 import { AnalysisCard } from './analysis/analysis-card'
 import { AreaCandidatesCard } from './area-candidates-card'
 import { AuctionFacts } from './auction-facts'
@@ -26,11 +25,10 @@ const COLUMNS = 'grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]'
  * Kurzgutachten and area values as the reading column, and the documents,
  * edict facts, notes and related edicts beside it.
  */
-export function DetailScreen({ id }: { id: string }) {
+export function DetailScreen({ id, onBack }: { id: string; onBack: () => void }) {
   const { t } = useTranslation()
-  const { navigate } = useApp()
   const { state, reload, retry } = useListingDetail(id)
-  const back = () => navigate({ screen: 'listings' })
+  const back = onBack
 
   if (state.status !== 'ready') {
     return (
@@ -45,7 +43,7 @@ export function DetailScreen({ id }: { id: string }) {
             icon={<SearchIcon />}
             title={t('detail.notFoundTitle')}
             description={t('errors.not_found')}
-            action={<Button onClick={back}>{t('detail.backToList')}</Button>}
+            action={<Button onClick={back}>{t('common.back')}</Button>}
           />
         ) : (
           <EmptyState

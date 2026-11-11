@@ -152,6 +152,7 @@
       "empty": "Noch keine gespeicherten Filter",
       "loadFailed": "Die gespeicherten Filter konnten nicht geladen werden.",
       "save": "Aktuellen Filter speichern …",
+      "alerts": "Benachrichtigung einrichten",
       "delete": "Filter löschen"
     },
     "save": {
@@ -165,7 +166,7 @@
     },
     "delete": {
       "title": "Filter „{{name}}“ löschen?",
-      "text": "Nur der gespeicherte Filter wird entfernt. Objekte, Markierungen und Notizen bleiben erhalten.",
+      "text": "Der gespeicherte Filter und seine Benachrichtigungseinstellung werden entfernt. Objekte, Markierungen, Notizen und bisherige Benachrichtigungen bleiben erhalten.",
       "deleted": "Filter gelöscht",
       "failed": "Der Filter konnte nicht gelöscht werden."
     }

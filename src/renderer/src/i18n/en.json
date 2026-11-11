@@ -80,6 +80,7 @@
     "internal": "An unexpected error occurred in the app."
   },
   "nav": {
+    "dashboard": "Dashboard",
     "label": "Main navigation",
     "listings": "Listings",
     "settings": "Settings"

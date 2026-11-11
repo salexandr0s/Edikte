@@ -6,6 +6,12 @@ import listingsDe from '../features/listings/i18n/de.json'
 import listingsEn from '../features/listings/i18n/en.json'
 import settingsDe from '../features/settings/i18n/de.json'
 import settingsEn from '../features/settings/i18n/en.json'
+import dashboardDe from '../features/dashboard/i18n/de.json'
+import dashboardEn from '../features/dashboard/i18n/en.json'
+import collectionsDe from '../features/collections/i18n/de.json'
+import collectionsEn from '../features/collections/i18n/en.json'
+import notificationsDe from '../features/notifications/i18n/de.json'
+import notificationsEn from '../features/notifications/i18n/en.json'
 import sharedDe from './de.json'
 import sharedEn from './en.json'
 
@@ -21,6 +27,9 @@ export const translationFiles = {
     detail: detailDe,
     settings: settingsDe,
     firstRun: firstRunDe,
+    dashboard: dashboardDe,
+    collections: collectionsDe,
+    notifications: notificationsDe,
   },
   en: {
     shared: sharedEn,
@@ -28,11 +37,36 @@ export const translationFiles = {
     detail: detailEn,
     settings: settingsEn,
     firstRun: firstRunEn,
+    dashboard: dashboardEn,
+    collections: collectionsEn,
+    notifications: notificationsEn,
   },
 }
 
 // The English tree types `t` (i18next.d.ts); both languages have the same keys.
 export const resources = {
-  de: { translation: { ...sharedDe, ...listingsDe, ...detailDe, ...settingsDe, ...firstRunDe } },
-  en: { translation: { ...sharedEn, ...listingsEn, ...detailEn, ...settingsEn, ...firstRunEn } },
+  de: {
+    translation: {
+      ...sharedDe,
+      ...listingsDe,
+      ...detailDe,
+      ...settingsDe,
+      ...firstRunDe,
+      ...dashboardDe,
+      ...collectionsDe,
+      ...notificationsDe,
+    },
+  },
+  en: {
+    translation: {
+      ...sharedEn,
+      ...listingsEn,
+      ...detailEn,
+      ...settingsEn,
+      ...firstRunEn,
+      ...dashboardEn,
+      ...collectionsEn,
+      ...notificationsEn,
+    },
+  },
 } as const

@@ -59,7 +59,7 @@ export function FirstRunScreen() {
         autoSync,
         firstRunCompletedAt: new Date().toISOString(),
       })
-      navigate({ screen: 'listings' })
+      navigate({ screen: 'dashboard' })
     } catch (error) {
       setFinishing(false)
       toast({

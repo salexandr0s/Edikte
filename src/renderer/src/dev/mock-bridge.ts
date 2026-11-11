@@ -41,6 +41,7 @@ import { analysisArea, fakeAnalysisHistory, rowWithAnalyses } from './mock-analy
 import { delay, type Emit, type MockHandlers, type MockState } from './mock-core'
 import { createJobHandlers, fakeDocuments, fakeEstimates } from './mock-jobs'
 import { createProviderHandlers, fakeProviderStatus } from './mock-providers'
+import { createMockNotificationHandlers } from './mock-notifications'
 
 /*
  * Stands in for the preload bridge when the renderer runs in a browser
@@ -206,17 +207,32 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
 
   /** The rows the list covers: those of the sources the settings enable. */
   const rowsInScope = () =>
-    rowsWithUserState().filter((row) => state.settings.syncSources.includes(row.source))
+    rowsWithUserState().filter(
+      (row) =>
+        state.settings.syncSources.includes(row.source) &&
+        row.bundesland !== null &&
+        state.settings.syncBundeslaender.includes(row.bundesland),
+    )
+  const notifications = createMockNotificationHandlers(state, emit, rowsWithUserState)
 
   return {
     'app:getInfo': () => fakeAppInfo(),
     'settings:get': () => state.settings,
     'settings:update': (patch) => {
+      const before = state.settings
       state.settings = { ...state.settings, ...patch }
       if (patch.syncSources !== undefined) {
         // The enabled sources decide which finished runs the status holds and
         // which rows the list covers, so the list has to load again.
         state.sync = { ...state.sync, lastRuns: lastRuns() }
+        emit('listings:changed', { edictIds: null })
+      }
+      if (
+        JSON.stringify(before.syncSources) !== JSON.stringify(state.settings.syncSources) ||
+        JSON.stringify(before.syncBundeslaender) !==
+          JSON.stringify(state.settings.syncBundeslaender)
+      ) {
+        notifications.reconcileFilters(true)
         emit('listings:changed', { edictIds: null })
       }
       return state.settings
@@ -288,6 +304,7 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
       if (existing?.presetKey) throw new AppError('forbidden', 'Presets cannot be changed')
       if (existing) {
         Object.assign(existing, { name, query, updatedAt: now })
+        notifications.reconcileFilters()
         return existing
       }
       const created: SavedFilter = {
@@ -299,6 +316,7 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
         updatedAt: now,
       }
       state.filters.push(created)
+      notifications.reconcileFilters()
       return created
     },
     'filters:delete': ({ id }) => {
@@ -306,9 +324,11 @@ function createHandlers(state: MockState, emit: Emit): MockHandlers {
       if (!filter) throw new AppError('not_found', `No saved filter ${id}`)
       if (filter.presetKey) throw new AppError('forbidden', 'Presets cannot be deleted')
       state.filters = state.filters.filter((candidate) => candidate.id !== id)
+      notifications.reconcileFilters()
     },
 
     ...createProviderHandlers(state, emit),
+    ...notifications.handlers,
     ...createJobHandlers(state, emit, rowsInScope),
 
     'shell:openExternal': ({ url }) => {

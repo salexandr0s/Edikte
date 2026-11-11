@@ -1,0 +1,38 @@
+{
+  "collections": {
+    "title": "Search results",
+    "sections": {
+      "all": "Matching properties",
+      "new": "New listings in the past 7 days",
+      "upcoming": "Auctions in the next 14 days",
+      "starred": "Starred matching properties"
+    },
+    "notificationTitle": "Listings in this notification",
+    "historical": "These are the listings recorded when this digest was created. Their current availability is shown separately.",
+    "period": "{{from}} to {{to}}",
+    "backDashboard": "Back to Dashboard",
+    "backNotifications": "Back to Notifications",
+    "count_one": "One property",
+    "count_other": "{{count}} properties",
+    "loadFailed": "The results could not be loaded",
+    "updateFailed": "The results could not be refreshed. The last available results are shown.",
+    "markReadFailed": "This notification could not be marked as read.",
+    "emptyTitle": "No matching properties",
+    "emptyText": "There are no results for this selection in the enabled data scope.",
+    "allSearches": "All saved searches",
+    "price": "Price",
+    "area": "Area",
+    "perSqm": "Price per m²",
+    "areaUnknown": "Area not stated",
+    "areaUnverified": "€/m² cannot be verified without an area",
+    "currentStatus": "Current status: {{status}}",
+    "unavailable": "No longer available",
+    "updated": "Changed since this notification",
+    "starred": "Starred property",
+    "notAnalyzed": "Not analyzed",
+    "analysisStale": "Analysis needs updating",
+    "published": "Published {{date}}",
+    "auction": "Auction {{date}}",
+    "matches": "Matches: {{names}}"
+  }
+}

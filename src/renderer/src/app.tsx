@@ -11,13 +11,16 @@ import type { AppErrorCode } from '@shared/errors'
 import { AnalysisGateProvider } from './components/analysis-gate'
 import { Badge } from './components/ui/badge'
 import { Button } from './components/ui/button'
-import { GavelIcon, GlobeIcon, ListIcon, SettingsIcon } from './components/ui/icons'
+import { GavelIcon, GlobeIcon, HomeIcon, ListIcon, SettingsIcon } from './components/ui/icons'
 import { Select } from './components/ui/select'
 import { ToastProvider, useToast } from './components/ui/toast'
 import { DetailScreen } from './features/detail/detail-screen'
 import { FirstRunScreen } from './features/first-run/first-run-screen'
 import { ListingsScreen } from './features/listings/listings-screen'
 import { SettingsScreen } from './features/settings/settings-screen'
+import { DashboardScreen } from './features/dashboard/dashboard-screen'
+import { CollectionScreen } from './features/collections/collection-screen'
+import { NotificationBell, NotificationsScreen } from './features/notifications'
 import { changeLanguage, resolveLanguage } from './i18n'
 import { AppContext, useApp, type AppContextValue, type View } from './lib/app-context'
 import { errorCode, invoke, usingMockBridge } from './lib/bridge'
@@ -32,8 +35,27 @@ interface AppProps {
 export function App({ info, initialSettings }: AppProps) {
   const [settings, setSettings] = useState(initialSettings)
   const [view, setView] = useState<View>(() =>
-    initialSettings.firstRunCompletedAt === null ? { screen: 'firstRun' } : { screen: 'listings' },
+    initialSettings.firstRunCompletedAt === null ? { screen: 'firstRun' } : { screen: 'dashboard' },
   )
+  const [collectionView, setCollectionView] = useState<Extract<
+    View,
+    { screen: 'collection' }
+  > | null>(null)
+  const navigate = useCallback((next: View) => {
+    if (next.screen === 'collection') setCollectionView(next)
+    setView((current) => {
+      if (next.screen !== 'detail' || next.origin !== undefined) return next
+      const origin =
+        current.screen === 'detail'
+          ? current.origin
+          : current.screen === 'dashboard'
+            ? 'dashboard'
+            : current.screen === 'collection'
+              ? 'collection'
+              : 'listings'
+      return { ...next, origin }
+    })
+  }, [])
 
   // Counts settings writes and reloads; a reload applies only if nothing newer arrived meanwhile.
   const settingsRevision = useRef(0)
@@ -64,8 +86,8 @@ export function App({ info, initialSettings }: AppProps) {
   })
 
   const context = useMemo<AppContextValue>(
-    () => ({ info, settings, updateSettings, view, navigate: setView }),
-    [info, settings, updateSettings, view],
+    () => ({ info, settings, updateSettings, view, navigate }),
+    [info, settings, updateSettings, view, navigate],
   )
 
   return (
@@ -73,7 +95,7 @@ export function App({ info, initialSettings }: AppProps) {
       <ToastProvider>
         <Tooltip.Provider delayDuration={300}>
           <AnalysisGateProvider>
-            <Shell />
+            <Shell collectionView={collectionView} />
           </AnalysisGateProvider>
         </Tooltip.Provider>
       </ToastProvider>
@@ -87,14 +109,25 @@ export function App({ info, initialSettings }: AppProps) {
  * listing or to Settings. Each screen fills a scroll container of its own,
  * isolated so sticky headers inside stay below menus and dialogs in portals.
  */
-function Shell() {
+function Shell({
+  collectionView,
+}: {
+  collectionView: Extract<View, { screen: 'collection' }> | null
+}) {
   const { t } = useTranslation()
   const { info, settings, updateSettings, view, navigate } = useApp()
   const toast = useToast()
   const [savingLanguage, setSavingLanguage] = useState(false)
   const firstRun = view.screen === 'firstRun'
-  const section = view.screen === 'settings' ? 'settings' : 'listings'
+  const section =
+    view.screen === 'detail'
+      ? ((view.origin === 'collection' ? collectionView?.origin : view.origin) ?? 'listings')
+      : view.screen === 'collection'
+        ? view.origin
+        : view.screen
   const listingsRef = useRef<HTMLDivElement>(null)
+  const dashboardRef = useRef<HTMLDivElement>(null)
+  const collectionRef = useRef<HTMLDivElement>(null)
   const screenRef = useRef<HTMLDivElement>(null)
   const shownView = useRef(view)
 
@@ -104,16 +137,60 @@ function Shell() {
     const previous = shownView.current
     shownView.current = view
     if (viewKey(previous) === viewKey(view)) return
-    if (view.screen !== 'listings') return focusHeading(screenRef.current)
+    const container =
+      view.screen === 'listings'
+        ? listingsRef.current
+        : view.screen === 'dashboard'
+          ? dashboardRef.current
+          : view.screen === 'collection'
+            ? collectionRef.current
+            : screenRef.current
     const opener =
       previous.screen === 'detail'
-        ? listingsRef.current?.querySelector<HTMLElement>(
-            `[data-listing-link="${CSS.escape(previous.id)}"]`,
-          )
+        ? container?.querySelector<HTMLElement>(`[data-listing-link="${CSS.escape(previous.id)}"]`)
         : null
-    const target = opener ?? listingsRef.current?.querySelector('h1')
-    target?.focus()
+    if (opener !== null && opener !== undefined) opener.focus({ preventScroll: true })
+    else return focusHeading(container)
   }, [view])
+
+  const openNotification = useCallback(
+    (id: number) =>
+      navigate({
+        screen: 'collection',
+        collection: { kind: 'notification', notificationId: id },
+        origin: 'notifications',
+      }),
+    [navigate],
+  )
+  useBridgeEvent('notifications:open', ({ id }) => {
+    if (!firstRun) openNotification(id)
+  })
+  useEffect(() => {
+    if (firstRun) return
+    let active = true
+    invoke('notifications:pendingOpen')
+      .then((id) => {
+        if (active && id !== null) openNotification(id)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [firstRun, openNotification])
+  useEffect(() => {
+    if (view.screen === 'collection' && view.collection.kind === 'notification') {
+      void invoke('notifications:ackOpen', { id: view.collection.notificationId }).catch(
+        () => undefined,
+      )
+    }
+  }, [view])
+
+  const backFromDetail = () => {
+    if (view.screen !== 'detail') return
+    if (view.origin === 'dashboard') navigate({ screen: 'dashboard' })
+    else if (view.origin === 'collection' && collectionView !== null) navigate(collectionView)
+    else navigate({ screen: 'listings' })
+  }
 
   async function selectLanguage(value: string) {
     setSavingLanguage(true)
@@ -154,6 +231,13 @@ function Shell() {
             className="flex h-9 items-center gap-0.5 rounded-md bg-fill-muted p-0.5"
           >
             <NavItem
+              active={section === 'dashboard'}
+              icon={<HomeIcon />}
+              onClick={() => navigate({ screen: 'dashboard' })}
+            >
+              {t('nav.dashboard')}
+            </NavItem>
+            <NavItem
               active={section === 'listings'}
               icon={<ListIcon />}
               onClick={() => navigate({ screen: 'listings' })}
@@ -171,6 +255,7 @@ function Shell() {
         )}
         {usingMockBridge && <Badge variant="warning">{t('shell.sampleData')}</Badge>}
         <div className="ml-auto flex items-center gap-2">
+          {!firstRun && <NotificationBell />}
           <label htmlFor="language" className="sr-only">
             {t('language.label')}
           </label>
@@ -197,16 +282,49 @@ function Shell() {
             ref={listingsRef}
             inert={view.screen !== 'listings'}
             // A size container: the filter sidebar sizes itself to the visible height (cqh).
-            className="absolute inset-0 isolate overflow-auto [container-type:size]"
+            className={cx(
+              'absolute inset-0 isolate overflow-auto [container-type:size]',
+              view.screen !== 'listings' && 'invisible',
+            )}
           >
             <ListingsScreen />
           </div>
         )}
-        {view.screen !== 'listings' && (
+        {!firstRun && (
+          <div
+            ref={dashboardRef}
+            inert={view.screen !== 'dashboard'}
+            className={cx(
+              'absolute inset-0 isolate overflow-auto bg-bg',
+              view.screen !== 'dashboard' && 'invisible',
+            )}
+          >
+            <DashboardScreen />
+          </div>
+        )}
+        {!firstRun && collectionView !== null && (
+          <div
+            ref={collectionRef}
+            inert={view.screen !== 'collection'}
+            className={cx(
+              'absolute inset-0 isolate overflow-auto bg-bg',
+              view.screen !== 'collection' && 'invisible',
+            )}
+          >
+            <CollectionScreen
+              collection={collectionView.collection}
+              origin={collectionView.origin}
+            />
+          </div>
+        )}
+        {['detail', 'settings', 'firstRun', 'notifications'].includes(view.screen) && (
           <div ref={screenRef} className="absolute inset-0 isolate overflow-auto bg-bg">
-            {view.screen === 'detail' && <DetailScreen key={view.id} id={view.id} />}
+            {view.screen === 'detail' && (
+              <DetailScreen key={view.id} id={view.id} onBack={backFromDetail} />
+            )}
             {view.screen === 'settings' && <SettingsScreen />}
             {view.screen === 'firstRun' && <FirstRunScreen />}
+            {view.screen === 'notifications' && <NotificationsScreen />}
           </div>
         )}
       </main>
@@ -225,7 +343,11 @@ function Shell() {
 }
 
 function viewKey(view: View): string {
-  return view.screen === 'detail' ? `detail:${view.id}` : view.screen
+  return view.screen === 'detail'
+    ? `detail:${view.id}`
+    : view.screen === 'collection'
+      ? JSON.stringify(view)
+      : view.screen
 }
 
 /**

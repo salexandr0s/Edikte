@@ -24,7 +24,7 @@ export function BackToListButton({ onBack }: { onBack: () => void }) {
   return (
     <Button variant="ghost" size="sm" className="-ml-3 text-fg-muted" onClick={onBack}>
       <ChevronLeftIcon />
-      {t('detail.backToList')}
+      {t('common.back')}
     </Button>
   )
 }

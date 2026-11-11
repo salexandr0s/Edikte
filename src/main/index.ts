@@ -12,6 +12,8 @@ import {
 import { openDatabase, type AppDatabase } from './db/client'
 import { createDocumentStore } from './db/document-store'
 import { queryListings } from './db/listing-store'
+import { seedDiscoveryBaseline } from './db/discovery-store'
+import { createNotificationStore } from './db/notification-store'
 import { ensurePresetFilters } from './db/user-store'
 import {
   DOCUMENT_SCHEME_PRIVILEGES,
@@ -43,11 +45,19 @@ import { createGeocodeService, type GeocodeService } from './services/geocode'
 import { createProviderService, type ProviderService } from './services/providers'
 import { createSettingsService } from './services/settings'
 import { createSyncService, type SyncService } from './services/sync'
+import { createNotificationService, type NotificationService } from './services/notifications'
+import { createElectronNotificationAdapter } from './services/notifications/native-adapter'
+import { formatNativeNotification } from './services/notifications/native-format'
+import { notificationIdFromLaunchInfo } from './services/notifications/native-activation'
 import { runSmokeCheck } from './smoke-check'
 import { showStartupError } from './startup-error'
 
 // Before anything reads app paths or safeStorage: both derive from the name.
 app.setName('Edikte')
+if (process.platform === 'win32') {
+  app.setAppUserModelId('local.edikte.desktop')
+  app.setToastActivatorCLSID('8d985e6b-6a7e-4aab-bdfb-674ac11c9975')
+}
 // Tests and the packaged-app smoke check point the app at a scratch folder.
 const userDataOverride = process.env.EDIKTE_USER_DATA_DIR
 if (userDataOverride) app.setPath('userData', userDataOverride)
@@ -81,12 +91,20 @@ interface Services {
   providers: ProviderService
   documents: DocumentService
   analysis: AnalysisService
+  notifications: NotificationService
 }
 
 let mainWindow: BrowserWindow | null = null
 let database: AppDatabase | null = null
 let services: Services | null = null
 let shutdown: 'none' | 'running' | 'done' = 'none'
+let earlyNotificationOpen: number | null = null
+
+// A cold macOS click may already have left Notification Center by the time history loads.
+app.on('ready', (_event, launchInfo: unknown) => {
+  if (process.platform === 'darwin')
+    earlyNotificationOpen = notificationIdFromLaunchInfo(launchInfo)
+})
 
 if (!app.requestSingleInstanceLock()) {
   // Usually another instance is running. The lock also fails when the data
@@ -112,6 +130,7 @@ function start(): void {
   const db = openDatabase(paths.database)
   database = db
   ensurePresetFilters(db)
+  seedDiscoveryBaseline(db)
   installDocumentProtocol(paths.documents)
   installTileProtocol(session.defaultSession, {
     tilesDir: paths.tiles,
@@ -121,16 +140,64 @@ function start(): void {
   const emit = createEventEmitter(() => mainWindow)
   // One client for every request to the site, so all of them share one rate limit.
   const client = new EdikteClient({ appVersion: app.getVersion() })
+  const notificationStore = createNotificationStore(db)
   // Main's reaction to saved settings: a new scope reloads the list, and auto sync may now be due.
-  const settings = createSettingsService(db, (before, after) =>
-    sync.onSettingsChanged(before, after),
-  )
+  const settings = createSettingsService(db, (before, after) => {
+    notificationStore.reconcileRules()
+    emit('alerts:changed', {})
+    sync.onSettingsChanged(before, after)
+    void notifications
+      .check()
+      .catch((error: unknown) => log.error('notifications', 'Settings check failed', error))
+  })
   const sync = createSyncService({
     db,
     source: client,
     emit,
     readSettings: () => settings.read(),
     offline,
+    onPassSettled: () => notifications.check({ afterSync: true }),
+    onResume: (listener) => {
+      powerMonitor.on('resume', listener)
+      return () => powerMonitor.off('resume', listener)
+    },
+  })
+  const desktop =
+    smokeTest || process.env.EDIKTE_DISABLE_DESKTOP_NOTIFICATIONS === '1'
+      ? {
+          isSupported: () => false,
+          show: () => undefined,
+          restore: () => Promise.resolve(),
+          dispose: () => undefined,
+        }
+      : createElectronNotificationAdapter({
+          onOpen: (id) => {
+            if (services === null) earlyNotificationOpen = id
+            else {
+              try {
+                services.notifications.requestOpen(id)
+              } catch (error) {
+                log.error('notifications', 'The desktop notification is no longer stored', error)
+              }
+              showMainWindow()
+            }
+          },
+          format: (notification) => {
+            const language = settings.read().language
+            const resolved =
+              language === 'system'
+                ? app.getSystemLocale().toLowerCase().startsWith('de')
+                  ? 'de'
+                  : 'en'
+                : language
+            return formatNativeNotification(notification, resolved)
+          },
+        })
+  const notifications = createNotificationService({
+    db,
+    emit,
+    desktop,
+    isSyncing: () => sync.status().state !== 'idle',
     onResume: (listener) => {
       powerMonitor.on('resume', listener)
       return () => powerMonitor.off('resume', listener)
@@ -177,7 +244,7 @@ function start(): void {
     documentsDir: paths.documents,
     renderPdf: (options) => renderPdfPages({ ...options, location: rasterLocation }),
   })
-  services = { sync, geocode, providers, documents, analysis }
+  services = { sync, geocode, providers, documents, analysis, notifications }
 
   const router = createIpcRouter((event) =>
     isTrustedSender(event, mainWindow?.webContents ?? null, trust),
@@ -191,9 +258,19 @@ function start(): void {
     providers,
     documents,
     analysis,
+    notifications,
+    emit,
   })
 
   mainWindow = createMainWindow()
+  if (earlyNotificationOpen !== null) {
+    try {
+      notifications.requestOpen(earlyNotificationOpen)
+    } catch (error) {
+      log.error('notifications', 'The startup notification is no longer stored', error)
+    }
+    earlyNotificationOpen = null
+  }
   if (smokeTest) runSmokeCheck(mainWindow)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) mainWindow = createMainWindow()
@@ -215,6 +292,14 @@ function start(): void {
   // Starts a run when one is due, or sets the timer for the next check. It
   // does nothing offline or before the first-run screen is done.
   sync.startIfDue()
+  notifications.start()
+}
+
+function showMainWindow(): void {
+  if (mainWindow === null || mainWindow.isDestroyed()) mainWindow = createMainWindow()
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
 }
 
 function createMainWindow(): BrowserWindow {
@@ -275,6 +360,7 @@ async function stopServices(db: AppDatabase, running: Services | null): Promise<
       running.sync.dispose(),
       running.geocode.dispose(),
       running.analysis.shutdown(),
+      running.notifications.dispose(),
     ])
     // In the same tick, after analysis.shutdown() has begun: a job whose download
     // stops here keeps its row queued for the next start instead of failing.

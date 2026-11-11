@@ -1,0 +1,38 @@
+{
+  "collections": {
+    "title": "Suchergebnisse",
+    "sections": {
+      "all": "Passende Objekte",
+      "new": "Neue Objekte der vergangenen 7 Tage",
+      "upcoming": "Versteigerungen der nächsten 14 Tage",
+      "starred": "Markierte passende Objekte"
+    },
+    "notificationTitle": "Objekte dieser Benachrichtigung",
+    "historical": "Diese Objekte wurden beim Erstellen der Zusammenfassung erfasst. Ihre aktuelle Verfügbarkeit wird gesondert angezeigt.",
+    "period": "{{from}} bis {{to}}",
+    "backDashboard": "Zurück zur Übersicht",
+    "backNotifications": "Zurück zu Benachrichtigungen",
+    "count_one": "Ein Objekt",
+    "count_other": "{{count}} Objekte",
+    "loadFailed": "Die Ergebnisse konnten nicht geladen werden",
+    "updateFailed": "Die Ergebnisse konnten nicht aktualisiert werden. Die zuletzt verfügbaren Ergebnisse werden angezeigt.",
+    "markReadFailed": "Diese Benachrichtigung konnte nicht als gelesen markiert werden.",
+    "emptyTitle": "Keine passenden Objekte",
+    "emptyText": "Für diese Auswahl gibt es keine Ergebnisse innerhalb der aktivierten Datenquellen und Bundesländer.",
+    "allSearches": "Alle gespeicherten Suchen",
+    "price": "Preis",
+    "area": "Fläche",
+    "perSqm": "Preis pro m²",
+    "areaUnknown": "Fläche nicht angegeben",
+    "areaUnverified": "€/m² lässt sich ohne Flächenangabe nicht prüfen",
+    "currentStatus": "Aktueller Status: {{status}}",
+    "unavailable": "Nicht mehr verfügbar",
+    "updated": "Seit dieser Benachrichtigung geändert",
+    "starred": "Markiertes Objekt",
+    "notAnalyzed": "Nicht analysiert",
+    "analysisStale": "Analyse nicht mehr aktuell",
+    "published": "Veröffentlicht {{date}}",
+    "auction": "Versteigerung {{date}}",
+    "matches": "Passende Suchen: {{names}}"
+  }
+}

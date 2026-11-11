@@ -152,6 +152,7 @@
       "empty": "No saved filters yet",
       "loadFailed": "Saved filters could not be loaded.",
       "save": "Save current filter…",
+      "alerts": "Set up an alert",
       "delete": "Delete a filter"
     },
     "save": {
@@ -165,7 +166,7 @@
     },
     "delete": {
       "title": "Delete the filter “{{name}}”?",
-      "text": "Only the saved filter is removed. Listings, stars and notes stay as they are.",
+      "text": "The saved filter and its alert are removed. Listings, stars, notes and past notifications stay as they are.",
       "deleted": "Filter deleted",
       "failed": "The filter could not be deleted."
     }
