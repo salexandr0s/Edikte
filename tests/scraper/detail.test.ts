@@ -5,7 +5,7 @@ import { buildEdictRecord } from '../../src/main/scraper/edict-record'
 import { assessRunHealth, type HealthSample } from '../../src/main/scraper/health'
 import { PARSER_VERSION } from '../../src/main/scraper/parser-version'
 import { parseSearchResults } from '../../src/main/scraper/search'
-import { parseSiteDateTime } from '../../src/main/scraper/site-text'
+import { extractEur, parseSiteDateTime } from '../../src/main/scraper/site-text'
 import { errorOf, readFixture } from './read-fixture'
 
 const DOCS = 'https://edikte.justiz.gv.at/edikte/ex/exedi3.nsf/0/'
@@ -497,6 +497,86 @@ describe('parseDetailPage on small pages', () => {
     expect(detail.fields.meistbotEur).toBe(440000)
   })
 
+  it('reads grouped prices from the auction fields', () => {
+    const detail = parseDetailPage(
+      page(
+        '<div class="row"><span>Schätzwert:</span><p>laut Gutachten EUR 1 350 000,00</p></div>',
+        '<div class="row"><span>Geringstes Gebot:</span><p>675 000,00 Euro</p></div>',
+        '<div class="row"><span>Vadium:</span><p>EUR 135 000,--</p></div>',
+      ),
+    )
+    expect(detail.fields).toMatchObject({
+      schaetzwertEur: 1_350_000,
+      geringstesGebotEur: 675_000,
+      vadiumEur: 135_000,
+    })
+  })
+
+  it.each([
+    ['EUR 1 350 000,00.', 1_350_000],
+    ['EUR 1.350.000,--.', 1_350_000],
+    ['1\u00a0350\u00a0000,-- Euro samt Zubehör.', 1_350_000],
+    ['nicht bekannt; Zubehör EUR 5.000,00.', null],
+    ['EUR -1 350 000,00; Zubehör EUR 5.000,00.', null],
+    ['1 35 000,00 EUR; Zubehör EUR 5.000,00.', null],
+  ])('reads only the amount immediately after Meistbot von: %s', (text, expected) => {
+    const detail = parseDetailPage(page(`<p>Zuschlag um das Meistbot von ${text}</p>`))
+    expect(detail.fields.meistbotEur).toBe(expected)
+  })
+
+  it.each([
+    '69.800,00 EUR binnen 14 Tagen',
+    '69.800,00 EUR.',
+    '69.800,00 EUR, zahlbar binnen 14 Tagen',
+  ])('reads the minimum written bid and current deposit: %s', (deposit) => {
+    const html = page(
+      '<p>Das schriftliche Anbot muss mindestens <strong>523.500,00</strong> EUR betragen.</p>',
+      `<p>Der Bieter wird zum Erlag des Vadiums von ${deposit}</p>`,
+    ).replace('Zuschlag ohne Überbot', 'Schriftliche Anbote')
+    const detail = parseDetailPage(html)
+    expect(detail.fields).toMatchObject({
+      schaetzwertEur: null,
+      geringstesGebotEur: 523_500,
+      vadiumEur: 69_800,
+    })
+  })
+
+  it('keeps labelled written-bid amounts ahead of paragraph amounts', () => {
+    const html = page(
+      '<div class="row"><span>Geringstes Gebot:</span><p>500.000,00 EUR</p></div>',
+      '<div class="row"><span>Vadium:</span><p>50.000,00 EUR</p></div>',
+      '<p>Das schriftliche Anbot muss mindestens 523.500,00 EUR betragen.</p>',
+      '<p>Vadiums von 69.800,00 EUR</p>',
+    ).replace('Zuschlag ohne Überbot', 'Schriftliche Anbote')
+    expect(parseDetailPage(html).fields).toMatchObject({
+      geringstesGebotEur: 500_000,
+      vadiumEur: 50_000,
+    })
+  })
+
+  it('does not use historical, unrelated or unreadable amounts for written bids', () => {
+    const html = page(
+      '<p>Die Kosten betragen EUR 5.000,00.</p>',
+      '<p>Das schriftliche Anbot muss mindestens unbekannt, Gebühren EUR 1.000,00 betragen.</p>',
+      '<p>Vadiums von nicht bekannt; Gebühren EUR 1.000,00</p>',
+      '<div class="edibody"><p>Das schriftliche Anbot muss mindestens 523.500,00 EUR betragen.</p><p>Vadiums von 69.800,00 EUR</p></div>',
+    ).replace('Zuschlag ohne Überbot', 'Schriftliche Anbote')
+    expect(parseDetailPage(html).fields).toMatchObject({
+      geringstesGebotEur: null,
+      vadiumEur: null,
+    })
+  })
+
+  it('does not use the written-bid fallback for another notice type', () => {
+    const detail = parseDetailPage(
+      page(
+        '<p>Das schriftliche Anbot muss mindestens 523.500,00 EUR betragen.</p>',
+        '<p>Vadiums von 69.800,00 EUR</p>',
+      ),
+    )
+    expect(detail.fields).toMatchObject({ geringstesGebotEur: null, vadiumEur: null })
+  })
+
   it('does not count an annex in the Langgutachten row as a Langgutachten', () => {
     const detail = parseDetailPage(
       page(
@@ -510,5 +590,24 @@ describe('parseDetailPage on small pages', () => {
       ['langgutachten', 'Langgutachten'],
       ['other', 'Beilagen zum Langgutachten'],
     ])
+  })
+})
+
+describe('extractEur', () => {
+  it.each([
+    ['Wert EUR 1 350 000,00', 1_350_000],
+    ['Wert 1 350 000,00 EUR', 1_350_000],
+    ['Wert 1\u202f350\u202f000,00 Euro laut Gutachten', 1_350_000],
+    ['Preis: € 1.350.000,-- zuzüglich Gebühren', 1_350_000],
+    ['Wert EUR 1.350.000,--. Nächster Satz.', 1_350_000],
+    ['Wert EUR 1.350.000,00. Nächster Satz.', 1_350_000],
+    ['EUR 1 35 000,00', null],
+    ['Wert 1 35 000,00 EUR', null],
+    ['Wert EUR -1 350 000,00', null],
+    ['Wert - 1 350 000,00 EUR', null],
+    ['Wert EUR 12.34.5', null],
+    ['Wert 12.34.5 EUR', null],
+  ])('reads the complete amount in %s', (text, expected) => {
+    expect(extractEur(text)).toBe(expected)
   })
 })

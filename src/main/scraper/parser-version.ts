@@ -5,5 +5,7 @@
  *
  * 2: property type refined from the object title; case keys ignore spacing in
  * the object description.
+ * 3: complete currency amounts with grouped spaces, including winning bids;
+ * explicit minimum offers and deposits in written-bid paragraphs.
  */
-export const PARSER_VERSION = 2
+export const PARSER_VERSION = 3

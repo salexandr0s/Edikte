@@ -1,6 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
+import { ListingQuerySchema } from '@shared/domain'
 import { openDatabase } from '../../../src/main/db/client'
+import { queryListings } from '../../../src/main/db/listing-store'
 import { documents } from '../../../src/main/db/schema'
 import { createSyncStore } from '../../../src/main/db/sync-store'
 import type { Bundesland, EdictSource } from '@shared/enums'
@@ -22,7 +24,7 @@ interface ApiRow {
   updatedAt?: string
 }
 
-function detail(id: number, bundesland = 'Wien') {
+function detail(id: number, bundesland = 'Wien', publishedAt = '2026-10-01') {
   const section = (
     title: string,
     values: Record<string, string>,
@@ -39,7 +41,7 @@ function detail(id: number, bundesland = 'Wien') {
         section('Grunddaten', {
           Dienststelle: 'HG Musterstadt (099)',
           Aktenzeichen: '099 1 S 1/26 x',
-          Bekanntmachungsdatum: '01.10.2026',
+          Bekanntmachungsdatum: publishedAt,
           'Art der Bekanntmachung': 'Liegenschaft',
           'Art der Transaktion': 'Veräußerung',
           'Name Schuldner:in': 'Private Person',
@@ -233,19 +235,40 @@ describe('insolvency sync strategy', () => {
   })
 
   it('reads every page and verifies each Land count before deduplicating', async () => {
-    const { source, store, sync } = setup([])
+    const source = new FakeApi()
+    const db = openDatabase(':memory:')
     source.answer = (url) => {
       const id = /\/edikte\/(\d+)$/.exec(url.pathname)?.[1]
-      if (id !== undefined) return detail(Number(id))
+      if (id !== undefined)
+        return detail(Number(id), 'Wien', id === '990002' ? '2023-01-17' : '2026-11-09')
       const page = Number(url.searchParams.get('page'))
-      return search([row(990000 + page)], { page, pageSize: 1, total: 2 })
+      return search([row(990000 + page, page === 2 ? '2023-01-17' : '2026-11-09')], {
+        page,
+        pageSize: 1,
+        total: 2,
+      })
     }
-    expect(await sync()).toMatchObject({ status: 'ok', listed: 2, fetched: 2 })
-    expect(source.urls.filter((url) => url.includes('?'))).toHaveLength(2)
-    expect(store.commits[0]?.upserts.map((write) => write.edict.id)).toEqual([
-      'mv-990001',
-      'mv-990002',
-    ])
+    try {
+      expect(
+        await runSync({
+          site: createInsolvencySite(source),
+          store: createSyncStore(db),
+          scope: ['wien'],
+          now: () => new Date('2026-11-10T08:00:00Z'),
+        }),
+      ).toMatchObject({ status: 'ok', listed: 2, fetched: 2, changed: 2 })
+      expect(source.urls.filter((url) => url.includes('?'))).toHaveLength(2)
+      const listings = queryListings(db, ListingQuerySchema.parse({})).rows
+      expect(listings.map((listing) => listing.id)).toEqual(['mv-990001', 'mv-990002'])
+      expect(listings[1]).toMatchObject({
+        id: 'mv-990002',
+        publishedAt: '2023-01-17',
+        status: 'on_offer',
+        removedAt: null,
+      })
+    } finally {
+      db.$client.close()
+    }
   })
 
   it('retries a count mismatch once and trusts a complete retry', async () => {

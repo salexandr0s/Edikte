@@ -126,12 +126,13 @@ export function parseDetailPage(html: string): ParsedDetail {
   const heading = normalizeSpace(root.find('h1').first().text())
   const separator = heading.indexOf(' - ')
   const noticeText = separator === -1 ? heading : heading.slice(0, separator)
+  const noticeType = noticeTypeForText(noticeText)
   const objectTitle = separator === -1 ? '' : heading.slice(separator + 3).trim()
   const { fields: rows, chain } = readPageRows($, root)
   const rawLabels = rawLabelMap($, rows)
   return {
     id: edictIdFromHref($('#ajax_link a[href]').first().attr('href')),
-    noticeType: noticeTypeForText(noticeText),
+    noticeType,
     noticeText,
     objectTitle: objectTitle === '' ? null : objectTitle,
     corrected: root
@@ -139,7 +140,7 @@ export function parseDetailPage(html: string): ParsedDetail {
       .toArray()
       .some((element) => /Berichtigte Fassung/i.test($(element).text())),
     rawLabels,
-    fields: readFields($, root, rawLabels),
+    fields: readFields($, root, rawLabels, noticeType),
     changeLog: readChangeLog($, root),
     related: chain.map((row) => readChainEntry(row)),
     documents: readDocuments($, rows),
@@ -152,6 +153,7 @@ function readFields(
   $: CheerioAPI,
   root: Elements,
   rawLabels: Readonly<Record<string, string>>,
+  noticeType: NoticeType,
 ): DetailFields {
   const lookup = labelLookup(rawLabels)
   const value = (...labels: string[]): string | null => {
@@ -193,8 +195,14 @@ function readFields(
     objektgroesseSqm: mapValue(value('Objektgröße'), extractSqm),
     objektgroesseRaw: firstLine(value('Objektgröße')),
     schaetzwertEur: mapValue(value('Schätzwert'), extractEur),
-    geringstesGebotEur: mapValue(value('Geringstes Gebot'), extractEur),
-    vadiumEur: mapValue(value('Vadium'), extractEur),
+    geringstesGebotEur:
+      mapValue(value('Geringstes Gebot'), extractEur) ??
+      (noticeType === 'schriftliche_anbote'
+        ? writtenBidAmount($, root, WRITTEN_BID_MINIMUM)
+        : null),
+    vadiumEur:
+      mapValue(value('Vadium'), extractEur) ??
+      (noticeType === 'schriftliche_anbote' ? writtenBidAmount($, root, WRITTEN_BID_VADIUM) : null),
     meistbotEur: mapValue(value('Meistbot'), extractEur) ?? meistbotFromText($, root),
     zubehoer: zubehoer.length === 0 ? null : zubehoer.join('\n'),
     remarks: value('Sonstige Hinweise'),
@@ -249,11 +257,24 @@ function readLandRegister(rawLabels: Readonly<Record<string, string>>): {
  */
 function meistbotFromText($: CheerioAPI, root: Elements): number | null {
   for (const element of root.children('p').toArray()) {
-    const match = /Meistbot(?:es)?\s+von\s+(?:(?:EUR|€)\s*)?(\d[\d.,']*\d|\d)/i.exec(
-      normalizeSpace($(element).text()),
-    )
-    const amount = match?.[1] === undefined ? null : extractEur(match[1])
+    const match = /Meistbot(?:es)?\s+von\s+(.+)/i.exec(normalizeSpace($(element).text()))
+    const amount = match?.[1] === undefined ? null : extractEur(match[1], 'start')
     if (amount !== null) return amount
+  }
+  return null
+}
+
+const WRITTEN_BID_MINIMUM = /\bschriftliches?\s+Anbot\s+muss\s+mindestens\s+(.+?)\s+betragen\b/i
+const WRITTEN_BID_VADIUM =
+  /\bVadiums?\s+von\s+((?:(?:Euro|EUR|€)\s*)?[+\-\u2212]?\s*\d[\d.,'\s+\-\u2212]*(?:Euro|EUR|€)?)(?![\p{L}\p{N}'+\-\u2212])/iu
+
+function writtenBidAmount($: CheerioAPI, root: Elements, pattern: RegExp): number | null {
+  // Nested paragraphs can belong to historical notices of the same case.
+  for (const element of root.children('p').toArray()) {
+    const stated = pattern.exec(normalizeSpace($(element).text()))?.[1]
+    if (stated === undefined) continue
+    if (!/(?:Euro|EUR|€)/i.test(stated)) return null
+    return extractEur(stated, 'exact')
   }
   return null
 }

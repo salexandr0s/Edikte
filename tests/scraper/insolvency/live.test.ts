@@ -3,9 +3,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { and, eq, isNull } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
-import { SyncStatusSchema } from '@shared/domain'
+import { ListingQuerySchema, SyncStatusSchema } from '@shared/domain'
 import { isAppError } from '@shared/errors'
 import { openDatabase } from '../../../src/main/db/client'
+import { queryListings } from '../../../src/main/db/listing-store'
 import { documents, edicts } from '../../../src/main/db/schema'
 import { downloadDocument } from '../../../src/main/documents/download'
 import { EdikteClient } from '../../../src/main/scraper/client'
@@ -70,7 +71,7 @@ describe.skipIf(process.env.EDIKTE_LIVE !== '1')(
             metrics.push(metric)
           }
         }
-        const client = new EdikteClient({ appVersion: '0.1.0', fetch: measuredFetch })
+        const client = new EdikteClient({ appVersion: '0.2.0', fetch: measuredFetch })
         let service: SyncService | null = null
         let lastProgressAt = 0
         let progressEvents = 0
@@ -134,6 +135,53 @@ describe.skipIf(process.env.EDIKTE_LIVE !== '1')(
               ),
             }),
           )
+          const stored = db
+            .select({
+              id: edicts.id,
+              source: edicts.source,
+              publishedAt: edicts.publishedAt,
+              schaetzwertEur: edicts.schaetzwertEur,
+              geringstesGebotEur: edicts.geringstesGebotEur,
+            })
+            .from(edicts)
+            .where(isNull(edicts.removedAt))
+            .all()
+          for (const summary of summaries) {
+            const records = stored.filter((record) => record.source === summary.source)
+            const visible = queryListings(
+              db,
+              ListingQuerySchema.parse({ sources: [summary.source] }),
+            ).rows
+            const dates = records.flatMap((record) => record.publishedAt ?? []).toSorted()
+            const visibleDates = visible.flatMap((row) => row.publishedAt ?? []).toSorted()
+            report(
+              'live-listing-completeness',
+              JSON.stringify({
+                source: summary.source,
+                discovered: summary.listed,
+                stored: records.length,
+                defaultVisible: visible.length,
+                oldestPublishedAt: dates[0] ?? null,
+                oldestVisiblePublishedAt: visibleDates[0] ?? null,
+                visibleWithPrice: visible.filter(
+                  (row) => row.schaetzwertEur !== null || row.geringstesGebotEur !== null,
+                ).length,
+                visibleWithoutPrice: visible.filter(
+                  (row) => row.schaetzwertEur === null && row.geringstesGebotEur === null,
+                ).length,
+              }),
+            )
+            expect(records).toHaveLength(summary.listed)
+            if (summary.source === 'insolvency_sale') {
+              expect(visible).toHaveLength(records.length)
+              expect(visibleDates[0]).toBe(dates[0])
+            }
+            const storedRecords = new Map(records.map((record) => [record.id, record]))
+            for (const row of visible) {
+              expect(row.schaetzwertEur).toBe(storedRecords.get(row.id)?.schaetzwertEur)
+              expect(row.geringstesGebotEur).toBe(storedRecords.get(row.id)?.geringstesGebotEur)
+            }
+          }
           const candidates = db
             .select({
               edictId: documents.edictId,

@@ -276,7 +276,7 @@ export function parseInsolvencyDetail(json: unknown, recordNumber: number): Inso
     grundstuecksgroesseSqm: mapValue(property('Grundstücksgröße'), extractSqm),
     objektgroesseSqm: mapValue(objektgroesse, extractSqm),
     objektgroesseRaw: objektgroesse,
-    valueEur: mapValue(property('Wert des Objekts'), euroAmount),
+    valueEur: mapValue(property('Wert des Objekts'), extractEur),
     zubehoer: accessories(property),
     link: property('Weiterführender Link'),
     facts: readFacts(property),
@@ -450,14 +450,6 @@ function transactionFor(text: string | null): InsolvencyTransaction {
   const key = text === null ? '' : labelKey(text)
   if (key === SALE) return 'sale'
   return key === LEASE ? 'lease' : 'other'
-}
-
-/**
- * "€ 135 000,00" gives 135000. The API groups thousands with no-break spaces,
- * so every kind of whitespace is removed before the amount is read.
- */
-function euroAmount(text: string): number | null {
-  return extractEur(text.replace(/\s+/g, ''))
 }
 
 function accessories(property: Lookup): string | null {

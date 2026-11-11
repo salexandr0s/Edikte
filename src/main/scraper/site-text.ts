@@ -223,15 +223,44 @@ export function categoryCodesFor(label: string | null): CategoryCode[] {
   return [...new Set(codes)]
 }
 
-const MONEY_NEAR_CURRENCY = /(?:EUR|€)\s*(\d[\d.,']*\d|\d)|(\d[\d.,']*\d|\d)\s*(?:EUR|€)/i
+const EURO = String.raw`(?:Euro|EUR|€)(?!\p{L})`
+// Consume the whole numeric token, including malformed separators or signs.
+// Validation must reject it rather than retry a shorter positive fragment.
+const MONEY_NUMBER = String.raw`[+\-\u2212]?\s*\d(?:[\d.,'+\-\u2212]|[ \t\u00a0\u2007\u202f]+(?=\d))*`
+const MONEY_NEAR_CURRENCY = new RegExp(
+  String.raw`(?<![\p{L}\p{N}])${EURO}\s*(${MONEY_NUMBER})|(?<![\p{L}\p{N}.,'+\-\u2212])(${MONEY_NUMBER})\s*${EURO}`,
+  'iu',
+)
+const MONEY_AT_START = new RegExp(
+  String.raw`^\s*(?:${EURO}\s*)?(${MONEY_NUMBER})(?:\s*${EURO})?(?![\p{L}\p{N}.,'+\-\u2212])`,
+  'iu',
+)
+const CURRENCY_EDGES = /^(?:Euro|EUR|€)\s*|\s*(?:Euro|EUR|€)$/gi
+const GROUPING_SPACE = /[ \t\u00a0\u2007\u202f]/
+const SPACE_GROUPED_AMOUNT = /^\d{1,3}(?:[ \t\u00a0\u2007\u202f]+\d{3})+(?:[.,](?:\d+|-{1,2}))?$/
+
+function parseMoneyAmount(raw: string): number | null {
+  const amount = raw
+    .trim()
+    .replace(CURRENCY_EDGES, '')
+    .trim()
+    .replace(/(?<=[\d-])\.$/, '')
+  const unsigned = amount.replace(/^[+\-\u2212]\s*/, '')
+  if (GROUPING_SPACE.test(unsigned) && !SPACE_GROUPED_AMOUNT.test(unsigned)) return null
+  return parseEur(amount)
+}
 
 /** Euro amount of a value such as "382.000,00 EUR", or the first amount in a sentence. */
-export function extractEur(text: string): number | null {
-  const direct = parseEur(text.split('\n')[0] ?? '')
+export function extractEur(
+  text: string,
+  position: 'anywhere' | 'start' | 'exact' = 'anywhere',
+): number | null {
+  if (position === 'exact') return parseMoneyAmount(text)
+  const direct = parseMoneyAmount(text.split('\n')[0] ?? '')
   if (direct !== null) return direct
-  const match = MONEY_NEAR_CURRENCY.exec(text)
+  const match = (position === 'start' ? MONEY_AT_START : MONEY_NEAR_CURRENCY).exec(text)
   const amount = match?.[1] ?? match?.[2]
-  return amount === undefined ? null : parseEur(amount)
+  return amount === undefined ? null : parseMoneyAmount(amount)
 }
 
 /** Area of a value such as "85,22 m²", or the first area mentioned in it. */

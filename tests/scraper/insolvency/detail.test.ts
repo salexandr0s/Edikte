@@ -244,6 +244,20 @@ describe('the debtor of a notice', () => {
 })
 
 describe('parseInsolvencyDetail', () => {
+  it.each([
+    ['laut Gutachten EUR 1\u00a0350\u00a0000,00', 1_350_000],
+    ['1 350 000,-- Euro laut Gutachten', 1_350_000],
+    ['EUR 1 35 000,00', null],
+    ['EUR -1 350 000,00', null],
+  ])('reads the complete published property value: %s', (text, expected) => {
+    const detail = parseInsolvencyDetail(
+      record([list('Adressdaten, Beschreibung und Schätzwert', { 'Wert des Objekts': text })]),
+      990009,
+    )
+    expect(detail.valueEur).toBe(expected)
+    expect(detail.rawLabels['Wert des Objekts']).toBe(text.replace(/\s+/g, ' '))
+  })
+
   // Catches the record of another number stored under the requested one, and an error page read as an empty record.
   it('reports another record number and a body that is no record as site_changed', () => {
     const published = readJsonFixture('detail-rich.json')
