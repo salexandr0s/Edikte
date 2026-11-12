@@ -1,6 +1,6 @@
-# Session handoff: 2026-11-11
+# Session handoff: 2026-11-12
 
-Project: Edikte. Branch: `codex/listing-completeness-prices`. This implementation starts from `37cb0a6`; the earlier price/completeness fixes remain in `1525f78`. The user approved and requested implementation of the saved-search notification and opening-dashboard plan. The installed app and real user-data folder were not opened or migrated. No release, push, or install was requested.
+Project: Edikte. Branch: `codex/listing-completeness-prices`. Feature implementation is committed as `6af1a37`, based on `37cb0a6`; the earlier price/completeness fixes remain in `1525f78`. The user approved and requested implementation of the saved-search notification and opening-dashboard plan. The installed app and real user-data folder were not opened or migrated. No release, push, or install was requested.
 
 ## Completed
 
@@ -31,15 +31,16 @@ Project: Edikte. Branch: `codex/listing-completeness-prices`. This implementatio
 - `npm run test:e2e`: passed. Covers onboarding to dashboard, both languages, real persisted weekly alert configuration/time/weekday/desktop preference, notification empty state/unsupported transport, collection return navigation, and Listings navigation.
 - Mock browser checks: English/German, light/dark, 960 px no horizontal overflow, selected-search preservation through detail navigation, fixed notification results, and no page errors.
 - Packaged macOS arm64 build: produced in an isolated temporary output directory; code signature is ad hoc. Packaged self-check exited 0 with a temporary database and offline mode.
-- Packaged native delivery: opened the isolated app through native UI, completed onboarding, and requested a test notification. UI reported an attempt. The Mac locked before a banner or click could be verified; no claim of confirmed native display is made.
+- Packaged native delivery, 2026-11-12: resumed on the unlocked Mac using a separate test bundle identifier and a baked-in temporary database path, with three fabricated digests prepared for running/restarted/fully-quit click scenarios. Three actual delivery attempts failed with `Notifications are not allowed for this application`. The macOS notification service logged `Failed to find or validate client of identifier` for the isolated bundle. Launch Services registration and strict code-signature verification were checked; a parent-only identifier requirement was also tested on the temporary bundle, without resolving the rejection. The app showed failed desktop delivery and retained the original digest and its one item. No native banner appeared, so all native click scenarios remain unverified. Further delivery retries stopped under the workspace three-failure rule. No product code or OS notification preference was changed.
 - `git diff --check`: passed before handoff.
 - No live scraping or AI request ran for this feature; tests and app checks used temporary data.
 
 ## Remaining / known gaps
 
-- Confirm macOS notification banner and click behavior on an unlocked desktop with OS notifications allowed.
+- macOS native display/click testing is blocked by app-identity validation, rather than the lock screen. The current local test build and the existing `/Applications/Edikte.app` both use ad-hoc signatures. A macOS-accepted signed test build or a Developer ID signing setup is the next candidate to test; the precise signing requirement is not established. A question requesting a signed build/signing setup was sent to the user. Do not retry the same rejected configuration without a changed condition. Keep any cold-launch test isolated: a CLI-only temporary-data environment variable is lost when macOS launches an app from a notification, so the temporary test copy bakes the data path into its bootstrap.
 - Verify native display and historical/cold activation on an installed Windows build; this environment is macOS.
 - No release, version bump, push, or installation was performed. Alerts default off for every saved search.
+- Native test report: `/Users/nationalbank/.codex/visualizations/2026/11/11/01a1cb46-76b7-7dc0-98fc-1b30efc59458/native-notifications-check-2026-11-12.md`.
 - Dashboard screenshot with made-up data: `/Users/nationalbank/.codex/visualizations/2026/11/11/01a1cb46-76b7-7dc0-98fc-1b30efc59458/edikte-dashboard.png`.
 
 ## Resume commands
