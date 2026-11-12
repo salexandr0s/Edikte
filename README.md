@@ -121,7 +121,7 @@ Edikte speichert alle Daten in einem Ordner:
 - macOS: `~/Library/Application Support/Edikte`
 - Windows: `%APPDATA%\Edikte`
 
-Darin liegen die Datenbank (`edikte.sqlite`), die heruntergeladenen Gutachten (`documents`), die Kartenkacheln (`tiles`) und die verschlüsselten Anmeldedaten (`secrets.json`). Den genauen Pfad zeigt das App-Fenster nach „Datenordner:“ an. Heruntergeladene Gutachten löscht die App, sobald ein Verfahren länger als die eingestellte Frist abgeschlossen ist, standardmäßig 90 Tage.
+Darin liegen die Datenbank (`edikte.sqlite`), die heruntergeladenen Gutachten (`documents`), die Kartenkacheln (`tiles`) und die verschlüsselten Anmeldedaten (`secrets.json`). Den genauen Pfad zeigen die Einstellungen unter „Datenordner“ an. Heruntergeladene Gutachten löscht die App, sobald ein Verfahren länger als die eingestellte Frist abgeschlossen ist, standardmäßig 90 Tage.
 
 Vor einer anstehenden Datenbankmigration legt Edikte eine konsistente Sicherung im Unterordner `migration-backups` an. Schlägt die Sicherung fehl, wird die Datenbank nicht aktualisiert. Sicherungen bleiben erhalten, bis Sie sie selbst entfernen.
 
@@ -284,7 +284,7 @@ Edikte keeps all its data in one folder:
 - macOS: `~/Library/Application Support/Edikte`
 - Windows: `%APPDATA%\Edikte`
 
-It holds the database (`edikte.sqlite`), the downloaded appraisal reports (`documents`), the map tiles (`tiles`) and the encrypted sign-in data (`secrets.json`). The app window shows the exact path after "Data folder:". The app deletes a downloaded report once its case has been closed for longer than the retention setting, 90 days by default.
+It holds the database (`edikte.sqlite`), the downloaded appraisal reports (`documents`), the map tiles (`tiles`) and the encrypted sign-in data (`secrets.json`). Settings shows the exact path under "Data folder". The app deletes a downloaded report once its case has been closed for longer than the retention setting, 90 days by default.
 
 Before a pending database migration, Edikte saves a consistent backup in the `migration-backups` subfolder. If the backup fails, the database is not upgraded. Backups remain until you remove them.
 

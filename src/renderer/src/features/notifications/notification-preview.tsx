@@ -1,14 +1,22 @@
 import { useTranslation } from 'react-i18next'
 import type { NotificationSummary } from '@shared/notifications'
 import { Badge } from '../../components/ui/badge'
+import { TILE, TILE_INTERACTIVE } from '../../components/ui/tile'
+import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
 
 interface NotificationPreviewProps {
   notification: NotificationSummary
   onOpen: (notification: NotificationSummary) => void
+  /** `tile` stands on the page; `row` is a line in a card's list. */
+  variant?: 'tile' | 'row'
 }
 
-export function NotificationPreview({ notification, onOpen }: NotificationPreviewProps) {
+export function NotificationPreview({
+  notification,
+  onOpen,
+  variant = 'tile',
+}: NotificationPreviewProps) {
   const { t } = useTranslation()
   const format = useFormat()
   const name =
@@ -22,7 +30,12 @@ export function NotificationPreview({ notification, onOpen }: NotificationPrevie
     <button
       type="button"
       onClick={() => onOpen(notification)}
-      className="flex w-full flex-col gap-2 rounded-md border border-border bg-surface p-4 text-left transition-colors duration-120 hover:border-border-strong hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring-soft"
+      className={cx(
+        'flex w-full flex-col gap-1.5 text-left',
+        variant === 'tile'
+          ? `${TILE} ${TILE_INTERACTIVE} px-6 py-5`
+          : 'rounded-md px-3 py-2 transition-colors duration-120 hover:bg-surface-hover',
+      )}
     >
       <span className="flex w-full flex-wrap items-start justify-between gap-2">
         <span className="min-w-0 font-medium wrap-break-word">{name}</span>

@@ -67,3 +67,18 @@ Reuse the successful checks for the same revision; rerun only those invalidated 
 - Schedules use Europe/Vienna wall time: nonexistent DST times move to the next valid minute, repeated times use the first occurrence. Missed periods combine into one catch-up digest per search.
 - Delivery rechecks may discard pending candidates; published digests retain their original count, membership, and previews permanently, with current availability shown separately.
 - Current app lifecycle is retained; no tray mode, external agent, email service, or server was added.
+
+## Design pass (separate Claude session)
+
+This is the concurrent renderer work named under "Remaining / known gaps". It is committed on `codex/listing-completeness-prices` as `feat(renderer): unify screen layout and simplify the shell`.
+
+- Shared screen frame: `components/ui/page.tsx` (`Page`, `PageHeader`) and `components/ui/tile.ts` (`TILE`, `TILE_INTERACTIVE`). Dashboard, listings, notifications, collection and settings use them.
+- Dashboard: stat tiles, empty sections collapsed to one row, listing tiles with label/value rows, saved searches as rows, baseline and tracking notes moved into Data freshness.
+- Listings table: 12 px cell padding below 1280 px (`CELL_X`), so the property column no longer truncates at 960 px.
+- Settings: equal-width dividers in Data and sync. Detail: no "not downloaded" badge beside the Download button. Filter dialog: top spacing.
+- Shell: footer removed; the header language picker shows only during setup. Version and data folder are in Settings. `shell.dataDir` removed from both languages; README points to Settings for the data folder path.
+- `tests/e2e/smoke.spec.ts` switches language through the Settings radios and reads version and data folder from Settings.
+
+Checked before the commit: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test` (805 passed, 2 skipped), `npm run test:e2e` (1 passed, run in the Terminal panel), and the mock renderer in English and German, light and dark, at 960 and 1280 px.
+
+Not checked: Windows, a packaged build, and the README screenshots in `docs/screenshots/`, which still show the footer and the old dashboard (`npm run screenshots` regenerates them).

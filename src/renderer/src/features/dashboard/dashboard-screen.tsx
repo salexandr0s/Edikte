@@ -1,14 +1,23 @@
-import { useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { CollectionItem, CollectionSection, ListingCollection } from '@shared/notifications'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { EmptyState } from '../../components/ui/empty-state'
-import { AlertCircleIcon, BookmarkIcon, InboxIcon, RefreshIcon } from '../../components/ui/icons'
+import {
+  AlertCircleIcon,
+  BookmarkIcon,
+  ChevronRightIcon,
+  InboxIcon,
+  RefreshIcon,
+} from '../../components/ui/icons'
+import { Page, PageHeader } from '../../components/ui/page'
 import { Select } from '../../components/ui/select'
 import { Skeleton } from '../../components/ui/skeleton'
 import { Spinner } from '../../components/ui/spinner'
+import { TILE, TILE_INTERACTIVE } from '../../components/ui/tile'
 import { useApp } from '../../lib/app-context'
+import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
 import { OpportunityList } from '../collections/opportunity-list'
 import { useSync } from '../listings/use-sync'
@@ -24,6 +33,11 @@ const COUNT_KEYS = {
   upcoming: 'upcoming',
   starred: 'starred',
 } as const
+const LISTING_SECTIONS = [
+  { section: 'new', items: 'newListings', key: 'new' },
+  { section: 'upcoming', items: 'upcomingListings', key: 'upcoming' },
+  { section: 'starred', items: 'starredListings', key: 'starred' },
+] as const
 
 /** Stays mounted under details so the selected saved search survives navigation. */
 export function DashboardScreen() {
@@ -52,38 +66,43 @@ export function DashboardScreen() {
     data.coverage.every((item) => item.lastSuccessAt === null)
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
-            {t('dashboard.title')}
-          </h1>
-          <p className="text-sm text-fg-muted">{t('dashboard.description')}</p>
-        </div>
-        <div className="flex max-w-full items-center gap-3">
-          <Select
-            value={filterId === null ? 'all' : String(filterId)}
-            aria-label={t('dashboard.searchLabel')}
-            className="w-auto max-w-full"
-            options={[
-              { value: 'all', label: t('dashboard.allSearches') },
-              ...[...filterNames].map(([id, name]) => ({ value: String(id), label: name })),
-            ]}
-            onValueChange={(value) => setFilterId(value === 'all' ? null : Number(value))}
-          />
-          <Button
-            variant="outline"
-            loading={running || sync.pending === 'start'}
-            onClick={() => {
-              sync.start()
-              reload()
-            }}
-          >
-            <RefreshIcon />
-            {t('dashboard.refresh')}
-          </Button>
-        </div>
-      </header>
+    <Page>
+      <PageHeader
+        title={t('dashboard.title')}
+        description={t('dashboard.description')}
+        actions={
+          <>
+            <Select
+              value={filterId === null ? 'all' : String(filterId)}
+              aria-label={t('dashboard.searchLabel')}
+              className="w-auto max-w-full"
+              options={[
+                { value: 'all', label: t('dashboard.allSearches') },
+                ...[...filterNames].map(([id, name]) => ({ value: String(id), label: name })),
+              ]}
+              onValueChange={(value) => setFilterId(value === 'all' ? null : Number(value))}
+            />
+            <Button
+              variant="outline"
+              loading={running || sync.pending === 'start'}
+              onClick={() => {
+                sync.start()
+                reload()
+              }}
+            >
+              <RefreshIcon />
+              {t('dashboard.refresh')}
+            </Button>
+          </>
+        }
+      >
+        {data !== null && (
+          <div className="flex items-center gap-2 text-xs text-fg-muted">
+            <p>{t('dashboard.updatedAt', { time: format.timestamp(data.generatedAt) })}</p>
+            {loading && <Spinner className="size-3" />}
+          </div>
+        )}
+      </PageHeader>
 
       {data === null ? (
         error === null ? (
@@ -125,24 +144,34 @@ export function DashboardScreen() {
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4" aria-busy={loading}>
             {SECTIONS.map((section) => {
               const key = COUNT_KEYS[section]
+              const count = data.counts[key]
               return (
                 <button
                   key={section}
                   type="button"
                   onClick={() => openSection(section)}
-                  className="flex min-w-0 flex-col items-start gap-2 rounded-lg border border-border bg-surface p-5 text-left shadow-xs transition-colors duration-120 hover:border-border-strong hover:bg-surface-hover focus-visible:ring-3 focus-visible:ring-ring-soft focus-visible:outline-none active:bg-fill-muted"
+                  className={cx(
+                    TILE,
+                    TILE_INTERACTIVE,
+                    'group flex min-w-0 flex-col items-start gap-2 p-5 text-left active:bg-fill-muted',
+                  )}
                 >
-                  <span className="text-sm text-fg-muted">{t(`dashboard.counts.${key}`)}</span>
-                  <span className="text-3xl font-semibold tracking-tight tabular-nums">
-                    {format.number(data.counts[key])}
+                  <span className="flex w-full items-center justify-between gap-2 text-sm text-fg-muted">
+                    {t(`dashboard.counts.${key}`)}
+                    <ChevronRightIcon className="shrink-0 opacity-40 transition-opacity duration-120 group-hover:opacity-100" />
+                  </span>
+                  <span
+                    className={cx(
+                      'text-3xl font-semibold tracking-tight tabular-nums',
+                      // A zero is information, not a headline.
+                      count === 0 && 'text-fg-muted',
+                    )}
+                  >
+                    {format.number(count)}
                   </span>
                 </button>
               )
             })}
-          </div>
-          <div className="flex items-center gap-2 text-xs text-fg-muted">
-            {loading && <Spinner className="size-3.5" />}
-            <p>{t('dashboard.updatedAt', { time: format.timestamp(data.generatedAt) })}</p>
           </div>
 
           {firstImport && (
@@ -150,7 +179,7 @@ export function DashboardScreen() {
               icon={<InboxIcon />}
               title={t('dashboard.firstImportTitle')}
               description={t('dashboard.firstImportText')}
-              className="rounded-lg border border-border bg-surface"
+              className={TILE}
               action={
                 <Button loading={running || sync.pending === 'start'} onClick={sync.start}>
                   <RefreshIcon />
@@ -173,77 +202,26 @@ export function DashboardScreen() {
             />
           ) : (
             <>
-              <Card
-                title={t('dashboard.newTitle')}
-                description={t('dashboard.newDescription')}
-                actions={
-                  <Button variant="link" onClick={() => openSection('new')}>
-                    {t('dashboard.viewAll')}
-                  </Button>
-                }
-              >
-                <div className="flex flex-col gap-4">
-                  {data.newListings.length === 0 ? (
-                    <p className="text-sm text-fg-muted">{t('dashboard.newEmpty')}</p>
-                  ) : (
-                    <OpportunityList
-                      items={data.newListings}
-                      onOpen={openListing}
-                      filterNames={filterNames}
-                      showBothPrices={filterId === null}
-                    />
-                  )}
-                  <p className="text-xs text-fg-muted">{t('dashboard.baseline')}</p>
-                  {data.trackingStartedAt !== null && (
-                    <p className="text-xs text-fg-muted">
-                      {t('dashboard.trackingSince', {
-                        time: format.timestamp(data.trackingStartedAt),
-                      })}
-                    </p>
-                  )}
-                </div>
-              </Card>
-
-              <Card
-                title={t('dashboard.upcomingTitle')}
-                description={t('dashboard.upcomingDescription')}
-                actions={
-                  <Button variant="link" onClick={() => openSection('upcoming')}>
-                    {t('dashboard.viewAll')}
-                  </Button>
-                }
-              >
-                {data.upcomingListings.length === 0 ? (
-                  <p className="text-sm text-fg-muted">{t('dashboard.upcomingEmpty')}</p>
-                ) : (
+              {LISTING_SECTIONS.map(({ section, items, key }) => (
+                <ListingSection
+                  key={section}
+                  title={t(`dashboard.${key}Title`)}
+                  description={t(`dashboard.${key}Description`)}
+                  empty={data[items].length === 0 ? t(`dashboard.${key}Empty`) : null}
+                  action={
+                    <Button variant="link" onClick={() => openSection(section)}>
+                      {t('dashboard.viewAll')}
+                    </Button>
+                  }
+                >
                   <OpportunityList
-                    items={data.upcomingListings}
+                    items={data[items]}
                     onOpen={openListing}
                     filterNames={filterNames}
                     showBothPrices={filterId === null}
                   />
-                )}
-              </Card>
-              <Card
-                title={t('dashboard.starredTitle')}
-                description={t('dashboard.starredDescription')}
-                actions={
-                  <Button variant="link" onClick={() => openSection('starred')}>
-                    {t('dashboard.viewAll')}
-                  </Button>
-                }
-              >
-                {data.starredListings.length === 0 ? (
-                  <p className="text-sm text-fg-muted">{t('dashboard.starredEmpty')}</p>
-                ) : (
-                  <OpportunityList
-                    items={data.starredListings}
-                    onOpen={openListing}
-                    filterNames={filterNames}
-                    showBothPrices={filterId === null}
-                  />
-                )}
-              </Card>
+                </ListingSection>
+              ))}
               <Card
                 title={t('dashboard.searchesTitle')}
                 description={t('dashboard.searchesDescription')}
@@ -265,10 +243,11 @@ export function DashboardScreen() {
               {data.notifications.length === 0 ? (
                 <p className="text-sm text-fg-muted">{t('dashboard.recentEmpty')}</p>
               ) : (
-                <ul className="flex flex-col gap-3">
+                <ul className="-mx-3 -my-2 flex flex-col gap-1">
                   {data.notifications.map((notification) => (
                     <li key={notification.id}>
                       <NotificationPreview
+                        variant="row"
                         notification={notification}
                         onOpen={(item) =>
                           openCollection({ kind: 'notification', notificationId: item.id })
@@ -283,12 +262,60 @@ export function DashboardScreen() {
               title={t('dashboard.freshnessTitle')}
               description={t('dashboard.freshnessDescription')}
             >
-              <SourceHealth coverage={data.coverage} sync={sync} />
+              <SourceHealth
+                coverage={data.coverage}
+                trackingStartedAt={data.trackingStartedAt}
+                sync={sync}
+              />
             </Card>
           </div>
         </>
       )}
-    </div>
+    </Page>
+  )
+}
+
+interface ListingSectionProps {
+  title: string
+  description: string
+  /** Why the section has nothing to show, or null when it has listings. */
+  empty: string | null
+  action: ReactNode
+  children: ReactNode
+}
+
+/**
+ * A heading with its listings. An empty section shrinks to one quiet row, so
+ * it does not push the sections that have something to show down the page.
+ */
+function ListingSection({ title, description, empty, action, children }: ListingSectionProps) {
+  const titleId = useId()
+  if (empty !== null) {
+    return (
+      <section
+        aria-labelledby={titleId}
+        className="flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-border bg-bg-muted px-5 py-4"
+      >
+        <h2 id={titleId} className="text-base font-semibold">
+          {title}
+        </h2>
+        <p className="text-sm text-fg-muted">{empty}</p>
+      </section>
+    )
+  }
+  return (
+    <section aria-labelledby={titleId} className="flex flex-col gap-4">
+      <header className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 id={titleId} className="text-lg font-semibold tracking-tight">
+            {title}
+          </h2>
+          <p className="text-sm text-fg-muted">{description}</p>
+        </div>
+        <div className="shrink-0">{action}</div>
+      </header>
+      {children}
+    </section>
   )
 }
 

@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { EmptyState } from '../../components/ui/empty-state'
 import { AlertCircleIcon, BellIcon, RefreshIcon } from '../../components/ui/icons'
+import { Page, PageHeader } from '../../components/ui/page'
 import { SegmentedControl } from '../../components/ui/segmented-control'
 import { Spinner } from '../../components/ui/spinner'
 import { useToast } from '../../components/ui/toast'
@@ -120,24 +121,21 @@ export function NotificationsScreen() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 tabIndex={-1} className="text-3xl font-semibold tracking-tight outline-none">
-            {t('notifications.title')}
-          </h1>
-          <p className="text-sm text-fg-muted">{t('notifications.description')}</p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          loading={marking}
-          disabled={page === null || page.unreadCount === 0}
-          onClick={() => void markAll()}
-        >
-          {t('notifications.markAllRead')}
-        </Button>
-      </header>
+    <Page>
+      <PageHeader
+        title={t('notifications.title')}
+        description={t('notifications.description')}
+        actions={
+          <Button
+            variant="outline"
+            loading={marking}
+            disabled={page === null || page.unreadCount === 0}
+            onClick={() => void markAll()}
+          >
+            {t('notifications.markAllRead')}
+          </Button>
+        }
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedControl
           aria-label={t('notifications.filter')}
@@ -209,7 +207,7 @@ export function NotificationsScreen() {
         </div>
       )}
       <DesktopDelivery />
-    </div>
+    </Page>
   )
 }
 

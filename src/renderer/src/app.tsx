@@ -104,7 +104,7 @@ export function App({ info, initialSettings }: AppProps) {
 }
 
 /**
- * Header, main area and footer. The listings screen stays mounted under the
+ * Header and main area. The listings screen stays mounted under the
  * other screens, so its filters and scroll position survive a visit to a
  * listing or to Settings. Each screen fills a scroll container of its own,
  * isolated so sticky headers inside stay below menus and dialogs in portals.
@@ -115,7 +115,7 @@ function Shell({
   collectionView: Extract<View, { screen: 'collection' }> | null
 }) {
   const { t } = useTranslation()
-  const { info, settings, updateSettings, view, navigate } = useApp()
+  const { settings, updateSettings, view, navigate } = useApp()
   const toast = useToast()
   const [savingLanguage, setSavingLanguage] = useState(false)
   const firstRun = view.screen === 'firstRun'
@@ -255,24 +255,33 @@ function Shell({
         )}
         {usingMockBridge && <Badge variant="warning">{t('shell.sampleData')}</Badge>}
         <div className="ml-auto flex items-center gap-2">
-          {!firstRun && <NotificationBell />}
-          <label htmlFor="language" className="sr-only">
-            {t('language.label')}
-          </label>
-          <Select
-            id="language"
-            size="sm"
-            align="end"
-            className="w-auto"
-            leading={<GlobeIcon />}
-            value={settings.language}
-            disabled={savingLanguage}
-            onValueChange={(value) => void selectLanguage(value)}
-            options={LanguageSettingSchema.options.map((option) => ({
-              value: option,
-              label: t(`language.${option}`),
-            }))}
-          />
+          {/*
+           * During setup the picker is the one control a reader of the other
+           * language needs at once. Afterwards the language lives in Settings.
+           */}
+          {firstRun ? (
+            <>
+              <label htmlFor="language" className="sr-only">
+                {t('language.label')}
+              </label>
+              <Select
+                id="language"
+                size="sm"
+                align="end"
+                className="w-auto"
+                leading={<GlobeIcon />}
+                value={settings.language}
+                disabled={savingLanguage}
+                onValueChange={(value) => void selectLanguage(value)}
+                options={LanguageSettingSchema.options.map((option) => ({
+                  value: option,
+                  label: t(`language.${option}`),
+                }))}
+              />
+            </>
+          ) : (
+            <NotificationBell />
+          )}
         </div>
       </header>
 
@@ -328,16 +337,6 @@ function Shell({
           </div>
         )}
       </main>
-
-      <footer className="flex h-9 shrink-0 items-center gap-4 border-t border-border bg-bg-muted px-5 text-xs text-fg-muted">
-        <span className="shrink-0 tabular-nums">
-          {t('shell.version', { version: info.version })}
-        </span>
-        <span aria-hidden="true" className="h-3 w-px bg-border-strong" />
-        <span className="truncate" title={info.dataDir}>
-          {t('shell.dataDir', { path: info.dataDir })}
-        </span>
-      </footer>
     </div>
   )
 }

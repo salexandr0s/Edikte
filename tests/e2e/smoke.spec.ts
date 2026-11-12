@@ -30,10 +30,6 @@ test('opens the dashboard, saves an alert and navigates between result screens',
     })
 
     await expect(window).toHaveTitle('Edikte')
-    // Both values come from app:getInfo through the preload bridge.
-    const footer = window.getByRole('contentinfo')
-    await expect(footer).toContainText(/Version \d+\.\d+\.\d+/)
-    await expect(footer).toContainText(userDataDir)
 
     // A new data folder opens on the first-run screen. Every step moves on with
     // the same button; the last one saves the settings and opens the dashboard.
@@ -47,18 +43,22 @@ test('opens the dashboard, saves an alert and navigates between result screens',
       await expect(dashboardHeading).toBeVisible({ timeout: 1_000 })
     }).toPass({ timeout: 20_000 })
 
-    // The language picker is a custom select: the trigger is a combobox, the
-    // menu lists options by their label.
-    const language = window.getByRole('combobox', { name: /^(Sprache|Language)$/ })
+    // Once setup is done the language is chosen in Settings; a radio saves on click.
+    const nav = window.getByRole('navigation')
+    await nav.getByRole('button', { name: /^(Einstellungen|Settings)$/ }).click()
     const heading = window.getByRole('heading', { level: 1 })
-    await language.click()
-    await window.getByRole('option', { name: 'Deutsch' }).click()
-    await expect(heading.filter({ visible: true })).toHaveText('Übersicht')
+    await window.getByRole('radio', { name: 'Deutsch', exact: true }).click()
+    await expect(heading.filter({ visible: true })).toHaveText('Einstellungen')
     await expect(window.locator('html')).toHaveAttribute('lang', 'de')
-    await language.click()
-    await window.getByRole('option', { name: 'English' }).click()
-    await expect(heading.filter({ visible: true })).toHaveText('Dashboard')
+    await window.getByRole('radio', { name: 'English', exact: true }).click()
+    await expect(heading.filter({ visible: true })).toHaveText('Settings')
     await expect(window.locator('html')).toHaveAttribute('lang', 'en')
+    // Version and data folder come from app:getInfo through the preload bridge.
+    const main = window.getByRole('main')
+    await expect(main).toContainText(/Version \d+\.\d+\.\d+/)
+    await expect(main).toContainText(userDataDir)
+    await nav.getByRole('button', { name: 'Dashboard', exact: true }).click()
+    await expect(dashboardHeading).toBeVisible()
 
     await window.getByRole('button', { name: 'Set up alert', exact: true }).click()
     const alert = window.getByRole('dialog', { name: 'Set up alert' })

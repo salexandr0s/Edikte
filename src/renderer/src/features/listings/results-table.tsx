@@ -4,7 +4,7 @@ import type { ListingRow } from '@shared/domain'
 import type { PriceBasis } from '@shared/enums'
 import { ChevronDownIcon, ChevronUpIcon, SortableIcon } from '../../components/ui/icons'
 import { cx } from '../../lib/cx'
-import { ListingTableRow } from './listing-row'
+import { CELL_X, ListingTableRow } from './listing-row'
 import {
   currentAnalysisStatus,
   nextSort,
@@ -68,7 +68,7 @@ export function ResultsTable({
             <th scope="col" className={cx(HEADER, 'w-10 rounded-tl-lg px-1')}>
               <span className="sr-only">{t('listings.columns.star')}</span>
             </th>
-            <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
+            <th scope="col" className={cx(HEADER, CELL_X, 'text-left')}>
               {t('listings.columns.object')}
             </th>
             {salesOnly
@@ -77,7 +77,7 @@ export function ResultsTable({
             {sortable('price', t(`listings.columns.price.${priceBasis}`), 'right')}
             {sortable('area', t('listings.columns.area'), 'right')}
             {sortable('pricePerSqm', t('listings.columns.pricePerSqm'), 'right')}
-            <th scope="col" className={cx(HEADER, 'px-4 text-left')}>
+            <th scope="col" className={cx(HEADER, CELL_X, 'text-left')}>
               {t('listings.columns.analysis')}
             </th>
             <th scope="col" className={cx(HEADER, 'w-10 rounded-tr-lg px-1')}>
@@ -118,13 +118,14 @@ function SortHeader({ column, sort, align, onSort, children }: SortHeaderProps) 
     <th
       scope="col"
       aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : undefined}
-      className={cx(HEADER, 'px-2', align === 'right' ? 'text-right' : 'text-left')}
+      // The button's own 8px completes the cell padding, so labels line up with the cells.
+      className={cx(HEADER, 'px-1 xl:px-2', align === 'right' ? 'text-right' : 'text-left')}
     >
       <button
         type="button"
         onClick={() => onSort(nextSort(sort, column))}
         className={cx(
-          'group inline-flex h-7 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors duration-120 hover:bg-fill-muted hover:text-fg',
+          'group inline-flex h-8 items-center gap-1 rounded-sm px-2 text-xs font-medium transition-colors duration-120 hover:bg-fill-muted hover:text-fg',
           active && 'text-fg',
           align === 'right' && 'flex-row-reverse',
         )}

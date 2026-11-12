@@ -23,7 +23,7 @@ export function SavedSearches({
   const [editing, setEditing] = useState<DashboardSearch | null>(null)
   return (
     <>
-      <ul className="grid gap-4 lg:grid-cols-2">
+      <ul className="flex flex-col divide-y divide-border">
         {searches.map((search) => {
           const { filter, alert } = search
           const name =
@@ -34,41 +34,43 @@ export function SavedSearches({
           return (
             <li
               key={filter.id}
-              className="flex min-w-0 flex-col gap-4 rounded-md border border-border bg-bg-muted p-4"
+              className="flex flex-wrap items-start gap-x-6 gap-y-3 py-5 first:pt-0 last:pb-0"
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <h3 className="min-w-0 text-base font-semibold wrap-break-word">{name}</h3>
-                <Badge variant={alert.enabled ? 'primary' : 'default'} size="sm">
-                  {!alert.enabled
-                    ? t('dashboard.alertOff')
-                    : alert.cadence === 'after_sync'
-                      ? t('dashboard.alertAfterSync')
-                      : t('dashboard.alertWaiting')}
-                </Badge>
-              </div>
-              <SearchCriteriaSummary query={filter.query} />
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm tabular-nums">
-                <span>{t('dashboard.searchMatches', { count: search.matchCount })}</span>
-                <span className="text-fg-muted">
-                  {t('dashboard.searchNew', { count: search.newCount })}
-                </span>
-              </div>
-              {alert.enabled && alert.nextDueAt !== null && (
-                <p className="text-xs text-fg-muted">
-                  {t('dashboard.alertNext', { time: format.timestamp(alert.nextDueAt) })}
-                </p>
-              )}
-              {(!search.inScope || partialScope) && (
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <p className="text-warning-text">
-                    {t(search.inScope ? 'dashboard.scopeWarning' : 'dashboard.outOfScope')}
-                  </p>
-                  <Button variant="link" onClick={() => navigate({ screen: 'settings' })}>
-                    {t('dashboard.openSettings')}
-                  </Button>
+              <div className="flex min-w-0 flex-1 basis-80 flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <h3 className="min-w-0 text-base font-semibold wrap-break-word">{name}</h3>
+                  <Badge variant={alert.enabled ? 'primary' : 'default'} size="sm">
+                    {!alert.enabled
+                      ? t('dashboard.alertOff')
+                      : alert.cadence === 'after_sync'
+                        ? t('dashboard.alertAfterSync')
+                        : t('dashboard.alertWaiting')}
+                  </Badge>
                 </div>
-              )}
-              <div className="mt-auto flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm tabular-nums">
+                  <span>{t('dashboard.searchMatches', { count: search.matchCount })}</span>
+                  <span className="text-fg-muted">
+                    {t('dashboard.searchNew', { count: search.newCount })}
+                  </span>
+                </div>
+                <SearchCriteriaSummary query={filter.query} />
+                {alert.enabled && alert.nextDueAt !== null && (
+                  <p className="text-xs text-fg-muted">
+                    {t('dashboard.alertNext', { time: format.timestamp(alert.nextDueAt) })}
+                  </p>
+                )}
+                {(!search.inScope || partialScope) && (
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <p className="text-warning-text">
+                      {t(search.inScope ? 'dashboard.scopeWarning' : 'dashboard.outOfScope')}
+                    </p>
+                    <Button variant="link" onClick={() => navigate({ screen: 'settings' })}>
+                      {t('dashboard.openSettings')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
                 <Button
                   variant="outline"
                   size="sm"

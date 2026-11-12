@@ -9,9 +9,12 @@ import type { SyncControls } from '../listings/use-sync'
 
 export function SourceHealth({
   coverage,
+  trackingStartedAt,
   sync,
 }: {
   coverage: readonly SourceCoverage[]
+  /** When the app began telling new listings from the imported baseline. */
+  trackingStartedAt: string | null
   sync: SyncControls
 }) {
   const { t } = useTranslation()
@@ -67,6 +70,12 @@ export function SourceHealth({
           )
         })}
       </ul>
+      <div className="flex flex-col gap-1 text-xs text-fg-muted">
+        <p>{t('dashboard.baseline')}</p>
+        {trackingStartedAt !== null && (
+          <p>{t('dashboard.trackingSince', { time: format.timestamp(trackingStartedAt) })}</p>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"

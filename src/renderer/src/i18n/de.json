@@ -28,7 +28,6 @@
   },
   "shell": {
     "version": "Version {{version}}",
-    "dataDir": "Datenordner: {{path}}",
     "sampleData": "Beispieldaten",
     "skipToContent": "Zum Inhalt springen"
   },

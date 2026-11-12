@@ -5,6 +5,8 @@ import type { PriceBasis } from '@shared/enums'
 import type { CollectionItem } from '@shared/notifications'
 import { Badge } from '../../components/ui/badge'
 import { StarIcon } from '../../components/ui/icons'
+import { TILE, TILE_INTERACTIVE } from '../../components/ui/tile'
+import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
 import { ListingStatusBadge } from '../detail/status-badge'
 
@@ -25,7 +27,7 @@ export function OpportunityList({
   historical = false,
 }: OpportunityListProps) {
   return (
-    <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => (
         <li key={item.discoveryId ?? item.listing.caseKey} className="min-w-0">
           <OpportunityCard
@@ -67,55 +69,57 @@ function OpportunityCard({
   const changed = historical && item.current !== null && listingChanged(row, item.current)
 
   return (
-    <article className="flex h-full min-w-0 flex-col gap-3 rounded-md border border-border bg-bg-muted p-4">
-      <div className="flex items-start gap-2">
+    // The title button stretches over the tile, so the whole tile opens the listing.
+    <article
+      className={cx(TILE, TILE_INTERACTIVE, 'relative flex h-full min-w-0 flex-col gap-4 p-5')}
+    >
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ListingStatusBadge status={row.status} size="sm" />
+          {row.analysisStale ? (
+            <Badge variant="warning" size="sm">
+              {t('collections.analysisStale')}
+            </Badge>
+          ) : row.analysisStatus !== null ? (
+            <Badge
+              size="sm"
+              variant={
+                row.analysisStatus === 'running'
+                  ? 'primary'
+                  : row.analysisStatus === 'failed'
+                    ? 'danger'
+                    : row.analysisStatus === 'done' && row.hasAnalysis
+                      ? 'success'
+                      : 'default'
+              }
+            >
+              {t(`analysisStatus.${row.analysisStatus}`)}
+            </Badge>
+          ) : (
+            <span className="text-xs text-fg-muted">{t('collections.notAnalyzed')}</span>
+          )}
+          {row.starred && (
+            <span className="ml-auto shrink-0 text-warning-text">
+              <StarIcon filled aria-label={t('collections.starred')} />
+            </span>
+          )}
+        </div>
         <button
           type="button"
           data-listing-link={item.current?.id ?? row.id}
           onClick={onOpen}
           title={row.title}
-          className="min-w-0 flex-1 rounded-sm text-left text-base font-semibold wrap-break-word underline-offset-4 hover:text-accent-text hover:underline focus-visible:ring-3 focus-visible:ring-ring-soft focus-visible:outline-none"
+          className="rounded-sm text-left text-base font-semibold wrap-break-word after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring"
         >
           <span lang="de" className="line-clamp-2">
             {row.title}
           </span>
         </button>
-        {row.starred && (
-          <span title={t('collections.starred')} className="shrink-0 text-accent-text">
-            <StarIcon filled aria-label={t('collections.starred')} />
-          </span>
-        )}
+        <p className="text-sm wrap-break-word text-fg-muted">
+          {address || t(`propertyType.${row.propertyType}`)}
+        </p>
       </div>
-      <div className="flex flex-col gap-1 text-sm text-fg-muted">
-        <p className="wrap-break-word">{address || t(`propertyType.${row.propertyType}`)}</p>
-        <span className="text-xs">{t(`edictSource.${row.source}`)}</span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <ListingStatusBadge status={row.status} size="sm" />
-        {row.analysisStale ? (
-          <Badge variant="warning" size="sm">
-            {t('collections.analysisStale')}
-          </Badge>
-        ) : row.analysisStatus !== null ? (
-          <Badge
-            size="sm"
-            variant={
-              row.analysisStatus === 'running'
-                ? 'primary'
-                : row.analysisStatus === 'failed'
-                  ? 'danger'
-                  : row.analysisStatus === 'done' && row.hasAnalysis
-                    ? 'success'
-                    : 'default'
-            }
-          >
-            {t(`analysisStatus.${row.analysisStatus}`)}
-          </Badge>
-        ) : (
-          <span className="text-xs text-fg-muted">{t('collections.notAnalyzed')}</span>
-        )}
-      </div>
-      <dl className="flex flex-col gap-2 text-sm">
+      <dl className="flex flex-col gap-2">
         {showBothPrices && row.source === 'court_auction' ? (
           <>
             <PriceFact row={row} basis="schaetzwert" />
@@ -124,40 +128,37 @@ function OpportunityCard({
         ) : (
           <PriceFact row={row} basis={row.priceBasis} />
         )}
-        <div className="flex flex-wrap justify-between gap-x-3 gap-y-1">
-          <dt className="text-fg-muted">{t('collections.area')}</dt>
-          <dd className="tabular-nums">
-            {row.area === null ? t('common.notStated') : format.sqm(row.area.sqm)}
-          </dd>
-        </div>
+        <Fact
+          label={t('collections.area')}
+          value={row.area === null ? null : format.sqm(row.area.sqm)}
+          note={row.area === null ? t('collections.areaUnverified') : undefined}
+        />
       </dl>
-      {row.area === null && (
-        <p className="text-xs text-fg-muted">{t('collections.areaUnverified')}</p>
-      )}
-      {row.source === 'court_auction' && row.auctionAt !== null ? (
-        <p className="mt-auto text-sm tabular-nums">
-          {t('collections.auction', { date: format.localDateTime(row.auctionAt) })}
+      <div className="mt-auto flex flex-col gap-1 border-t border-border pt-3 text-xs text-fg-muted">
+        <p className="flex flex-wrap gap-x-2 text-sm">
+          {row.source === 'court_auction' && row.auctionAt !== null ? (
+            <span className="text-fg tabular-nums">
+              {t('collections.auction', { date: format.localDateTime(row.auctionAt) })}
+            </span>
+          ) : row.publishedAt !== null ? (
+            <span className="tabular-nums">
+              {t('collections.published', { date: format.localDate(row.publishedAt) })}
+            </span>
+          ) : null}
+          <span className="ml-auto">{t(`edictSource.${row.source}`)}</span>
         </p>
-      ) : row.publishedAt !== null ? (
-        <p className="mt-auto text-sm text-fg-muted">
-          {t('collections.published', { date: format.localDate(row.publishedAt) })}
-        </p>
-      ) : null}
-      {names.length > 0 && (
-        <p className="text-xs text-fg-muted wrap-break-word">
-          {t('collections.matches', { names: names.join(', ') })}
-        </p>
-      )}
-      {unavailable ? (
-        <p className="text-xs font-medium text-warning-text">{t('collections.unavailable')}</p>
-      ) : changed && item.current !== null ? (
-        <div className="flex flex-col gap-1 text-xs text-fg-muted">
-          <p>{t('collections.updated')}</p>
+        {names.length > 0 && (
+          <p className="wrap-break-word">{t('collections.matches', { names: names.join(', ') })}</p>
+        )}
+        {unavailable ? (
+          <p className="font-medium text-warning-text">{t('collections.unavailable')}</p>
+        ) : changed && item.current !== null ? (
           <p>
+            {t('collections.updated')}{' '}
             {t('collections.currentStatus', { status: t(`listingStatus.${item.current.status}`) })}
           </p>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </article>
   )
 }
@@ -168,18 +169,31 @@ function PriceFact({ row, basis }: { row: ListingRow; basis: PriceBasis }) {
   const price = priceForBasis(basis, row)
   const perSqm = pricePerSqm(price, row.area?.sqm ?? null)
   return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-xs text-fg-muted">{t(`priceBasis.${basis}`)}</dt>
-      <dd className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 tabular-nums">
-        <span className="font-medium">
-          {price === null ? t('common.notStated') : format.eur(price)}
-        </span>
-        {perSqm !== null && (
-          <span className="text-xs text-fg-muted">
-            {row.approximate.length > 0 ? '≈ ' : ''}
-            {format.eurPerSqm(perSqm)}
-          </span>
+    <Fact
+      label={t(`priceBasis.${basis}`)}
+      value={price === null ? null : format.eur(price)}
+      note={
+        perSqm === null
+          ? undefined
+          : `${row.approximate.length > 0 ? '≈ ' : ''}${format.eurPerSqm(perSqm)}`
+      }
+    />
+  )
+}
+
+/** A label on the left, its figure on the right; a missing value reads "not stated". */
+function Fact({ label, value, note }: { label: string; value: string | null; note?: string }) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="min-w-0 text-sm text-fg-muted">{label}</dt>
+      <dd className="flex shrink-0 flex-col items-end tabular-nums">
+        {value === null ? (
+          <span className="text-sm text-fg-muted">{t('common.notStated')}</span>
+        ) : (
+          <span className="text-base font-semibold">{value}</span>
         )}
+        {note !== undefined && <span className="text-xs text-fg-muted">{note}</span>}
       </dd>
     </div>
   )

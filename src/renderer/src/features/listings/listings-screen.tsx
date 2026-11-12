@@ -4,6 +4,7 @@ import type { ListingQuery } from '@shared/domain'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { FilterIcon } from '../../components/ui/icons'
+import { PageHeader } from '../../components/ui/page'
 import { useApp } from '../../lib/app-context'
 import { ActiveFilterChips } from './active-filter-chips'
 import { AnalysisQueueStatus, AnalyzeFilteredButton } from './analysis-actions'
@@ -69,17 +70,12 @@ export function ListingsScreen() {
 
   return (
     // At least the screen's height, so the map view can take what the list leaves.
-    <div className="flex min-h-full flex-col gap-5 px-6 py-6">
-      <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
-        <h1
-          id={titleId}
-          tabIndex={-1}
-          className="text-2xl font-semibold tracking-tight outline-none"
-        >
-          {t('listings.title')}
-        </h1>
-        <SyncBar sync={sync} sources={settings.syncSources} />
-      </header>
+    <div className="flex min-h-full flex-col gap-6 px-6 py-6">
+      <PageHeader
+        title={t('listings.title')}
+        titleId={titleId}
+        actions={<SyncBar sync={sync} sources={settings.syncSources} />}
+      />
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">

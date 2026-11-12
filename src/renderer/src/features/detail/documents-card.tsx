@@ -130,9 +130,12 @@ function DocumentRow({ doc, progress, onDownloaded }: DocumentRowProps) {
             </p>
           )}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">
-            <Badge size="sm" variant={doc.downloaded ? 'success' : 'default'}>
-              {doc.downloaded ? t('documents.downloaded') : t('documents.notDownloaded')}
-            </Badge>
+            {/* The Download button already says a file is not on this computer. */}
+            {(doc.downloaded || doc.removedAt !== null) && (
+              <Badge size="sm" variant={doc.downloaded ? 'success' : 'default'}>
+                {doc.downloaded ? t('documents.downloaded') : t('documents.notDownloaded')}
+              </Badge>
+            )}
             {doc.removedAt !== null && (
               <Badge size="sm" variant="warning">
                 {t('documents.removed')}

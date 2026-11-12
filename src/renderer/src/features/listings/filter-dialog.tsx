@@ -87,7 +87,7 @@ export function FilterDialog({
                 <button
                   type="button"
                   aria-label={t('filters.clearSearch')}
-                  className="flex size-7 items-center justify-center rounded-sm text-fg-muted transition-colors duration-120 hover:bg-fill-muted hover:text-fg focus-visible:ring-3 focus-visible:ring-ring-soft focus-visible:outline-none"
+                  className="flex size-6 items-center justify-center rounded-sm text-fg-muted transition-colors duration-120 hover:bg-fill-muted hover:text-fg focus-visible:ring-3 focus-visible:ring-ring-soft focus-visible:outline-none"
                   onClick={() => onChange({ text: '' })}
                 >
                   <CloseIcon className="size-3.5" />
@@ -255,7 +255,7 @@ function FilterSection({ title, children }: { title: string; children: ReactNode
   return (
     <section
       aria-labelledby={id}
-      className="grid grid-cols-[10rem_minmax(0,1fr)] gap-x-8 py-5 first:pt-0 last:pb-0"
+      className="grid grid-cols-[10rem_minmax(0,1fr)] gap-x-8 py-5 first:pt-2 last:pb-0"
     >
       <h3 id={id} className="text-sm font-semibold text-fg">
         {title}

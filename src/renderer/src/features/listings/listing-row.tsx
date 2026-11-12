@@ -13,6 +13,13 @@ import { useFormat } from '../../lib/format'
 // table.v1: numbers right-aligned. The last row leaves its border to the frame.
 const CELL = 'border-b border-border py-3 align-top group-last/row:border-b-0'
 
+/**
+ * Horizontal cell padding. table.v1 asks for 16px; below 1280px the columns
+ * give 4px a side back to the property column, whose titles otherwise break
+ * mid-word at the minimum window width.
+ */
+export const CELL_X = 'px-3 xl:px-4'
+
 export const STATUS_VARIANT: Readonly<Record<ListingStatus, BadgeVariant>> = {
   upcoming: 'primary',
   postponed: 'warning',
@@ -96,7 +103,7 @@ export function ListingTableRow({
           <StarIcon filled={row.starred} />
         </Button>
       </td>
-      <td className={cx(CELL, 'min-w-36 px-4')}>
+      <td className={cx(CELL, CELL_X, 'min-w-36')}>
         <div className="flex flex-col items-start gap-0.5">
           <button
             type="button"
@@ -128,7 +135,7 @@ export function ListingTableRow({
           )}
         </div>
       </td>
-      <td className={cx(CELL, 'px-4')}>
+      <td className={cx(CELL, CELL_X)}>
         <div className="flex flex-col items-start gap-1">
           {row.source === 'insolvency_sale' ? (
             row.publishedAt === null ? (
@@ -160,7 +167,7 @@ export function ListingTableRow({
           )}
         </div>
       </td>
-      <td className={cx(CELL, 'px-4 text-right')}>
+      <td className={cx(CELL, CELL_X, 'text-right')}>
         <div className="flex flex-col items-end gap-0.5">
           {price === null ? (
             <Missing label={notStated} />
@@ -177,7 +184,7 @@ export function ListingTableRow({
           )}
         </div>
       </td>
-      <td className={cx(CELL, 'px-4 text-right')}>
+      <td className={cx(CELL, CELL_X, 'text-right')}>
         {row.area === null ? (
           <Missing label={notStated} />
         ) : (
@@ -192,10 +199,10 @@ export function ListingTableRow({
           </div>
         )}
       </td>
-      <td className={cx(CELL, 'px-4 text-right')}>
+      <td className={cx(CELL, CELL_X, 'text-right')}>
         <PricePerSqm row={row} />
       </td>
-      <td className={cx(CELL, 'px-4')}>
+      <td className={cx(CELL, CELL_X)}>
         <div className="flex flex-col items-start gap-1">
           {row.analysisStale && (
             <Badge size="sm" variant="warning" title={t('listings.row.analysisStaleHint')}>

@@ -6,6 +6,7 @@ import type { CollectionPage, ListingCollection, NotificationSummary } from '@sh
 import { Button } from '../../components/ui/button'
 import { EmptyState } from '../../components/ui/empty-state'
 import { AlertCircleIcon, ChevronLeftIcon, SearchIcon } from '../../components/ui/icons'
+import { Page, PageHeader } from '../../components/ui/page'
 import { Spinner } from '../../components/ui/spinner'
 import { useApp, type CollectionOrigin } from '../../lib/app-context'
 import { errorCode, invoke } from '../../lib/bridge'
@@ -118,9 +119,10 @@ export function CollectionScreen({
       : null
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-6">
-      <header className="flex flex-col gap-4">
-        <div className="self-start">
+    <Page>
+      <PageHeader
+        title={title}
+        back={
           <Button variant="ghost" size="sm" onClick={() => navigate({ screen: origin })}>
             <ChevronLeftIcon />
             {t(
@@ -129,33 +131,29 @@ export function CollectionScreen({
                 : 'collections.backNotifications',
             )}
           </Button>
-        </div>
-        <div className="flex flex-col gap-2">
-          <h1 tabIndex={-1} className="text-2xl font-semibold tracking-tight outline-none">
-            {title}
-          </h1>
-          {data?.notification !== null && data?.notification !== undefined ? (
-            <>
-              <p className="text-base font-medium wrap-break-word">
-                {data.notification.presetKey === null
-                  ? data.notification.filterName
-                  : t(`filters.presets.${data.notification.presetKey}`)}
-              </p>
-              <p className="text-sm text-fg-muted">
-                {t('collections.period', {
-                  from: format.timestamp(data.notification.periodFrom),
-                  to: format.timestamp(data.notification.periodTo),
-                })}
-              </p>
-            </>
-          ) : collection.kind === 'saved_searches' ? (
-            <p className="text-sm text-fg-muted">{searchNames ?? t('collections.allSearches')}</p>
-          ) : null}
-          {historical && (
-            <p className="max-w-3xl text-sm text-fg-muted">{t('collections.historical')}</p>
-          )}
-        </div>
-      </header>
+        }
+      >
+        {data?.notification !== null && data?.notification !== undefined ? (
+          <>
+            <p className="text-base font-medium wrap-break-word">
+              {data.notification.presetKey === null
+                ? data.notification.filterName
+                : t(`filters.presets.${data.notification.presetKey}`)}
+            </p>
+            <p className="text-sm text-fg-muted">
+              {t('collections.period', {
+                from: format.timestamp(data.notification.periodFrom),
+                to: format.timestamp(data.notification.periodTo),
+              })}
+            </p>
+          </>
+        ) : collection.kind === 'saved_searches' ? (
+          <p className="text-sm text-fg-muted">{searchNames ?? t('collections.allSearches')}</p>
+        ) : null}
+        {historical && (
+          <p className="max-w-3xl text-sm text-fg-muted">{t('collections.historical')}</p>
+        )}
+      </PageHeader>
 
       {readError !== null && (
         <div role="alert" className="flex flex-wrap items-center gap-3 text-sm">
@@ -219,6 +217,6 @@ export function CollectionScreen({
           )}
         </>
       )}
-    </div>
+    </Page>
   )
 }
