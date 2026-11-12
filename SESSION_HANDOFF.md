@@ -37,6 +37,7 @@ Project: Edikte. Branch: `codex/listing-completeness-prices`. Feature implementa
 
 ## Remaining / known gaps
 
+- Concurrent renderer edits appeared during final cleanup (`collection-screen.tsx`, `notifications-screen.tsx`, `settings-screen.tsx`, plus new `page.tsx` and `tile.ts`). This check neither edited nor committed them. The recorded automated checks apply to feature revision `6af1a37`, not these concurrent edits.
 - macOS native display/click testing is blocked by app-identity validation, rather than the lock screen. The current local test build and the existing `/Applications/Edikte.app` both use ad-hoc signatures. A macOS-accepted signed test build or a Developer ID signing setup is the next candidate to test; the precise signing requirement is not established. A question requesting a signed build/signing setup was sent to the user. Do not retry the same rejected configuration without a changed condition. Keep any cold-launch test isolated: a CLI-only temporary-data environment variable is lost when macOS launches an app from a notification, so the temporary test copy bakes the data path into its bootstrap.
 - Verify native display and historical/cold activation on an installed Windows build; this environment is macOS.
 - No release, version bump, push, or installation was performed. Alerts default off for every saved search.
