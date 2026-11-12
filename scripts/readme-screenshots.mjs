@@ -66,6 +66,11 @@ async function finishSetup(page, lang) {
   for (let step = 0; step < 3; step += 1) {
     await page.getByRole('button', { name: name('common.continue') }).click()
   }
+  // Setup ends on the dashboard; the README screens start from the list.
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: name('nav.listings') })
+    .click()
   await page.getByRole('heading', { name: name('listings.title'), level: 1 }).waitFor()
   await page.getByRole('button', { name: FIRST_ROW, exact: true }).waitFor()
 }

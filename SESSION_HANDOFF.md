@@ -81,4 +81,6 @@ This is the concurrent renderer work named under "Remaining / known gaps". It is
 
 Checked before the commit: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test` (805 passed, 2 skipped), `npm run test:e2e` (1 passed, run in the Terminal panel), and the mock renderer in English and German, light and dark, at 960 and 1280 px.
 
-Not checked: Windows, a packaged build, and the README screenshots in `docs/screenshots/`, which still show the footer and the old dashboard (`npm run screenshots` regenerates them).
+The README screenshots in `docs/screenshots/` were regenerated afterwards with `npm run screenshots`; the script now opens Listings after setup, which ends on the dashboard.
+
+Not checked: Windows and a packaged build.
