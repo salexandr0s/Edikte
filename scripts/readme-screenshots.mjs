@@ -3,11 +3,24 @@
 // run `node scripts/readme-screenshots.mjs [--out docs/screenshots] [--all]`.
 // `--all` captures every screen in both colour schemes for a look around.
 import { mkdirSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import process from 'node:process'
 import { chromium } from '@playwright/test'
 
-const BASE_URL = process.env.EDIKTE_RENDERER_URL ?? 'http://localhost:5173'
+function rendererUrl() {
+  if (process.env.EDIKTE_RENDERER_URL !== undefined) return process.env.EDIKTE_RENDERER_URL
+  try {
+    return execFileSync('portless', ['get', 'edikte'], { encoding: 'utf8' }).trim()
+  } catch (cause) {
+    throw new Error(
+      'Start npm run dev:renderer with Portless, or set EDIKTE_RENDERER_URL for a direct server.',
+      { cause },
+    )
+  }
+}
+
+const BASE_URL = rendererUrl()
 const VIEWPORT = { width: 1280, height: 800 }
 const LANGUAGES = { de: 'de-AT', en: 'en-GB' }
 const FIRST_ROW = 'Eigentumswohnung Top 12'

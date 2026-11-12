@@ -12,7 +12,8 @@
   },
   "scripts": {
     "dev": "electron-vite dev",
-    "dev:renderer": "vite --config vite.renderer.config.ts",
+    "dev:renderer": "portless run --name edikte vite --config vite.renderer.config.ts",
+    "dev:renderer:direct": "vite --config vite.renderer.config.ts",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
