@@ -1,7 +1,7 @@
 {
   "firstRun": {
     "title": "Edikte einrichten",
-    "welcome": "Edikte zeigt Immobilien aus gerichtlichen Versteigerungen auf edikte.justiz.gv.at und Insolvenzverkäufen auf JustizOnline. Die App kann die Gutachten mit einem KI-Anbieter auswerten, bei dem Sie angemeldet sind. Legen Sie zu Beginn ein paar Einstellungen fest. Alle lassen sich später in den Einstellungen ändern.",
+    "welcome": "Hier finden Sie gerichtliche Versteigerungen und Insolvenzverkäufe in Österreich. Wählen Sie Ihre Sprache und die Quellen und Bundesländer, die Sie interessieren.",
     "steps": "Schritte der Einrichtung",
     "stepOf": "Schritt {{current}} von {{total}}",
     "stepDone": "{{step}}, erledigt",

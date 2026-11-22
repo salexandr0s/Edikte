@@ -215,21 +215,18 @@ function Shell({
       >
         {t('shell.skipToContent')}
       </a>
-      <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-surface px-5">
-        <div className="flex items-center gap-2.5 pr-1">
+      <header className="flex h-14 shrink-0 items-center gap-5 border-b border-border bg-surface px-6">
+        <div className="flex items-center gap-2.5 border-r border-border pr-5">
           <span
             aria-hidden="true"
-            className="flex size-7 items-center justify-center rounded-sm bg-accent-fill text-white shadow-raised"
+            className="flex size-8 items-center justify-center rounded-md bg-accent-fill text-white shadow-raised"
           >
             <GavelIcon className="size-4" />
           </span>
           <span className="text-base font-semibold tracking-tight">{t('app.name')}</span>
         </div>
         {!firstRun && (
-          <nav
-            aria-label={t('nav.label')}
-            className="flex h-9 items-center gap-0.5 rounded-md bg-fill-muted p-0.5"
-          >
+          <nav aria-label={t('nav.label')} className="flex h-full items-center gap-1">
             <NavItem
               active={section === 'dashboard'}
               icon={<HomeIcon />}
@@ -290,9 +287,8 @@ function Shell({
           <div
             ref={listingsRef}
             inert={view.screen !== 'listings'}
-            // A size container: the filter sidebar sizes itself to the visible height (cqh).
             className={cx(
-              'absolute inset-0 isolate overflow-auto [container-type:size]',
+              'absolute inset-0 isolate overflow-auto bg-bg-muted/50 [container-type:size]',
               view.screen !== 'listings' && 'invisible',
             )}
           >
@@ -304,7 +300,7 @@ function Shell({
             ref={dashboardRef}
             inert={view.screen !== 'dashboard'}
             className={cx(
-              'absolute inset-0 isolate overflow-auto bg-bg',
+              'absolute inset-0 isolate overflow-auto bg-bg-muted/50',
               view.screen !== 'dashboard' && 'invisible',
             )}
           >
@@ -316,7 +312,7 @@ function Shell({
             ref={collectionRef}
             inert={view.screen !== 'collection'}
             className={cx(
-              'absolute inset-0 isolate overflow-auto bg-bg',
+              'absolute inset-0 isolate overflow-auto bg-bg-muted/50',
               view.screen !== 'collection' && 'invisible',
             )}
           >
@@ -327,7 +323,7 @@ function Shell({
           </div>
         )}
         {['detail', 'settings', 'firstRun', 'notifications'].includes(view.screen) && (
-          <div ref={screenRef} className="absolute inset-0 isolate overflow-auto bg-bg">
+          <div ref={screenRef} className="absolute inset-0 isolate overflow-auto bg-bg-muted/50">
             {view.screen === 'detail' && (
               <DetailScreen key={view.id} id={view.id} onBack={backFromDetail} />
             )}
@@ -389,10 +385,10 @@ function NavItem({
       aria-current={active ? 'page' : undefined}
       onClick={onClick}
       className={cx(
-        'inline-flex h-full items-center gap-1.5 rounded-sm px-3 text-sm font-medium transition-[background-color,color,box-shadow] duration-120 select-none',
+        'relative inline-flex h-9 items-center gap-2 rounded-sm px-3 text-sm font-medium transition-colors duration-120 select-none',
         active
-          ? 'bg-surface text-fg shadow-sm'
-          : 'text-fg-muted hover:text-fg [&_svg]:opacity-70 hover:[&_svg]:opacity-100',
+          ? 'bg-accent-soft text-accent-text'
+          : 'text-fg-muted hover:bg-fill-muted hover:text-fg',
       )}
     >
       {icon}

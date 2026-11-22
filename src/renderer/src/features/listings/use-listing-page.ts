@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ListingPage, ListingQuery } from '@shared/domain'
 import type { AppErrorCode } from '@shared/errors'
 import { errorCode, invoke } from '../../lib/bridge'
@@ -30,19 +30,26 @@ export interface ListingPageState {
  * listings. Each run ignores the answer of the run before it, so a slow
  * response never replaces a newer one.
  */
-export function useListingPage(query: ListingQuery): ListingPageState {
+export function useListingPage(query: ListingQuery, active: boolean): ListingPageState {
+  const [refreshes, setRefreshes] = useState(0)
+  const criteria = useMemo(() => ({ query, refreshes, active }), [query, refreshes, active])
   const [answer, setAnswer] = useState<{
     page: ListingPage
     request: number
-    query: ListingQuery
+    criteria: typeof criteria
   } | null>(null)
-  const [error, setError] = useState<AppErrorCode | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [refreshes, setRefreshes] = useState(0)
+  const [failure, setFailure] = useState<{ criteria: typeof criteria; code: AppErrorCode } | null>(
+    null,
+  )
   const previous = useRef<{ query: ListingQuery; refreshes: number } | null>(null)
   const sent = useRef(0)
 
   useEffect(() => {
+    if (!criteria.active) {
+      previous.current = null
+      return
+    }
+    const { query, refreshes } = criteria
     const last = previous.current
     previous.current = { query, refreshes }
     let wait = 0
@@ -51,20 +58,17 @@ export function useListingPage(query: ListingQuery): ListingPageState {
 
     let ignore = false
     const timer = window.setTimeout(() => {
-      setLoading(true)
       sent.current += 1
       const request = sent.current
       invoke('listings:query', query).then(
         (result) => {
           if (ignore) return
-          setAnswer({ page: result, request, query })
-          setError(null)
-          setLoading(false)
+          setAnswer({ page: result, request, criteria })
+          setFailure(null)
         },
         (failure: unknown) => {
           if (ignore) return
-          setError(errorCode(failure))
-          setLoading(false)
+          setFailure({ criteria, code: errorCode(failure) })
         },
       )
     }, wait)
@@ -72,18 +76,21 @@ export function useListingPage(query: ListingQuery): ListingPageState {
       ignore = true
       window.clearTimeout(timer)
     }
-  }, [query, refreshes])
+  }, [criteria])
 
   const reload = () => setRefreshes((count) => count + 1)
-  useBridgeEvent('listings:changed', reload)
+  useBridgeEvent('listings:changed', reload, active)
+
+  const error = failure?.criteria === criteria ? failure.code : null
+  const settled = active && answer?.criteria === criteria
 
   return {
     page: answer?.page ?? null,
     pageRequest: answer?.request ?? 0,
     requestsSent: () => sent.current,
     error,
-    loading,
-    settled: answer?.query === query && !loading && error === null,
+    loading: active && !settled && error === null,
+    settled,
     reload,
   }
 }

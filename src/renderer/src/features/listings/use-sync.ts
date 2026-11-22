@@ -17,7 +17,7 @@ export interface SyncControls {
 }
 
 /** Sync status from main, kept current by sync:progress events. */
-export function useSync(): SyncControls {
+export function useSync(active: boolean): SyncControls {
   const { t } = useTranslation()
   const toast = useToast()
   const [status, setStatus] = useState<SyncStatus | null>(null)
@@ -28,6 +28,7 @@ export function useSync(): SyncControls {
   const events = useRef(0)
 
   useEffect(() => {
+    if (!active) return
     let ignore = false
     const seen = events.current
     invoke('sync:status').then(
@@ -37,19 +38,23 @@ export function useSync(): SyncControls {
         setError(null)
       },
       (failure: unknown) => {
-        if (!ignore) setError(errorCode(failure))
+        if (!ignore && events.current === seen) setError(errorCode(failure))
       },
     )
     return () => {
       ignore = true
     }
-  }, [])
+  }, [active])
 
-  useBridgeEvent('sync:progress', (next) => {
-    events.current += 1
-    setStatus(next)
-    setError(null)
-  })
+  useBridgeEvent(
+    'sync:progress',
+    (next) => {
+      events.current += 1
+      setStatus(next)
+      setError(null)
+    },
+    active,
+  )
 
   async function run(action: 'start' | 'cancel') {
     setPending(action)

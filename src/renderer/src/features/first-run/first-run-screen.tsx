@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Bundesland, EdictSource } from '@shared/enums'
 import { Button } from '../../components/ui/button'
-import { ChevronLeftIcon, ChevronRightIcon, GavelIcon } from '../../components/ui/icons'
+import { ChevronLeftIcon, ChevronRightIcon } from '../../components/ui/icons'
 import { useToast } from '../../components/ui/toast'
 import { useApp } from '../../lib/app-context'
 import { errorCode } from '../../lib/bridge'
@@ -18,7 +18,7 @@ const STEPS = ['language', 'providers', 'sync'] as const
 /**
  * Shown until the first run is completed, without the navigation. Every step
  * moves on with "Continue"; the last one saves the sync scope and opens the
- * listings. It does not start a sync: main decides that.
+ * dashboard. It does not start a sync: main decides that.
  */
 export function FirstRunScreen() {
   const { t } = useTranslation()
@@ -71,31 +71,23 @@ export function FirstRunScreen() {
   }
 
   return (
-    <div className="mx-auto flex min-h-full max-w-3xl flex-col px-6 pt-10">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-8">
       <header className="flex flex-col gap-3">
-        <span
-          aria-hidden="true"
-          className="flex size-10 items-center justify-center rounded-md bg-accent-fill text-white shadow-raised"
-        >
-          <GavelIcon className="size-5" />
-        </span>
         <h1 className="text-3xl font-semibold tracking-tight">{t('firstRun.title')}</h1>
         <p className="max-w-xl text-base text-fg-muted">{t('firstRun.welcome')}</p>
       </header>
 
-      <div className="mt-8">
-        <StepIndicator
-          steps={STEPS.map((id) => ({ id, label: t(`firstRun.${id}.title`) }))}
-          current={stepIndex}
-        />
-      </div>
+      <StepIndicator
+        steps={STEPS.map((id) => ({ id, label: t(`firstRun.${id}.title`) }))}
+        current={stepIndex}
+      />
 
       <section
         aria-labelledby={headingId}
-        className="mt-6 mb-6 flex flex-col gap-6 rounded-lg border border-border bg-surface p-6 shadow-xs"
+        className="flex flex-col gap-6 rounded-lg border border-border bg-surface p-6 shadow-xs"
       >
         <div className="flex flex-col gap-1">
-          <p className="text-xs font-medium tracking-wider text-fg-muted uppercase">
+          <p className="sr-only">
             {t('firstRun.stepOf', { current: stepIndex + 1, total: STEPS.length })}
           </p>
           <h2
@@ -127,25 +119,28 @@ export function FirstRunScreen() {
             onAutoSyncChange={setAutoSync}
           />
         )}
-      </section>
-
-      <div className="sticky bottom-0 z-(--edk-z-sticky) mt-auto flex items-center justify-between gap-3 border-t border-border bg-bg/90 py-4 backdrop-blur-xs">
-        {stepIndex > 0 ? (
-          <Button variant="ghost" disabled={finishing} onClick={() => goTo(stepIndex - 1)}>
-            <ChevronLeftIcon />
-            {t('common.back')}
+        <footer className="-mx-6 -mb-6 sticky bottom-0 z-(--edk-z-sticky) flex items-center justify-between gap-3 rounded-b-lg border-t border-border bg-surface px-6 py-4">
+          {stepIndex > 0 ? (
+            <Button variant="ghost" disabled={finishing} onClick={() => goTo(stepIndex - 1)}>
+              <ChevronLeftIcon />
+              {t('common.back')}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <Button
+            loading={finishing}
+            disabled={
+              languageSaver.saving ||
+              (lastStep && (sources.length === 0 || bundeslaender.length === 0))
+            }
+            onClick={() => (lastStep ? void finish() : goTo(stepIndex + 1))}
+          >
+            {t('common.continue')}
+            {!lastStep && <ChevronRightIcon />}
           </Button>
-        ) : (
-          <span />
-        )}
-        <Button
-          loading={finishing}
-          onClick={() => (lastStep ? void finish() : goTo(stepIndex + 1))}
-        >
-          {t('common.continue')}
-          {!lastStep && <ChevronRightIcon />}
-        </Button>
-      </div>
+        </footer>
+      </section>
     </div>
   )
 }

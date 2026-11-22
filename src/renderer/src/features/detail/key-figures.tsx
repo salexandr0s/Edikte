@@ -50,6 +50,7 @@ export function KeyFigures({ detail }: { detail: ListingDetail }) {
         <Figure
           label={t('priceBasis.schaetzwert')}
           value={money(schaetzwertEur)}
+          muted={schaetzwertEur === null}
           note={
             !auction
               ? t('detail.hero.noticeValue')
@@ -63,6 +64,7 @@ export function KeyFigures({ detail }: { detail: ListingDetail }) {
             <Figure
               label={t('detail.numbers.meistbot')}
               value={money(detail.meistbotEur)}
+              muted={detail.meistbotEur === null}
               note={
                 geringstesGebotEur === null
                   ? null
@@ -73,6 +75,7 @@ export function KeyFigures({ detail }: { detail: ListingDetail }) {
             <Figure
               label={t('priceBasis.geringstes_gebot')}
               value={money(geringstesGebotEur)}
+              muted={geringstesGebotEur === null}
               note={share === null ? null : t('detail.hero.shareOfSchaetzwert', { percent: share })}
             />
           ))}

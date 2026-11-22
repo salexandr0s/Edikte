@@ -36,6 +36,14 @@ describe('summarizeRuns', () => {
     })
   })
 
+  it('shows an incomplete list even when the source committed readable listings', () => {
+    const incomplete = run({ status: 'ok', note: 'Source returned only the first page' })
+    expect(summarizeRuns([run({}), incomplete])).toMatchObject({
+      status: 'degraded',
+      troubled: [incomplete],
+    })
+  })
+
   it('has nothing to sum up without a run', () => {
     expect(summarizeRuns([])).toBeNull()
   })

@@ -81,6 +81,8 @@ export function loadSyncState(
   let lastOkRunStartedAt: string | null = null
   let lastOkFullRunStartedAt: string | null = null
   for (const run of newestCoveringRuns(db, eq(syncRuns.status, 'ok'), scope, source)) {
+    // An incomplete list may be committed safely, but the next pass must search the whole scope.
+    if (run.note !== null) break
     lastOkRunStartedAt ??= run.startedAt
     if (run.kind === 'full') {
       lastOkFullRunStartedAt = run.startedAt
@@ -88,6 +90,18 @@ export function loadSyncState(
     }
   }
   return { known, lastOkRunStartedAt, lastOkFullRunStartedAt }
+}
+
+/** Last refresh with a complete list for every region in the current scope. */
+export function lastCompleteSyncAt(
+  db: AppDatabase,
+  scope: readonly Bundesland[],
+  source: EdictSource,
+): string | null {
+  for (const run of newestCoveringRuns(db, eq(syncRuns.status, 'ok'), scope, source)) {
+    if (run.note === null && run.finishedAt !== null) return run.finishedAt
+  }
+  return null
 }
 
 /** The newest run of a source with a finish time, whatever its scope or status. */
@@ -149,6 +163,7 @@ function* newestCoveringRuns(
         scope: syncRuns.scope,
         status: syncRuns.status,
         failureCode: syncRuns.failureCode,
+        note: syncRuns.note,
         startedAt: syncRuns.startedAt,
         finishedAt: syncRuns.finishedAt,
       })
@@ -241,6 +256,12 @@ function applyCommit(db: AppDatabase, commit: SyncCommit): void {
     for (const ids of chunks(commit.seenIds)) {
       tx.update(edicts)
         .set({ lastSeenAt: at })
+        .where(and(eq(edicts.source, summary.source), inArray(edicts.id, ids)))
+        .run()
+    }
+    for (const ids of chunks(commit.retryIds)) {
+      tx.update(edicts)
+        .set({ lastSeenAt: at, contentHash: '' })
         .where(and(eq(edicts.source, summary.source), inArray(edicts.id, ids)))
         .run()
     }

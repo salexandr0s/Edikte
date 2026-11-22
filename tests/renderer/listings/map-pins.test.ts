@@ -3,6 +3,7 @@ import type { ListingRow } from '@shared/domain'
 import {
   clusterPins,
   groupPins,
+  pinPrice,
   type Place,
 } from '../../../src/renderer/src/features/listings/map-pins'
 
@@ -49,6 +50,34 @@ function row(id: string, fields: Partial<ListingRow> = {}): ListingRow {
 function at(id: string, lat: number, lng: number, fields: Partial<ListingRow> = {}): ListingRow {
   return row(id, { location: { lat, lng, precision: 'address' }, ...fields })
 }
+
+describe('pinPrice', () => {
+  const writtenBid = row('written', { schaetzwertEur: null, geringstesGebotEur: 523_500 })
+  const unpriced = row('unpriced', { schaetzwertEur: null, geringstesGebotEur: null })
+
+  it('uses a published written bid when the appraisal is missing, including in comparable groups', () => {
+    expect(pinPrice([writtenBid])).toEqual({ basis: 'geringstes_gebot', amount: 523_500 })
+    const lowerBid = row('lower', { priceBasis: 'geringstes_gebot', geringstesGebotEur: 340_000 })
+    expect(pinPrice([writtenBid, lowerBid])).toEqual({ basis: 'geringstes_gebot', amount: 340_000 })
+    expect(writtenBid.priceBasis).toBe('schaetzwert')
+  })
+
+  it('uses the appraisal when a minimum bid is missing and preserves the selected basis when present', () => {
+    expect(
+      pinPrice([row('appraised', { priceBasis: 'geringstes_gebot', geringstesGebotEur: null })]),
+    ).toEqual({
+      basis: 'schaetzwert',
+      amount: 200_000,
+    })
+    expect(pinPrice([row('both')])).toEqual({ basis: 'schaetzwert', amount: 200_000 })
+  })
+
+  it('uses a count-only group for missing or incomparable prices', () => {
+    expect(pinPrice([unpriced, unpriced])).toBeNull()
+    expect(pinPrice([writtenBid, unpriced])).toBeNull()
+    expect(pinPrice([row('appraised'), writtenBid])).toBeNull()
+  })
+})
 
 describe('groupPins', () => {
   it('shares a place between auctions at one point, cheapest first, and skips rows without one', () => {

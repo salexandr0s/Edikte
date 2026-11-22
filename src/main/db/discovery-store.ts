@@ -1,4 +1,4 @@
-import { and, eq, isNull, ne } from 'drizzle-orm'
+import { and, eq, isNull, min, ne, sql } from 'drizzle-orm'
 import { withPriceBasis } from '@shared/listing-query'
 import type { SyncCommit } from '../scraper/sync'
 import type { AppDatabase } from './client'
@@ -105,7 +105,9 @@ export function recordDiscoveries(db: AppDatabase, commit: SyncCommit): void {
       .where(
         and(
           eq(syncRuns.source, commit.summary.source),
+          eq(syncRuns.kind, 'full'),
           eq(syncRuns.status, 'ok'),
+          isNull(syncRuns.note),
           ne(syncRuns.id, commit.summary.id),
         ),
       )
@@ -222,7 +224,20 @@ export function resolveDiscoveryId(db: AppDatabase, id: number): number {
 }
 
 export function loadDiscoveryMetadata(db: AppDatabase): Map<string, DiscoveryMetadata> {
-  const rows = db.select().from(listingDiscoveries).all()
+  const rows = db
+    .select({
+      id: listingDiscoveries.id,
+      caseKey: listingDiscoveries.caseKey,
+      mergedIntoId: listingDiscoveries.mergedIntoId,
+      committedAt: listingDiscoveries.committedAt,
+      firstSeenAt: listingDiscoveries.firstSeenAt,
+      kind: listingDiscoveries.kind,
+      snapshotCaseKey: sql<
+        string | null
+      >`json_extract(${listingDiscoveries.snapshot}, '$.caseKey')`,
+    })
+    .from(listingDiscoveries)
+    .all()
   const byId = new Map(rows.map((row) => [row.id, row]))
   const result = new Map<string, DiscoveryMetadata>()
   for (const row of rows) {
@@ -235,22 +250,19 @@ export function loadDiscoveryMetadata(db: AppDatabase): Map<string, DiscoveryMet
       kind: canonical.kind,
     }
     if (row.caseKey !== null) result.set(row.caseKey, metadata)
-    if (row.snapshot !== null) result.set(row.snapshot.caseKey, metadata)
+    if (row.snapshotCaseKey !== null) result.set(row.snapshotCaseKey, metadata)
   }
   return result
 }
 
 export function discoveryTrackingStartedAt(db: AppDatabase): string | null {
-  return db
-    .select({ committedAt: listingDiscoveries.committedAt })
-    .from(listingDiscoveries)
-    .where(isNull(listingDiscoveries.mergedIntoId))
-    .all()
-    .reduce<string | null>(
-      (earliest, row) =>
-        earliest === null || row.committedAt < earliest ? row.committedAt : earliest,
-      null,
-    )
+  return (
+    db
+      .select({ earliest: min(listingDiscoveries.committedAt) })
+      .from(listingDiscoveries)
+      .where(isNull(listingDiscoveries.mergedIntoId))
+      .get()?.earliest ?? null
+  )
 }
 
 function resolveRow<T extends Pick<DiscoveryRow, 'id' | 'mergedIntoId'>>(

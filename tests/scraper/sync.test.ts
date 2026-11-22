@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { SyncRunSummary } from '@shared/domain'
 import type { Bundesland, EdictSource } from '@shared/enums'
 import { AppError } from '@shared/errors'
+import { openDatabase } from '../../src/main/db/client'
+import { loadDiscoveryMetadata } from '../../src/main/db/discovery-store'
+import { createSyncStore } from '../../src/main/db/sync-store'
 import type { PageSource } from '../../src/main/scraper/client'
 import { createAuctionSite } from '../../src/main/scraper/auction-site'
 import type { SearchRow } from '../../src/main/scraper/search'
@@ -195,6 +198,7 @@ class MemoryStore implements SyncStore {
       this.documents.set(edict.id, documents)
     }
     for (const id of commit.seenIds) this.#patch(id, { lastSeenAt: commit.at })
+    for (const id of commit.retryIds) this.#patch(id, { lastSeenAt: commit.at, contentHash: '' })
     for (const id of commit.unchangedIds)
       this.#patch(id, { lastSeenAt: commit.at, fetchedAt: commit.at })
     for (const id of commit.removedIds) this.#patch(id, { removedAt: commit.at })
@@ -278,6 +282,27 @@ describe('runSync', () => {
     expect(store.edicts.has(idOf(2))).toBe(true)
   })
 
+  it('reports an incomplete incremental listing while keeping the readable records', async () => {
+    const { site, store, sync, advance } = setup(edict(1))
+    await sync()
+    advance(HOUR)
+    site.publish(edict(2))
+    const auctionSite = createAuctionSite(site)
+    const summary = await sync({
+      site: {
+        ...auctionSite,
+        list: async (run) => ({ ...(await auctionSite.list(run)), incomplete: 'List was cut off' }),
+      },
+    })
+    expect(summary).toMatchObject({
+      kind: 'incremental',
+      status: 'ok',
+      changed: 1,
+      note: 'List was cut off',
+    })
+    expect(store.edicts.has(idOf(2))).toBe(true)
+  })
+
   it('skips pages whose content did not change', async () => {
     const { site, store, sync, advance } = setup(edict(1))
     await sync()
@@ -332,11 +357,52 @@ describe('runSync', () => {
     expect(store.runs.at(-1)).toMatchObject({ status: 'degraded' })
   })
 
+  it('recovers a missed detail on the next full pass before establishing the alert baseline', async () => {
+    const { site, sync, advance } = setup(edict(1), edict(2), edict(3), edict(4), edict(5))
+    const db = openDatabase(':memory:')
+    const store = createSyncStore(db)
+    try {
+      site.beforeAnswer = (url) => {
+        if (url.includes(`alldoc/${idOf(5)}`)) throw new AppError('network', 'Connection lost')
+      }
+      const partial = await sync({ store })
+      expect(partial).toMatchObject({ status: 'ok', listed: 5, changed: 4 })
+      expect(partial.note).toContain('1 of 5 edict pages could not be read')
+
+      site.beforeAnswer = () => undefined
+      advance(HOUR)
+      const complete = await sync({ store })
+      expect(complete).toMatchObject({ kind: 'full', status: 'ok', changed: 1, note: null })
+      expect([...loadDiscoveryMetadata(db).values()].map((entry) => entry.kind)).toEqual(
+        Array(5).fill('baseline'),
+      )
+
+      // A correction to a recently fetched record must also be retried in the recovery sweep.
+      const revised = edict(5, { title: 'Wohnung Top 5 berichtigt' })
+      site.publish(revised)
+      site.beforeAnswer = (url) => {
+        if (url.includes(`alldoc/${idOf(5)}`)) throw new AppError('network', 'Connection lost')
+      }
+      advance(HOUR)
+      expect((await sync({ store })).note).not.toBeNull()
+      site.beforeAnswer = () => undefined
+      advance(HOUR)
+      expect(await sync({ store })).toMatchObject({
+        kind: 'full',
+        fetched: 1,
+        changed: 1,
+        note: null,
+      })
+    } finally {
+      db.$client.close()
+    }
+  })
+
   it('logs a page deleted after listing and finishes the run', async () => {
     const { site, store, sync } = setup(edict(1), edict(2))
     site.listed = [...site.listed, edict(3)]
     const summary = await sync()
-    expect(summary).toMatchObject({ status: 'ok', listed: 3, fetched: 2, changed: 2 })
+    expect(summary).toMatchObject({ status: 'ok', listed: 3, fetched: 2, changed: 2, note: null })
     expect(store.runs[0]?.errors).toEqual([`${idOf(3)}: not_found: HTTP 404 from the site`])
   })
 

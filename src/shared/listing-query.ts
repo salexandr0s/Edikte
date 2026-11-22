@@ -8,9 +8,10 @@ import type { EdictSource, PriceBasis } from './enums'
  * mock bridge uses the same code, and both agree on what each filter means.
  */
 export function applyListingQuery(rows: readonly ListingRow[], query: ListingQuery): ListingPage {
+  const terms = searchTerms(query.text)
   const matches = rows
     .map((row) => withPriceBasis(row, query.priceBasis))
-    .filter((row) => matchesListingQuery(row, query))
+    .filter((row) => matchesListingQuery(row, query, terms))
     .sort(compareListings(query.sort))
   return { rows: matches, totalInScope: rows.length }
 }
@@ -27,15 +28,17 @@ export function effectivePriceBasis(source: EdictSource, basis: PriceBasis): Pri
 /** Gives the row its price basis for the chosen one, and the €/m² that follows from it. */
 export function withPriceBasis(row: ListingRow, basis: PriceBasis): ListingRow {
   const priceBasis = effectivePriceBasis(row.source, basis)
-  return {
-    ...row,
-    priceBasis,
-    pricePerSqm: pricePerSqm(priceForBasis(priceBasis, row), row.area?.sqm ?? null),
-  }
+  const perSqm = pricePerSqm(priceForBasis(priceBasis, row), row.area?.sqm ?? null)
+  if (row.priceBasis === priceBasis && row.pricePerSqm === perSqm) return row
+  return { ...row, priceBasis, pricePerSqm: perSqm }
 }
 
 /** Expects a row from `withPriceBasis` for the query's price basis. */
-export function matchesListingQuery(row: ListingRow, query: ListingQuery): boolean {
+export function matchesListingQuery(
+  row: ListingRow,
+  query: ListingQuery,
+  terms = searchTerms(query.text),
+): boolean {
   if (row.hidden && !query.showHidden) return false
   if (query.starredOnly && !row.starred) return false
   if (query.analyzedOnly && !row.hasAnalysis) return false
@@ -65,7 +68,7 @@ export function matchesListingQuery(row: ListingRow, query: ListingQuery): boole
   if (query.auctionTo !== null && (auctionDay === null || auctionDay > query.auctionTo)) {
     return false
   }
-  return matchesText(row, query)
+  return matchesText(row, terms)
 }
 
 /**
@@ -126,8 +129,11 @@ function inRange(value: number | null, min: number | null, max: number | null): 
   return (min === null || value >= min) && (max === null || value <= max)
 }
 
-function matchesText(row: ListingRow, query: ListingQuery): boolean {
-  const terms = normalizeText(query.text).split(/\s+/).filter(Boolean)
+function searchTerms(text: string): string[] {
+  return normalizeText(text).split(/\s+/).filter(Boolean)
+}
+
+function matchesText(row: ListingRow, terms: string[]): boolean {
   if (terms.length === 0) return true
   const haystack = normalizeText(
     [row.title, row.street, row.plz, row.city, row.court, row.caseNumber, row.categoryLabel]

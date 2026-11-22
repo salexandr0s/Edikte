@@ -39,8 +39,14 @@ export function selectExpiredDocuments(
 export interface DeleteOutcome {
   deleted: string[]
   missing: string[]
-  /** Paths outside the documents folder or of the wrong shape; left untouched. */
+  /** Unsafe or inaccessible paths kept for a later retention check. */
   refused: string[]
+}
+
+function failedDeletion(error: unknown): 'missing' | 'refused' {
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT'
+    ? 'missing'
+    : 'refused'
 }
 
 /**
@@ -56,8 +62,9 @@ export async function deleteDocumentFiles(
   let root: string
   try {
     root = await realpath(documentsDir)
-  } catch {
-    return { ...outcome, missing: [...localPaths] }
+  } catch (error) {
+    outcome[failedDeletion(error)] = [...localPaths]
+    return outcome
   }
   const folders = new Set<string>()
   for (const localPath of localPaths) {
@@ -70,8 +77,8 @@ export async function deleteDocumentFiles(
     let folder: string
     try {
       folder = await realpath(path.join(root, edictId))
-    } catch {
-      outcome.missing.push(localPath)
+    } catch (error) {
+      outcome[failedDeletion(error)].push(localPath)
       continue
     }
     if (folder !== path.join(root, edictId) || !isInside(root, folder)) {
@@ -89,8 +96,8 @@ export async function deleteDocumentFiles(
       await rm(file)
       outcome.deleted.push(localPath)
       folders.add(folder)
-    } catch {
-      outcome.missing.push(localPath)
+    } catch (error) {
+      outcome[failedDeletion(error)].push(localPath)
     }
   }
   for (const folder of folders) {

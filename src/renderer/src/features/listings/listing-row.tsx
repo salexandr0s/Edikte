@@ -9,6 +9,7 @@ import { EyeIcon, EyeOffIcon, StarIcon } from '../../components/ui/icons'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip'
 import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
+import { publishedPrice } from '../../lib/published-price'
 
 // table.v1: numbers right-aligned. The last row leaves its border to the frame.
 const CELL = 'border-b border-border py-3 align-top group-last/row:border-b-0'
@@ -45,6 +46,7 @@ const ANALYSIS_VARIANT: Readonly<Record<Exclude<AnalysisStatus, 'done'>, BadgeVa
 interface ListingTableRowProps {
   row: ListingRow
   columnPriceBasis: PriceBasis
+  publicationDates: boolean
   /** From the latest analysis event when there is one, else from the row. */
   analysisStatus: AnalysisStatus | null
   onOpen: () => void
@@ -55,6 +57,7 @@ interface ListingTableRowProps {
 export function ListingTableRow({
   row,
   columnPriceBasis,
+  publicationDates,
   analysisStatus,
   onOpen,
   onStar,
@@ -64,7 +67,7 @@ export function ListingTableRow({
   const format = useFormat()
   const notStated = t('common.notStated')
   const otherBasis = row.priceBasis === 'schaetzwert' ? 'geringstes_gebot' : 'schaetzwert'
-  const price = priceForBasis(row.priceBasis, row)
+  const price = publishedPrice(row)
   const otherPrice = priceForBasis(otherBasis, row)
   const districtName = row.bezirk === null ? null : bezirkName(row.bezirk)
   const district =
@@ -114,7 +117,7 @@ export function ListingTableRow({
             // Titles come from the site in German; long compounds break with hyphens.
             lang="de"
             className={cx(
-              'line-clamp-2 rounded-sm text-left font-medium hyphens-auto transition-colors duration-120 hover:text-accent-text',
+              'line-clamp-2 rounded-sm text-left font-semibold hyphens-auto transition-colors duration-120 hover:text-accent-text',
               row.hidden ? 'text-fg-muted' : 'text-fg',
             )}
           >
@@ -137,13 +140,15 @@ export function ListingTableRow({
       </td>
       <td className={cx(CELL, CELL_X)}>
         <div className="flex flex-col items-start gap-1">
-          {row.source === 'insolvency_sale' ? (
+          {publicationDates || row.source === 'insolvency_sale' ? (
             row.publishedAt === null ? (
               <Missing label={notStated} />
             ) : (
-              <span className="text-xs text-fg-muted">
-                {t('listings.row.published', { date: format.localDate(row.publishedAt) })}
-              </span>
+              <time dateTime={row.publishedAt} className="tabular-nums">
+                {publicationDates
+                  ? format.localDate(row.publishedAt)
+                  : t('listings.row.published', { date: format.localDate(row.publishedAt) })}
+              </time>
             )
           ) : row.auctionAt === null ? (
             <Missing label={notStated} />
@@ -170,18 +175,22 @@ export function ListingTableRow({
       <td className={cx(CELL, CELL_X, 'text-right')}>
         <div className="flex flex-col items-end gap-0.5">
           {price === null ? (
-            <Missing label={notStated} />
+            <span className="text-xs text-fg-muted">{notStated}</span>
           ) : (
-            <span className="whitespace-nowrap tabular-nums">{format.eur(price)}</span>
-          )}
-          {row.priceBasis !== columnPriceBasis && (
-            <span className="text-xs text-fg-muted">{t(`priceBasis.${row.priceBasis}`)}</span>
-          )}
-          {row.source === 'court_auction' && otherPrice !== null && (
-            <span className="text-xs text-fg-muted">
-              {t(`listings.row.otherPrice.${otherBasis}`, { value: format.eur(otherPrice) })}
+            <span className="font-semibold whitespace-nowrap tabular-nums">
+              {format.eur(price.amount)}
             </span>
           )}
+          {price !== null && price.basis !== columnPriceBasis && (
+            <span className="text-xs text-fg-muted">{t(`priceBasis.${price.basis}`)}</span>
+          )}
+          {row.source === 'court_auction' &&
+            price?.basis === row.priceBasis &&
+            otherPrice !== null && (
+              <span className="text-xs text-fg-muted">
+                {t(`listings.row.otherPrice.${otherBasis}`, { value: format.eur(otherPrice) })}
+              </span>
+            )}
         </div>
       </td>
       <td className={cx(CELL, CELL_X, 'text-right')}>

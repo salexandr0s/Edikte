@@ -4,7 +4,7 @@ import type { CollectionSection } from '@shared/notifications'
 import { openDatabase, type AppDatabase } from '../../src/main/db/client'
 import { queryListingCollection } from '../../src/main/db/collection-store'
 import { getDashboard } from '../../src/main/db/dashboard-store'
-import { seedDiscoveryBaseline } from '../../src/main/db/discovery-store'
+import { moveDiscoveryCase, seedDiscoveryBaseline } from '../../src/main/db/discovery-store'
 import { listingDiscoveries } from '../../src/main/db/schema'
 import { saveFilter, updateUserState } from '../../src/main/db/user-store'
 import { edictId, insertEdict } from './listing-fixtures'
@@ -117,6 +117,47 @@ describe('dashboard collections', () => {
     expect(
       selected.newListings.every((item) => item.listing.priceBasis === 'geringstes_gebot'),
     ).toBe(true)
+  })
+
+  it('counts a corrected case once in each search and preserves every matching search in the union', () => {
+    const { db, appraised, bid } = fixture()
+    moveDiscoveryCase(db, 'case-1', 'case-2')
+    const dashboard = getDashboard(db, { filterId: null }, NOW)
+    expect(dashboard.counts).toMatchObject({ matching: 4, new: 2 })
+    expect(dashboard.searches.find(({ filter }) => filter.id === bid.id)).toMatchObject({
+      matchCount: 2,
+      newCount: 1,
+    })
+    const union = queryListingCollection(
+      db,
+      { kind: 'saved_searches', filterId: null, section: 'all' },
+      NOW,
+    )
+    const merged = union.items.find(({ listing }) => listing.caseKey === 'case-1')
+    expect(merged?.filterIds).toEqual([appraised.id, bid.id])
+    const selected = queryListingCollection(
+      db,
+      { kind: 'saved_searches', filterId: bid.id, section: 'all' },
+      NOW,
+    )
+    expect(
+      selected.items.every(({ filterIds }) => filterIds.length === 1 && filterIds[0] === bid.id),
+    ).toBe(true)
+  })
+
+  it('uses Vienna wall time at both boundaries of the upcoming window across the clock change', () => {
+    const db = openDatabase(':memory:')
+    databases.push(db)
+    insertEdict(db, 1, { auctionAt: '2026-10-24T01:29' })
+    insertEdict(db, 2, { auctionAt: '2026-10-24T01:30' })
+    insertEdict(db, 3, { auctionAt: '2026-11-07T01:29' })
+    insertEdict(db, 4, { auctionAt: '2026-11-07T01:30' })
+    const filter = saveFilter(db, { name: 'All auctions', query: {} })
+    const selected = getDashboard(db, { filterId: filter.id }, new Date('2026-10-23T23:30:00Z'))
+    expect(selected.upcomingListings.map(({ listing }) => listing.id)).toEqual([
+      edictId(2),
+      edictId(3),
+    ])
   })
 
   it('keeps empty saved searches empty and rejects a deleted selection', () => {

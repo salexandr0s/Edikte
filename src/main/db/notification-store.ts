@@ -1,10 +1,5 @@
-import { and, asc, count, desc, eq, gt, inArray, isNull, lt, max } from 'drizzle-orm'
-import {
-  ListingQuerySchema,
-  ListingRowSchema,
-  type ListingQuery,
-  type ListingRow,
-} from '@shared/domain'
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, lt, max } from 'drizzle-orm'
+import { ListingRowSchema, type ListingQuery, type ListingRow, type Settings } from '@shared/domain'
 import {
   AlertConfigSchema,
   AlertRuleSchema,
@@ -24,15 +19,9 @@ import { matchesListingQuery, withPriceBasis } from '@shared/listing-query'
 import type { AppDatabase } from './client'
 import { createDiscoveryResolver } from './discovery-store'
 import { loadListingSnapshot } from './listing-store'
-import {
-  alertMatches,
-  filterAlerts,
-  listingDiscoveries,
-  notificationBatches,
-  syncRuns,
-} from './schema'
+import { alertMatches, filterAlerts, listingDiscoveries, notificationBatches } from './schema'
 import { readSettings } from './settings-store'
-import { lastFinishedRun } from './sync-store'
+import { lastCompleteSyncAt, lastFinishedRun } from './sync-store'
 import { listSavedFilters } from './user-store'
 import { nextAlertDue } from '../services/notifications/schedule'
 
@@ -66,8 +55,7 @@ function scopeKey(db: AppDatabase): string {
   })
 }
 
-function inScope(db: AppDatabase, row: ListingRow): boolean {
-  const settings = readSettings(db)
+function inScope(settings: Settings, row: ListingRow): boolean {
   return (
     settings.syncSources.includes(row.source) &&
     row.bundesland !== null &&
@@ -77,20 +65,9 @@ function inScope(db: AppDatabase, row: ListingRow): boolean {
 
 export function readSourceCoverage(db: AppDatabase): SourceCoverage[] {
   const settings = readSettings(db)
-  const successful = db
-    .select()
-    .from(syncRuns)
-    .where(eq(syncRuns.status, 'ok'))
-    .orderBy(desc(syncRuns.id))
-    .all()
   return settings.syncSources.map((source) => ({
     source,
-    lastSuccessAt:
-      successful.find(
-        (run) =>
-          run.source === source &&
-          settings.syncBundeslaender.every((region) => run.scope.includes(region)),
-      )?.finishedAt ?? null,
+    lastSuccessAt: lastCompleteSyncAt(db, settings.syncBundeslaender, source),
     lastRun: lastFinishedRun(db, source),
   }))
 }
@@ -116,13 +93,16 @@ export function createNotificationStore(db: AppDatabase) {
       const key = scopeKey(db)
       const at = now.toISOString()
       const cursor = highestDiscovery()
-      for (const filter of filters) {
-        const query = ListingQuerySchema.parse(filter.query)
-        const rule = db
+      const existing = new Map(
+        db
           .select()
           .from(filterAlerts)
-          .where(eq(filterAlerts.filterId, filter.id))
-          .get()
+          .all()
+          .map((rule) => [rule.filterId, rule]),
+      )
+      for (const filter of filters) {
+        const query = filter.query
+        const rule = existing.get(filter.id)
         if (rule === undefined) {
           db.insert(filterAlerts)
             .values({
@@ -213,8 +193,16 @@ export function createNotificationStore(db: AppDatabase) {
   const processDiscoveries = (now = new Date()): void => {
     reconcileRules(now)
     db.transaction(() => {
-      const rules = db.select().from(filterAlerts).where(eq(filterAlerts.enabled, true)).all()
       const cursor = highestDiscovery()
+      const rules = db
+        .select()
+        .from(filterAlerts)
+        .where(
+          and(eq(filterAlerts.enabled, true), lt(filterAlerts.lastProcessedDiscoveryId, cursor)),
+        )
+        .all()
+      if (rules.length === 0) return
+      const settings = readSettings(db)
       for (const rule of rules) {
         const discoveries = db
           .select()
@@ -225,7 +213,7 @@ export function createNotificationStore(db: AppDatabase) {
         for (const discovery of discoveries) {
           if (discovery.kind !== 'live' || discovery.mergedIntoId !== null) continue
           const parsed = ListingRowSchema.safeParse(discovery.snapshot)
-          if (!parsed.success || !inScope(db, parsed.data)) continue
+          if (!parsed.success || !inScope(settings, parsed.data)) continue
           const snapshot = withPriceBasis(parsed.data, rule.query.priceBasis)
           if (!matchesListingQuery(snapshot, rule.query)) continue
           db.insert(alertMatches)
@@ -253,19 +241,25 @@ export function createNotificationStore(db: AppDatabase) {
 
   const deliverDue = (now = new Date(), afterSync = false): NotificationSummary[] => {
     const created: NotificationSummary[] = []
-    const rows = loadListingSnapshot(db, { includeRemoved: true })
-    const byCase = new Map(rows.map((row) => [row.caseKey, row]))
-    const filters = new Map(listSavedFilters(db).map((filter) => [filter.id, filter]))
-    const coverage = readSourceCoverage(db)
-    const resolveDiscovery = createDiscoveryResolver(db)
     db.transaction(() => {
-      const rules = db.select().from(filterAlerts).where(eq(filterAlerts.enabled, true)).all()
-      for (const rule of rules) {
-        const due =
+      const due = db
+        .select()
+        .from(filterAlerts)
+        .where(eq(filterAlerts.enabled, true))
+        .all()
+        .filter((rule) =>
           rule.cadence === 'after_sync'
             ? afterSync
-            : rule.nextDueAt !== null && rule.nextDueAt <= now.toISOString()
-        if (!due) continue
+            : rule.nextDueAt !== null && rule.nextDueAt <= now.toISOString(),
+        )
+      if (due.length === 0) return
+
+      const rows = loadListingSnapshot(db, { includeRemoved: true })
+      const byCase = new Map(rows.map((row) => [row.caseKey, row]))
+      const filters = new Map(listSavedFilters(db).map((filter) => [filter.id, filter]))
+      const coverage = readSourceCoverage(db)
+      const resolveDiscovery = createDiscoveryResolver(db)
+      for (const rule of due) {
         const filter = filters.get(rule.filterId)
         if (filter === undefined) continue
         const candidates = db
@@ -522,10 +516,10 @@ export function createNotificationStore(db: AppDatabase) {
       db
         .select({ at: filterAlerts.nextDueAt })
         .from(filterAlerts)
-        .where(eq(filterAlerts.enabled, true))
+        .where(and(eq(filterAlerts.enabled, true), isNotNull(filterAlerts.nextDueAt)))
         .orderBy(asc(filterAlerts.nextDueAt))
-        .all()
-        .find((row) => row.at !== null)?.at ?? null,
+        .limit(1)
+        .get()?.at ?? null,
   }
 }
 

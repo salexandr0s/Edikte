@@ -211,8 +211,11 @@ export function loadScannedPages(
     )
     .orderBy(asc(documentPages.pageNumber))
     .all()
-  for (const row of rows)
-    pages.set(row.documentId, [...(pages.get(row.documentId) ?? []), row.pageNumber])
+  for (const row of rows) {
+    const group = pages.get(row.documentId)
+    if (group) group.push(row.pageNumber)
+    else pages.set(row.documentId, [row.pageNumber])
+  }
   return pages
 }
 
@@ -225,7 +228,7 @@ function loadListingRows(
 ): ListingRow[] {
   if (!options.allScopes && (scope.length === 0 || enabledSources.length === 0)) return []
   const rows = db
-    .select(listingColumns)
+    .select({ ...listingColumns, starred: userState.starred, hidden: userState.hidden })
     .from(edicts)
     .leftJoin(userState, eq(userState.caseKey, edicts.caseKey))
     .where(
@@ -238,37 +241,50 @@ function loadListingRows(
       ),
     )
     .all()
-  const users = new Map(
+  if (rows.length === 0) return []
+  type CaseRow = (typeof rows)[number]
+  const cases = new Map<string, [CaseRow, ...CaseRow[]]>()
+  for (const edict of rows) {
+    const group = cases.get(edict.caseKey)
+    if (group === undefined) cases.set(edict.caseKey, [edict])
+    else group.push(edict)
+  }
+  const selected = [...cases.values()].map((group) => {
+    const [first, ...others] = group.filter((edict) => edict.removedAt === null)
+    return pickCaseEdicts(first === undefined ? group : [first, ...others])
+  })
+  const ids = selected.map(({ representative }) => representative.id)
+  const reports = new Set(
     db
-      .select({ caseKey: userState.caseKey, starred: userState.starred, hidden: userState.hidden })
-      .from(userState)
+      .selectDistinct({ edictId: documents.edictId })
+      .from(documents)
+      .where(
+        and(
+          inArray(documents.edictId, ids),
+          eq(documents.kind, 'langgutachten'),
+          isNull(documents.removedAt),
+        ),
+      )
       .all()
-      .map((state) => [state.caseKey, state]),
-  )
-  const reports = loadActiveReports(
-    db,
-    rows.map((row) => row.id),
+      .map((row) => row.edictId),
   )
   const withFinished = new Set(
     db
-      .select({ edictId: analyses.edictId })
+      .selectDistinct({ edictId: analyses.edictId })
       .from(analyses)
-      .where(inArray(analyses.id, latestAnalysisIds(db, 'done')))
+      .where(and(inArray(analyses.edictId, ids), eq(analyses.status, 'done')))
       .all()
       .map((analysis) => analysis.edictId),
   )
   const estimates = new Map<string, AreaEstimateRow[]>()
-  for (const estimate of currentEstimates(
-    db,
-    rows.map((row) => row.id),
-  )) {
+  for (const estimate of currentEstimates(db, ids)) {
     estimates.set(estimate.edictId, [...(estimates.get(estimate.edictId) ?? []), estimate])
   }
   const statuses = new Map(
     db
       .select({ edictId: analyses.edictId, status: analyses.status })
       .from(analyses)
-      .where(inArray(analyses.id, latestAnalysisIds(db)))
+      .where(and(inArray(analyses.edictId, ids), inArray(analyses.id, latestAnalysisIds(db))))
       .all()
       .map((analysis) => [analysis.edictId, analysis.status]),
   )
@@ -281,29 +297,17 @@ function loadListingRows(
         documentIds: analyses.documentIds,
       })
       .from(analyses)
-      .where(inArray(analyses.id, latestCurrentAnalysisIds(db)))
+      .where(
+        and(inArray(analyses.edictId, ids), inArray(analyses.id, latestCurrentAnalysisIds(db))),
+      )
       .all()
       .map((analysis) => [analysis.edictId, toFinishedAnalysis(analysis)]),
   )
-  const locations = loadLocations(
-    db,
-    rows.map((row) => row.id),
-  )
-  const cases = new Map<string, [ListingEdict, ...ListingEdict[]]>()
-  for (const edict of rows) {
-    const group = cases.get(edict.caseKey)
-    if (group === undefined) cases.set(edict.caseKey, [edict])
-    else group.push(edict)
-  }
-  return [...cases.values()].map((group) => {
-    const [firstActive, ...otherActive] = group.filter((edict) => edict.removedAt === null)
-    const selected: [ListingEdict, ...ListingEdict[]] =
-      firstActive === undefined ? group : [firstActive, ...otherActive]
-    const { representative: edict, decider } = pickCaseEdicts(selected)
-    const user = users.get(edict.caseKey)
+  const locations = loadLocations(db, ids)
+  return selected.map(({ representative: edict, decider }) => {
     const sources = {
-      starred: user?.starred ?? false,
-      hidden: user?.hidden ?? false,
+      starred: edict.starred ?? false,
+      hidden: edict.hidden ?? false,
       hasLanggutachten: reports.has(edict.id),
       analysisStatus: statuses.get(edict.id) ?? null,
       analysisStale: withFinished.has(edict.id) && !finished.has(edict.id),
@@ -422,12 +426,11 @@ function publishedAfter(a: CaseEdict, b: CaseEdict): boolean {
   return a.publishedAt !== null && b.publishedAt !== null && a.publishedAt > b.publishedAt
 }
 
-/** Subquery: the newest analysis ID per edict, optionally among those that are done. */
-function latestAnalysisIds(db: AppDatabase, status?: 'done') {
+/** Subquery: the newest analysis ID per edict. */
+function latestAnalysisIds(db: AppDatabase) {
   return db
     .select({ id: max(analyses.id) })
     .from(analyses)
-    .where(status === undefined ? undefined : eq(analyses.status, status))
     .groupBy(analyses.edictId)
 }
 

@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { eq } from 'drizzle-orm'
@@ -331,6 +331,28 @@ describe('document service', () => {
     await service.idle()
 
     expect(progress().at(-1)).toMatchObject({ job: 'fill', phase: 'cancelled' })
+  })
+
+  it('retains the index and retries cleanup when a document folder is inaccessible', async () => {
+    const id = edictId(8)
+    insertEdict(db, id, { status: 'sold', publishedAt: '2026-09-01' })
+    const documentId = insertGutachten(db, id)
+    const page = { pageNumber: 1, printedLabel: null, hasText: true, text: 'Seite 1' }
+    await storeReadDocument(db, documentsDir, documentId, id, [page])
+    const { service } = setup()
+    const folder = path.join(documentsDir, id)
+    const retained = path.join(documentsDir, 'retained-folder')
+    await rename(folder, retained)
+    await writeFile(folder, 'Temporarily not a directory')
+
+    expect(await service.runRetention()).toEqual({ deleted: 0, missing: 0, refused: 1 })
+    const store = createDocumentStore(db)
+    expect(store.find(documentId)?.info.downloaded).toBe(true)
+    expect(store.pageTexts(documentId)).toEqual([page])
+
+    await rm(folder)
+    await rename(retained, folder)
+    expect(await service.runRetention()).toEqual({ deleted: 1, missing: 0, refused: 0 })
   })
 
   it('deletes the files of cases closed longer than the retention period', async () => {

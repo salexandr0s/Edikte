@@ -9,17 +9,17 @@ import {
   BookmarkIcon,
   ChevronRightIcon,
   InboxIcon,
-  RefreshIcon,
 } from '../../components/ui/icons'
 import { Page, PageHeader } from '../../components/ui/page'
 import { Select } from '../../components/ui/select'
 import { Skeleton } from '../../components/ui/skeleton'
 import { Spinner } from '../../components/ui/spinner'
-import { TILE, TILE_INTERACTIVE } from '../../components/ui/tile'
+import { TILE } from '../../components/ui/tile'
 import { useApp } from '../../lib/app-context'
 import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
 import { OpportunityList } from '../collections/opportunity-list'
+import { SyncBar } from '../listings/sync-bar'
 import { useSync } from '../listings/use-sync'
 import { NotificationPreview } from '../notifications/notification-preview'
 import { SavedSearches } from './saved-searches'
@@ -43,11 +43,12 @@ const LISTING_SECTIONS = [
 export function DashboardScreen() {
   const { t } = useTranslation()
   const format = useFormat()
-  const { navigate } = useApp()
+  const { navigate, view, settings } = useApp()
+  const active = view.screen === 'dashboard'
   const [filterId, setFilterId] = useState<number | null>(null)
-  const { data, error, loading, reload } = useDashboard(filterId)
-  const sync = useSync()
-  const running = sync.status !== null && sync.status.state !== 'idle'
+  const { data, searches, error, loading, reload } = useDashboard(filterId, active)
+  const sync = useSync(active)
+  const searchLabelId = useId()
   const openCollection = (collection: ListingCollection) =>
     navigate({ screen: 'collection', collection, origin: 'dashboard' })
   const openSection = (section: CollectionSection) =>
@@ -55,7 +56,7 @@ export function DashboardScreen() {
   const openListing = (item: CollectionItem) =>
     navigate({ screen: 'detail', id: item.current?.id ?? item.listing.id, origin: 'dashboard' })
   const filterNames = new Map(
-    (data?.searches ?? []).map(({ filter }) => [
+    searches.map(({ filter }) => [
       filter.id,
       filter.presetKey === null ? filter.name : t(`filters.presets.${filter.presetKey}`),
     ]),
@@ -70,39 +71,97 @@ export function DashboardScreen() {
       <PageHeader
         title={t('dashboard.title')}
         description={t('dashboard.description')}
-        actions={
-          <>
+        actions={!firstImport && <SyncBar sync={sync} sources={settings.syncSources} />}
+      />
+
+      {firstImport && (
+        <section
+          className={cx(
+            TILE,
+            'flex flex-wrap items-center justify-between gap-6 border-l-4 border-l-accent-fill p-6',
+          )}
+        >
+          <div className="flex min-w-0 flex-1 basis-80 items-start gap-4">
+            <span
+              aria-hidden="true"
+              className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text"
+            >
+              <InboxIcon className="size-5" />
+            </span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <h2 className="text-lg font-semibold tracking-tight">
+                {t('dashboard.firstImportTitle')}
+              </h2>
+              <p className="max-w-lg text-sm text-fg-muted">{t('dashboard.firstImportText')}</p>
+            </div>
+          </div>
+          <SyncBar sync={sync} sources={settings.syncSources} />
+        </section>
+      )}
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 max-w-full items-center gap-3">
+            <label htmlFor={searchLabelId} className="shrink-0 text-sm font-medium">
+              {t('dashboard.searchLabel')}
+            </label>
             <Select
+              id={searchLabelId}
+              size="sm"
               value={filterId === null ? 'all' : String(filterId)}
-              aria-label={t('dashboard.searchLabel')}
-              className="w-auto max-w-full"
+              className="min-w-0 max-w-full"
               options={[
                 { value: 'all', label: t('dashboard.allSearches') },
                 ...[...filterNames].map(([id, name]) => ({ value: String(id), label: name })),
               ]}
               onValueChange={(value) => setFilterId(value === 'all' ? null : Number(value))}
             />
-            <Button
-              variant="outline"
-              loading={running || sync.pending === 'start'}
-              onClick={() => {
-                sync.start()
-                reload()
-              }}
-            >
-              <RefreshIcon />
-              {t('dashboard.refresh')}
-            </Button>
-          </>
-        }
-      >
+          </div>
+          {data !== null && (
+            <p className="flex items-center gap-2 text-xs text-fg-muted">
+              {t('dashboard.updatedAt', { time: format.timestamp(data.generatedAt) })}
+              {loading && <Spinner className="size-3" />}
+            </p>
+          )}
+        </div>
         {data !== null && (
-          <div className="flex items-center gap-2 text-xs text-fg-muted">
-            <p>{t('dashboard.updatedAt', { time: format.timestamp(data.generatedAt) })}</p>
-            {loading && <Spinner className="size-3" />}
+          <div
+            className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border shadow-xs md:grid-cols-4"
+            aria-busy={loading}
+          >
+            {SECTIONS.map((section) => {
+              const key = COUNT_KEYS[section]
+              const count = data.counts[key]
+              return (
+                <button
+                  key={section}
+                  type="button"
+                  onClick={() => openSection(section)}
+                  className={cx(
+                    'group flex min-w-0 flex-col items-start gap-2 px-5 py-4 text-left transition-colors duration-120 focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring',
+                    section === 'all'
+                      ? 'bg-accent-soft text-accent-text hover:bg-accent-subtle active:bg-accent-soft'
+                      : 'bg-surface hover:bg-surface-hover active:bg-fill-muted',
+                  )}
+                >
+                  <span className="flex w-full items-start justify-between gap-2 text-sm font-medium">
+                    {t(`dashboard.counts.${key}`)}
+                    <ChevronRightIcon className="mt-0.5 shrink-0 text-fg-muted transition-colors group-hover:text-accent-text" />
+                  </span>
+                  <span
+                    className={cx(
+                      'text-3xl font-semibold tracking-tight tabular-nums',
+                      count === 0 && section !== 'all' && 'text-fg-muted',
+                    )}
+                  >
+                    {format.number(count)}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         )}
-      </PageHeader>
+      </div>
 
       {data === null ? (
         error === null ? (
@@ -141,54 +200,6 @@ export function DashboardScreen() {
               </Button>
             </div>
           )}
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4" aria-busy={loading}>
-            {SECTIONS.map((section) => {
-              const key = COUNT_KEYS[section]
-              const count = data.counts[key]
-              return (
-                <button
-                  key={section}
-                  type="button"
-                  onClick={() => openSection(section)}
-                  className={cx(
-                    TILE,
-                    TILE_INTERACTIVE,
-                    'group flex min-w-0 flex-col items-start gap-2 p-5 text-left active:bg-fill-muted',
-                  )}
-                >
-                  <span className="flex w-full items-center justify-between gap-2 text-sm text-fg-muted">
-                    {t(`dashboard.counts.${key}`)}
-                    <ChevronRightIcon className="shrink-0 opacity-40 transition-opacity duration-120 group-hover:opacity-100" />
-                  </span>
-                  <span
-                    className={cx(
-                      'text-3xl font-semibold tracking-tight tabular-nums',
-                      // A zero is information, not a headline.
-                      count === 0 && 'text-fg-muted',
-                    )}
-                  >
-                    {format.number(count)}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          {firstImport && (
-            <EmptyState
-              icon={<InboxIcon />}
-              title={t('dashboard.firstImportTitle')}
-              description={t('dashboard.firstImportText')}
-              className={TILE}
-              action={
-                <Button loading={running || sync.pending === 'start'} onClick={sync.start}>
-                  <RefreshIcon />
-                  {t('dashboard.refresh')}
-                </Button>
-              }
-            />
-          )}
-
           {data.searches.length === 0 ? (
             <EmptyState
               icon={<BookmarkIcon />}
@@ -202,26 +213,27 @@ export function DashboardScreen() {
             />
           ) : (
             <>
-              {LISTING_SECTIONS.map(({ section, items, key }) => (
-                <ListingSection
-                  key={section}
-                  title={t(`dashboard.${key}Title`)}
-                  description={t(`dashboard.${key}Description`)}
-                  empty={data[items].length === 0 ? t(`dashboard.${key}Empty`) : null}
-                  action={
-                    <Button variant="link" onClick={() => openSection(section)}>
-                      {t('dashboard.viewAll')}
-                    </Button>
-                  }
-                >
-                  <OpportunityList
-                    items={data[items]}
-                    onOpen={openListing}
-                    filterNames={filterNames}
-                    showBothPrices={filterId === null}
-                  />
-                </ListingSection>
-              ))}
+              {LISTING_SECTIONS.filter(({ items }) => data[items].length > 0).map(
+                ({ section, items, key }) => (
+                  <ListingSection
+                    key={section}
+                    title={t(`dashboard.${key}Title`)}
+                    description={t(`dashboard.${key}Description`)}
+                    action={
+                      <Button variant="link" onClick={() => openSection(section)}>
+                        {t('dashboard.viewAll')}
+                      </Button>
+                    }
+                  >
+                    <OpportunityList
+                      items={data[items]}
+                      onOpen={openListing}
+                      filterNames={filterNames}
+                      showBothPrices={filterId === null}
+                    />
+                  </ListingSection>
+                ),
+              )}
               <Card
                 title={t('dashboard.searchesTitle')}
                 description={t('dashboard.searchesDescription')}
@@ -262,11 +274,7 @@ export function DashboardScreen() {
               title={t('dashboard.freshnessTitle')}
               description={t('dashboard.freshnessDescription')}
             >
-              <SourceHealth
-                coverage={data.coverage}
-                trackingStartedAt={data.trackingStartedAt}
-                sync={sync}
-              />
+              <SourceHealth coverage={data.coverage} trackingStartedAt={data.trackingStartedAt} />
             </Card>
           </div>
         </>
@@ -278,31 +286,12 @@ export function DashboardScreen() {
 interface ListingSectionProps {
   title: string
   description: string
-  /** Why the section has nothing to show, or null when it has listings. */
-  empty: string | null
   action: ReactNode
   children: ReactNode
 }
 
-/**
- * A heading with its listings. An empty section shrinks to one quiet row, so
- * it does not push the sections that have something to show down the page.
- */
-function ListingSection({ title, description, empty, action, children }: ListingSectionProps) {
+function ListingSection({ title, description, action, children }: ListingSectionProps) {
   const titleId = useId()
-  if (empty !== null) {
-    return (
-      <section
-        aria-labelledby={titleId}
-        className="flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-border bg-bg-muted px-5 py-4"
-      >
-        <h2 id={titleId} className="text-base font-semibold">
-          {title}
-        </h2>
-        <p className="text-sm text-fg-muted">{empty}</p>
-      </section>
-    )
-  }
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-4">
       <header className="flex items-start justify-between gap-4">
@@ -323,11 +312,7 @@ function DashboardSkeleton() {
   const { t } = useTranslation()
   return (
     <div role="status" aria-label={t('common.loading')} className="flex flex-col gap-6">
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-        {SECTIONS.map((section) => (
-          <Skeleton key={section} className="h-28 rounded-lg" />
-        ))}
-      </div>
+      <Skeleton className="h-24 rounded-lg" />
       <Skeleton className="h-64 rounded-lg" />
     </div>
   )

@@ -1,13 +1,14 @@
 import { useTranslation } from 'react-i18next'
 import { priceForBasis, pricePerSqm } from '@shared/area'
 import type { ListingRow } from '@shared/domain'
-import type { PriceBasis } from '@shared/enums'
+import { PriceBasisSchema, type PriceBasis } from '@shared/enums'
 import type { CollectionItem } from '@shared/notifications'
 import { Badge } from '../../components/ui/badge'
 import { StarIcon } from '../../components/ui/icons'
 import { TILE, TILE_INTERACTIVE } from '../../components/ui/tile'
 import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
+import { publishedPrice } from '../../lib/published-price'
 import { ListingStatusBadge } from '../detail/status-badge'
 
 interface OpportunityListProps {
@@ -59,6 +60,14 @@ function OpportunityCard({
   const { t } = useTranslation()
   const format = useFormat()
   const row = item.listing
+  const priceBasis = publishedPrice(row)?.basis ?? row.priceBasis
+  const current = historical ? item.current : null
+  const changedPrices =
+    current === null
+      ? []
+      : PriceBasisSchema.options.filter(
+          (basis) => priceForBasis(basis, row) !== priceForBasis(basis, current),
+        )
   const address = [row.street, [row.plz, row.city].filter(Boolean).join(' ')]
     .filter(Boolean)
     .join(', ')
@@ -66,7 +75,6 @@ function OpportunityCard({
     .map((id) => filterNames?.get(id))
     .filter((name): name is string => name !== undefined)
   const unavailable = historical && (item.current === null || item.current.removedAt !== null)
-  const changed = historical && item.current !== null && listingChanged(row, item.current)
 
   return (
     // The title button stretches over the tile, so the whole tile opens the listing.
@@ -126,7 +134,7 @@ function OpportunityCard({
             <PriceFact row={row} basis="geringstes_gebot" />
           </>
         ) : (
-          <PriceFact row={row} basis={row.priceBasis} />
+          <PriceFact row={row} basis={priceBasis} showUnitPrice={priceBasis === row.priceBasis} />
         )}
         <Fact
           label={t('collections.area')}
@@ -152,22 +160,42 @@ function OpportunityCard({
         )}
         {unavailable ? (
           <p className="font-medium text-warning-text">{t('collections.unavailable')}</p>
-        ) : changed && item.current !== null ? (
-          <p>
-            {t('collections.updated')}{' '}
-            {t('collections.currentStatus', { status: t(`listingStatus.${item.current.status}`) })}
-          </p>
+        ) : current !== null && listingChanged(row, current) ? (
+          <>
+            <p>
+              {t('collections.updated')}{' '}
+              {t('collections.currentStatus', { status: t(`listingStatus.${current.status}`) })}
+            </p>
+            {changedPrices.length > 0 && (
+              <div>
+                <p className="font-medium">{t('collections.currentPrices')}</p>
+                <dl>
+                  {changedPrices.map((basis) => (
+                    <PriceFact key={basis} row={current} basis={basis} showUnitPrice={false} />
+                  ))}
+                </dl>
+              </div>
+            )}
+          </>
         ) : null}
       </div>
     </article>
   )
 }
 
-function PriceFact({ row, basis }: { row: ListingRow; basis: PriceBasis }) {
+function PriceFact({
+  row,
+  basis,
+  showUnitPrice = true,
+}: {
+  row: ListingRow
+  basis: PriceBasis
+  showUnitPrice?: boolean
+}) {
   const { t } = useTranslation()
   const format = useFormat()
   const price = priceForBasis(basis, row)
-  const perSqm = pricePerSqm(price, row.area?.sqm ?? null)
+  const perSqm = showUnitPrice ? pricePerSqm(price, row.area?.sqm ?? null) : null
   return (
     <Fact
       label={t(`priceBasis.${basis}`)}

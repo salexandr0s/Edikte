@@ -17,8 +17,9 @@ import { RelatedCard } from './related-card'
 import { useListingDetail } from './use-listing-detail'
 
 const PAGE = 'mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-6'
-// The reading column and a fixed side column from 1024 px; narrower windows stack them.
-const COLUMNS = 'grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]'
+// Keep source documents alongside the analysis at the minimum desktop width.
+const COLUMNS =
+  'grid items-start gap-6 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-cols-[minmax(0,1fr)_24rem]'
 
 /**
  * One listing: title and key figures on top, then the AI analysis with the

@@ -10,6 +10,7 @@ import { ActiveFilterChips } from './active-filter-chips'
 import { AnalysisQueueStatus, AnalyzeFilteredButton } from './analysis-actions'
 import { FillAreasButton, FillProgressPanel, useFillJob } from './fill-areas'
 import { FilterDialog } from './filter-dialog'
+import { ListingSearch } from './listing-search'
 import { ListingResults, type ListingView } from './listing-results'
 import {
   applyPatch,
@@ -36,7 +37,8 @@ import { useUserState } from './use-user-state'
  */
 export function ListingsScreen() {
   const { t } = useTranslation()
-  const { settings, navigate } = useApp()
+  const { settings, navigate, view: screenView } = useApp()
+  const active = screenView.screen === 'listings'
   const [query, setQuery] = useState(() =>
     forEnabledSources(defaultQuery(settings.priceBasis), settings.syncSources),
   )
@@ -56,10 +58,10 @@ export function ListingsScreen() {
   const [view, setView] = useState<ListingView>('list')
   const titleId = useId()
 
-  const listing = useListingPage(query)
+  const listing = useListingPage(query, active)
   const userState = useUserState(listing, query)
   const tracker = useAnalysisTracker()
-  const sync = useSync()
+  const sync = useSync(active)
   const fill = useFillJob(query)
   const activeFilters = countActiveFilters(query)
   const disabledSources = selectsDisabledSources(query, settings.syncSources)
@@ -70,15 +72,21 @@ export function ListingsScreen() {
 
   return (
     // At least the screen's height, so the map view can take what the list leaves.
-    <div className="flex min-h-full flex-col gap-6 px-6 py-6">
+    <div className="mx-auto flex min-h-full w-full max-w-screen-2xl flex-col gap-5 px-6 py-6">
       <PageHeader
         title={t('listings.title')}
         titleId={titleId}
         actions={<SyncBar sync={sync} sources={settings.syncSources} />}
       />
 
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3 shadow-xs">
+        <div className="flex flex-wrap items-center gap-3">
+          <ListingSearch
+            value={query.text}
+            onChange={(text) => updateQuery({ text })}
+            placeholder={t('listings.search')}
+            className="min-w-52 flex-1"
+          />
           {settings.syncSources.length > 1 && (
             <SourceSwitch
               sources={query.sources}
@@ -116,15 +124,6 @@ export function ListingsScreen() {
               )
             }
           />
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-            <AnalysisQueueStatus rows={userState.rows} tracker={tracker} />
-            <FillAreasButton job={fill} disabled={!listing.settled} />
-            <AnalyzeFilteredButton
-              rows={userState.rows}
-              tracker={tracker}
-              disabled={!listing.settled}
-            />
-          </div>
         </div>
         <ActiveFilterChips query={query} onChange={updateQuery} onReset={reset} />
       </div>
@@ -152,6 +151,17 @@ export function ListingsScreen() {
       <FillProgressPanel job={fill} />
 
       <ListingResults
+        actions={
+          <>
+            <AnalysisQueueStatus rows={userState.rows} tracker={tracker} />
+            <FillAreasButton job={fill} disabled={!listing.settled} />
+            <AnalyzeFilteredButton
+              rows={userState.rows}
+              tracker={tracker}
+              disabled={!listing.settled}
+            />
+          </>
+        }
         titleId={titleId}
         query={query}
         state={listing}

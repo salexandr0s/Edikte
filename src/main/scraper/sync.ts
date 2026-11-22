@@ -31,7 +31,7 @@ export interface KnownEdict {
 export interface SyncStoreState {
   /** Stored edicts of the source whose Bundesland is in scope, removed ones included. */
   known: ReadonlyMap<string, KnownEdict>
-  /** Start of the source's last run with status ok whose scope covered this one. */
+  /** Start of the latest complete refresh covering the scope, or null when a full sweep is needed. */
   lastOkRunStartedAt: string | null
   /** The same for full runs. */
   lastOkFullRunStartedAt: string | null
@@ -62,6 +62,8 @@ export interface SyncCommit {
   seenIds: string[]
   /** Page read and unchanged: set lastSeenAt and fetchedAt. */
   unchangedIds: string[]
+  /** Listed pages that failed to load. Keep their stored facts and retry their details. */
+  retryIds: string[]
   /** Missing from a complete full list: set removedAt. */
   removedIds: string[]
   /** Time for lastSeenAt, fetchedAt and removedAt. */
@@ -98,6 +100,7 @@ interface RunResult {
   upserts: EdictWrite[]
   seenIds: string[]
   unchangedIds: string[]
+  retryIds: string[]
   removedIds: string[]
   degradedNote: string | null
   note: string | null
@@ -172,6 +175,7 @@ export async function runSync<Row extends SyncRow, Page>(
     upserts: writes?.upserts ?? [],
     seenIds: writes?.seenIds ?? [],
     unchangedIds: writes?.unchangedIds ?? [],
+    retryIds: writes?.retryIds ?? [],
     removedIds: writes?.removedIds ?? [],
     at: finishedAt,
   })
@@ -213,14 +217,14 @@ async function executeRun<Row extends SyncRow, Page>(
   const pages: ChangedPage<Row, Page>[] = []
   const changed: ChangedPage<Row, Page>[] = []
   const unchangedIds: string[] = []
-  let failed = 0
+  const retryIds: string[] = []
   let gone = 0
   for (const [index, row] of toFetch.entries()) {
     run.report('details', index, toFetch.length)
     const result = await run.attempt(row.id, () => site.readPage(run, row))
     if (!result.ok) {
       if (result.gone) gone += 1
-      else failed += 1
+      else retryIds.push(row.id)
       continue
     }
     const page = result.value
@@ -243,12 +247,19 @@ async function executeRun<Row extends SyncRow, Page>(
   const healthNote = site.assessHealth({ rows: [...listing.rows.values()], pages })
   if (healthNote !== null) problems.push(healthNote)
   const attempted = toFetch.length - gone
-  if (exceedsShare(failed, attempted, FAILED_PAGE_LIMIT))
-    problems.push(`${failed} of ${attempted} edict pages could not be read`)
+  const notes: string[] = []
+  if (retryIds.length > 0) {
+    const detailNote = `${retryIds.length} of ${attempted} edict pages could not be read`
+    if (exceedsShare(retryIds.length, attempted, FAILED_PAGE_LIMIT)) problems.push(detailNote)
+    else notes.push(detailNote)
+  }
   let removedIds: string[] = []
-  let note: string | null = null
-  if (run.kind === 'full' && listing.incomplete !== null) {
-    note = `${listing.incomplete}, so no edicts were marked as removed`
+  if (listing.incomplete !== null) {
+    notes.push(
+      run.kind === 'full'
+        ? `${listing.incomplete}, so no edicts were marked as removed`
+        : listing.incomplete,
+    )
   } else if (run.kind === 'full') {
     const active = [...known.values()].filter(
       (edict) =>
@@ -264,9 +275,10 @@ async function executeRun<Row extends SyncRow, Page>(
     upserts,
     seenIds,
     unchangedIds,
+    retryIds,
     removedIds,
     degradedNote: problems.length > 0 ? problems.join('; ') : null,
-    note,
+    note: notes.length > 0 ? notes.join('; ') : null,
   }
 }
 

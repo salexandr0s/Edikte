@@ -58,7 +58,7 @@
     "matchCount_other": "{{count}} new listings match this search",
     "period": "Coverage: {{from}} to {{to}}",
     "created": "Created {{time}}",
-    "partialCoverage": "Some sources could not be refreshed. This digest contains results from successful syncs.",
+    "partialCoverage": "Some source data is incomplete. This digest may be missing matches.",
     "attempt": {
       "failed": "The desktop notification could not be shown. This digest remains available here.",
       "unsupported": "Desktop notifications are unavailable on this system."

@@ -10,7 +10,7 @@ export function getDashboard(
   now: Date = new Date(),
 ): DashboardData {
   const snapshot = loadSavedSearchSnapshot(db, now)
-  const all = snapshot.items(request.filterId, 'all')
+  const counts = snapshot.counts(request.filterId)
   const recent = snapshot.items(request.filterId, 'new')
   const upcoming = snapshot.items(request.filterId, 'upcoming')
   const starred = snapshot.items(request.filterId, 'starred')
@@ -19,7 +19,7 @@ export function getDashboard(
   return {
     generatedAt: now.toISOString(),
     counts: {
-      matching: all.length,
+      matching: counts.matchCount,
       new: recent.length,
       upcoming: upcoming.length,
       starred: starred.length,
@@ -29,8 +29,7 @@ export function getDashboard(
     starredListings: starred.slice(0, 5),
     searches: snapshot.filters.map((filter) => ({
       filter,
-      matchCount: snapshot.items(filter.id, 'all').length,
-      newCount: snapshot.items(filter.id, 'new').length,
+      ...snapshot.counts(filter.id),
       alert: rules.get(filter.id) ?? notifications.getRule(filter.id, now),
       inScope: searchInScope(filter, snapshot.settings),
     })),
@@ -40,6 +39,6 @@ export function getDashboard(
     }).items,
     coverage: readSourceCoverage(db),
     trackingStartedAt: discoveryTrackingStartedAt(db),
-    totalInScope: snapshot.rows.length,
+    totalInScope: snapshot.totalInScope,
   }
 }

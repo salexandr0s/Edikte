@@ -5,7 +5,7 @@ import { errorCode, invoke } from '../../lib/bridge'
 import { useBridgeEvent } from '../../lib/use-bridge-event'
 
 /** Retains the last successful answer while a refresh or sync is in progress. */
-export function useDashboard(filterId: number | null) {
+export function useDashboard(filterId: number | null, active: boolean) {
   const [answer, setAnswer] = useState<{ filterId: number | null; data: DashboardData } | null>(
     null,
   )
@@ -17,6 +17,7 @@ export function useDashboard(filterId: number | null) {
   const reload = () => setRefreshes((value) => value + 1)
 
   useEffect(() => {
+    if (!active) return
     let ignore = false
     const timer = window.setTimeout(
       () => {
@@ -41,19 +42,25 @@ export function useDashboard(filterId: number | null) {
       ignore = true
       window.clearTimeout(timer)
     }
-  }, [filterId, refreshes])
+  }, [active, filterId, refreshes])
 
-  useBridgeEvent('listings:changed', reload)
-  useBridgeEvent('filters:changed', reload)
-  useBridgeEvent('alerts:changed', reload)
-  useBridgeEvent('notifications:changed', reload)
-  useBridgeEvent('sync:progress', (status) => {
-    if (status.state === 'idle') reload()
-  })
+  useBridgeEvent('listings:changed', reload, active)
+  useBridgeEvent('filters:changed', reload, active)
+  useBridgeEvent('alerts:changed', reload, active)
+  useBridgeEvent('notifications:changed', reload, active)
+  useBridgeEvent(
+    'sync:progress',
+    (status) => {
+      if (status.state === 'idle') reload()
+    },
+    active,
+  )
 
+  const error = failure?.filterId === filterId ? failure.code : null
   return {
-    data: answer?.filterId === filterId ? answer.data : null,
-    error: failure?.filterId === filterId ? failure.code : null,
+    searches: answer?.data.searches ?? [],
+    data: error !== 'not_found' && answer?.filterId === filterId ? answer.data : null,
+    error,
     loading,
     reload,
   }

@@ -1,6 +1,7 @@
 {
   "listings": {
     "title": "Objekte",
+    "search": "Objekte durchsuchen",
     "empty": "Noch keine Objekte",
     "emptyText": "Wählen Sie „Jetzt synchronisieren“, um aktuelle Objekte aus den gewählten Quellen zu laden.",
     "noMatches": "Keine Objekte passen zu diesen Filtern",

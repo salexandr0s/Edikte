@@ -1,6 +1,5 @@
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
-import { priceForBasis } from '@shared/area'
 import type { ListingRow } from '@shared/domain'
 import { bezirkName } from '@shared/wien-bezirke'
 import { Badge } from '../../components/ui/badge'
@@ -8,6 +7,7 @@ import { Button } from '../../components/ui/button'
 import { ChevronRightIcon, CloseIcon, StarIcon } from '../../components/ui/icons'
 import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
+import { publishedPrice } from '../../lib/published-price'
 import { RISK_VARIANT, STATUS_VARIANT, addressLine } from './listing-row'
 import type { Pin } from './map-pins'
 
@@ -95,7 +95,7 @@ function PinCardRow({
 }) {
   const { t } = useTranslation()
   const format = useFormat()
-  const price = priceForBasis(row.priceBasis, row)
+  const price = publishedPrice(row)
   const perSqm =
     row.pricePerSqm === null
       ? null
@@ -158,12 +158,10 @@ function PinCardRow({
               <span className="text-sm text-fg-muted">{t('common.notStated')}</span>
             ) : (
               <span className="text-sm font-semibold">
-                {format.eur(price)}
-                {row.source === 'insolvency_sale' && (
-                  <span className="ml-2 text-xs font-normal text-fg-muted">
-                    {t('listings.columns.price.schaetzwert')}
-                  </span>
-                )}
+                {format.eur(price.amount)}
+                <span className="ml-2 text-xs font-normal text-fg-muted">
+                  {t(`listings.columns.price.${price.basis}`)}
+                </span>
               </span>
             )}
             {area !== '' && <span className="text-xs text-fg-muted">{area}</span>}

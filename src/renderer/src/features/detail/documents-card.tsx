@@ -113,7 +113,7 @@ function DocumentRow({ doc, progress, onDownloaded }: DocumentRowProps) {
 
   return (
     <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2">
         <div
           aria-hidden="true"
           className="flex size-9 shrink-0 items-center justify-center rounded-md bg-fill-muted text-fg-muted"
@@ -144,7 +144,7 @@ function DocumentRow({ doc, progress, onDownloaded }: DocumentRowProps) {
             {meta !== '' && <span>{meta}</span>}
           </div>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="col-start-2 flex flex-wrap gap-2">
           {!doc.downloaded && doc.removedAt === null && (
             <Button
               size="sm"

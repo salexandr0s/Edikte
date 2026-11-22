@@ -63,7 +63,11 @@ export function createMockNotificationHandlers(
   const coverage = (): SourceCoverage[] =>
     state.settings.syncSources.map((source) => {
       const run = state.sync.lastRuns.find((candidate) => candidate.source === source) ?? null
-      return { source, lastSuccessAt: run?.status === 'ok' ? run.finishedAt : null, lastRun: run }
+      return {
+        source,
+        lastSuccessAt: run?.status === 'ok' && run.note === null ? run.finishedAt : null,
+        lastRun: run,
+      }
     })
   const ruleFor = (id: number): AlertRule => {
     filterById(id)

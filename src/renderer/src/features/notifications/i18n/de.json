@@ -58,7 +58,7 @@
     "matchCount_other": "{{count}} neue Objekte passen zu dieser Suche",
     "period": "Zeitraum: {{from}} bis {{to}}",
     "created": "Erstellt am {{time}}",
-    "partialCoverage": "Einige Quellen konnten nicht aktualisiert werden. Diese Zusammenfassung enthält Ergebnisse erfolgreicher Synchronisierungen.",
+    "partialCoverage": "Einige Quelldaten sind unvollständig. In dieser Zusammenfassung können passende Objekte fehlen.",
     "attempt": {
       "failed": "Die Desktop-Mitteilung konnte nicht angezeigt werden. Die Zusammenfassung bleibt hier verfügbar.",
       "unsupported": "Desktop-Mitteilungen sind auf diesem System nicht verfügbar."

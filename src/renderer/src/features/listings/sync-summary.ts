@@ -20,16 +20,22 @@ export interface RunsSummary {
   troubled: SyncRunSummary[]
 }
 
+// Readable pages from an incomplete list are committed as 'ok', with the reason in the note.
+export function displaySyncStatus(run: SyncRunSummary): SyncRunSummary['status'] {
+  return run.status === 'ok' && run.note !== null ? 'degraded' : run.status
+}
+
 /** Sums up the last run of each source for the sync bar. Null when there is none. */
 export function summarizeRuns(runs: readonly SyncRunSummary[]): RunsSummary | null {
   const [first, ...rest] = runs
   if (first === undefined) return null
   let finishedAt = timeOf(first)
-  let status = first.status
+  let status = displaySyncStatus(first)
   for (const run of rest) {
     // App timestamps are ISO UTC strings in one format, so they compare as text.
     if (timeOf(run) > finishedAt) finishedAt = timeOf(run)
-    if (RANK[run.status] < RANK[status]) status = run.status
+    const sourceStatus = displaySyncStatus(run)
+    if (RANK[sourceStatus] < RANK[status]) status = sourceStatus
   }
   return { finishedAt, status, troubled: runs.filter(isTroubled) }
 }
@@ -40,5 +46,6 @@ function timeOf(run: SyncRunSummary): string {
 }
 
 function isTroubled(run: SyncRunSummary): boolean {
-  return (run.status === 'degraded' || run.status === 'failed') && run.note !== null
+  const status = displaySyncStatus(run)
+  return (status === 'degraded' || status === 'failed') && run.note !== null
 }

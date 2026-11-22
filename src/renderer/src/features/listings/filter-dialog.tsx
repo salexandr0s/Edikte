@@ -12,12 +12,11 @@ import { WIEN_BEZIRKE } from '@shared/wien-bezirke'
 import { Button } from '../../components/ui/button'
 import { Dialog } from '../../components/ui/dialog'
 import { Checkbox } from '../../components/ui/checkbox'
-import { Input } from '../../components/ui/field'
-import { CloseIcon, SearchIcon } from '../../components/ui/icons'
 import { SegmentedControl } from '../../components/ui/segmented-control'
 import { Spinner } from '../../components/ui/spinner'
 import { SwitchRow } from '../../components/ui/switch'
 import { ChipGroup, DateRangeFilter, NumberFilter, RangeFilter } from './filter-controls'
+import { ListingSearch } from './listing-search'
 import { insolvencyOnly, showsBezirke } from './query-helpers'
 
 interface FilterDialogProps {
@@ -75,27 +74,7 @@ export function FilterDialog({
     >
       <div className="flex flex-col divide-y divide-border">
         <FilterSection title={t('filters.sections.search')}>
-          <Input
-            type="search"
-            aria-label={t('filters.search')}
-            maxLength={200}
-            placeholder={t('filters.searchPlaceholder')}
-            value={query.text}
-            leading={<SearchIcon />}
-            trailing={
-              query.text !== '' ? (
-                <button
-                  type="button"
-                  aria-label={t('filters.clearSearch')}
-                  className="flex size-6 items-center justify-center rounded-sm text-fg-muted transition-colors duration-120 hover:bg-fill-muted hover:text-fg focus-visible:ring-3 focus-visible:ring-ring-soft focus-visible:outline-none"
-                  onClick={() => onChange({ text: '' })}
-                >
-                  <CloseIcon className="size-3.5" />
-                </button>
-              ) : undefined
-            }
-            onChange={(event) => onChange({ text: event.target.value })}
-          />
+          <ListingSearch value={query.text} onChange={(text) => onChange({ text })} />
         </FilterSection>
 
         <FilterSection title={t('filters.sections.price')}>

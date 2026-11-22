@@ -1,5 +1,6 @@
 import { priceForBasis } from '@shared/area'
 import type { ListingRow } from '@shared/domain'
+import { publishedPrice, type PublishedPrice } from '../../lib/published-price'
 
 // The pins behind the map, without Leaflet or the DOM, so they run under Vitest.
 
@@ -102,6 +103,17 @@ function byPrice(a: ListingRow, b: ListingRow): number {
   const priceA = priceForBasis(a.priceBasis, a) ?? Number.POSITIVE_INFINITY
   const priceB = priceForBasis(b.priceBasis, b) ?? Number.POSITIVE_INFINITY
   return priceA - priceB
+}
+
+/** A “from” price is meaningful only when every listing quotes a comparable value. */
+export function pinPrice(rows: readonly ListingRow[]): PublishedPrice | null {
+  let lowest: PublishedPrice | null = null
+  for (const row of rows) {
+    const price = publishedPrice(row)
+    if (price === null || (lowest !== null && lowest.basis !== price.basis)) return null
+    if (lowest === null || price.amount < lowest.amount) lowest = price
+  }
+  return lowest
 }
 
 /** The same places in any order give the same signature. */

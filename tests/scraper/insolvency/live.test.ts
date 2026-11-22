@@ -1,3 +1,4 @@
+import { version } from '../../../package.json'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -71,7 +72,7 @@ describe.skipIf(process.env.EDIKTE_LIVE !== '1')(
             metrics.push(metric)
           }
         }
-        const client = new EdikteClient({ appVersion: '0.2.0', fetch: measuredFetch })
+        const client = new EdikteClient({ appVersion: version, fetch: measuredFetch })
         let service: SyncService | null = null
         let lastProgressAt = 0
         let progressEvents = 0

@@ -47,6 +47,7 @@ export function ResultsTable({
   onToggleHidden,
 }: ResultsTableProps) {
   const { t } = useTranslation()
+  const publicationDates = salesOnly || sort.column === 'publishedAt'
   const sortable = (column: SortColumn, label: string, align: 'left' | 'right' = 'left') => (
     <SortHeader column={column} sort={sort} align={align} onSort={onSort}>
       {label}
@@ -71,7 +72,7 @@ export function ResultsTable({
             <th scope="col" className={cx(HEADER, CELL_X, 'text-left')}>
               {t('listings.columns.object')}
             </th>
-            {salesOnly
+            {publicationDates
               ? sortable('publishedAt', t('listings.columns.publishedAt'))
               : sortable('auctionAt', t('listings.columns.auctionAt'))}
             {sortable('price', t(`listings.columns.price.${priceBasis}`), 'right')}
@@ -91,6 +92,7 @@ export function ResultsTable({
               key={row.id}
               row={row}
               columnPriceBasis={priceBasis}
+              publicationDates={publicationDates}
               analysisStatus={currentAnalysisStatus(row, tracker)}
               onOpen={() => onOpen(row)}
               onStar={() => onStar(row)}

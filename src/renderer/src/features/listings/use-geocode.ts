@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { GeocodeProgress } from '@shared/domain'
+import { useApp } from '../../lib/app-context'
 import { invoke } from '../../lib/bridge'
 import { useBridgeEvent } from '../../lib/use-bridge-event'
 
@@ -9,7 +10,9 @@ import { useBridgeEvent } from '../../lib/use-bridge-event'
  * once and reports the rest as events; a lookup that failed a moment ago is
  * not repeated, so the loop between the events and this hook ends on its own.
  */
-export function useGeocode(active: boolean): GeocodeProgress {
+export function useGeocode(mapSelected: boolean): GeocodeProgress {
+  const { view } = useApp()
+  const active = view.screen === 'listings' && mapSelected
   const [progress, setProgress] = useState<GeocodeProgress>({ pending: 0, running: false })
   const [requests, setRequests] = useState(0)
 
@@ -29,8 +32,8 @@ export function useGeocode(active: boolean): GeocodeProgress {
     }
   }, [active, requests])
 
-  useBridgeEvent('geocode:progress', setProgress)
-  useBridgeEvent('listings:changed', () => setRequests((count) => count + 1))
+  useBridgeEvent('geocode:progress', setProgress, active)
+  useBridgeEvent('listings:changed', () => setRequests((count) => count + 1), active)
 
   return progress
 }

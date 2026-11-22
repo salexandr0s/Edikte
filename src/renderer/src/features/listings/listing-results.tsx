@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ListingSortColumnSchema, type ListingQuery, type ListingRow } from '@shared/domain'
 import { Button } from '../../components/ui/button'
@@ -30,6 +30,7 @@ const FRAME = 'rounded-lg border border-border bg-surface shadow-xs'
 export type ListingView = 'list' | 'map'
 
 interface ListingResultsProps {
+  actions: ReactNode
   titleId: string
   query: ListingQuery
   state: ListingPageState
@@ -48,6 +49,7 @@ interface ListingResultsProps {
 
 /** Count, view toggle, sort order and the table or map, or the empty state that explains what to do. */
 export function ListingResults({
+  actions,
   titleId,
   query,
   state,
@@ -112,7 +114,7 @@ export function ListingResults({
   return (
     <div className={cx('flex flex-col gap-3', view === 'map' && 'min-h-0 flex-1')}>
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <p aria-live="polite" className="text-sm text-fg-muted tabular-nums">
             {t('listings.count', {
               count: page.totalInScope,
@@ -121,6 +123,7 @@ export function ListingResults({
             })}
           </p>
           {loading && <Spinner className="size-3.5 text-fg-muted" />}
+          <div className="flex flex-wrap items-center gap-2">{actions}</div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {view === 'list' && (
@@ -194,13 +197,23 @@ function ViewToggle({
       segments={[
         {
           value: 'list',
-          label: <ListIcon />,
+          label: (
+            <>
+              <ListIcon />
+              <span>{t('map.view.list')}</span>
+            </>
+          ),
           'aria-label': t('map.view.list'),
           title: t('map.view.list'),
         },
         {
           value: 'map',
-          label: <MapPinIcon />,
+          label: (
+            <>
+              <MapPinIcon />
+              <span>{t('map.view.map')}</span>
+            </>
+          ),
           'aria-label': t('map.view.map'),
           title: t('map.view.map'),
         },

@@ -66,6 +66,7 @@ function commit(
     upserts: [],
     seenIds: [],
     unchangedIds: [],
+    retryIds: [],
     removedIds: [],
     at: run.startedAt,
     ...writes,

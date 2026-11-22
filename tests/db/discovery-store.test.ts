@@ -9,7 +9,8 @@ import {
 } from '../../src/main/db/discovery-store'
 import { loadListingSnapshot } from '../../src/main/db/listing-store'
 import { edicts, listingDiscoveries, syncRuns } from '../../src/main/db/schema'
-import { createSyncStore } from '../../src/main/db/sync-store'
+import { readSourceCoverage } from '../../src/main/db/notification-store'
+import { createSyncStore, loadSyncSchedule, loadSyncState } from '../../src/main/db/sync-store'
 import type { EdictRecord } from '../../src/main/scraper/edict-record'
 import type { SyncCommit } from '../../src/main/scraper/sync'
 import { edictId, edictRecord, insertEdict, T0 } from './listing-fixtures'
@@ -37,6 +38,7 @@ async function sync(
     scope?: Bundesland[]
     status?: SyncCommit['summary']['status']
     removedIds?: string[]
+    note?: string
   } = {},
 ): Promise<void> {
   const store = createSyncStore(db)
@@ -60,7 +62,7 @@ async function sync(
       changed: rows.length,
       removed: 0,
       requests: 1,
-      note: null,
+      note: options.note ?? null,
     },
     at,
     errors: [],
@@ -68,6 +70,7 @@ async function sync(
     upserts: rows.map((edict) => ({ edict, documents: [] })),
     seenIds: rows.map((row) => row.id),
     unchangedIds: [],
+    retryIds: [],
     removedIds: options.removedIds ?? [],
   })
 }
@@ -107,6 +110,30 @@ describe('discovery journal', () => {
       db.select().from(listingDiscoveries).where(eq(listingDiscoveries.id, rows[1]!.id)).get()
         ?.snapshot?.schaetzwertEur,
     ).toBe(200_000)
+  })
+
+  it('keeps an incomplete import without treating its region as fully covered', async () => {
+    const db = open()
+    await sync(db, [edictRecord(1)], T0, { note: 'List incomplete' })
+    expect(loadListingSnapshot(db)).toHaveLength(1)
+    expect(readSourceCoverage(db).find((item) => item.source === 'court_auction')).toMatchObject({
+      lastRun: { status: 'ok', note: 'List incomplete' },
+      lastSuccessAt: null,
+    })
+    expect(loadSyncState(db, ['wien'], 'court_auction').lastOkFullRunStartedAt).toBeNull()
+    expect(loadSyncSchedule(db, ['wien'], 'court_auction').settledAt).toBe(T0)
+
+    await sync(db, [edictRecord(2)], T1)
+    await sync(db, [edictRecord(3)], T2)
+    expect(
+      db
+        .select()
+        .from(listingDiscoveries)
+        .orderBy(asc(listingDiscoveries.id))
+        .all()
+        .map((discovery) => discovery.kind),
+    ).toEqual(['baseline', 'baseline', 'live'])
+    expect(loadSyncState(db, ['wien'], 'court_auction').lastOkFullRunStartedAt).toBe(T2)
   })
 
   it('does not rediscover removed cases or reissued notices and keeps earliest history', async () => {

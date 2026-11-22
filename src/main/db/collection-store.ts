@@ -1,4 +1,4 @@
-import type { ListingRow, SavedFilter, Settings } from '@shared/domain'
+import type { SavedFilter, Settings } from '@shared/domain'
 import { AppError } from '@shared/errors'
 import { applyListingQuery, withPriceBasis } from '@shared/listing-query'
 import type {
@@ -8,7 +8,7 @@ import type {
   ListingCollection,
 } from '@shared/notifications'
 import type { AppDatabase } from './client'
-import { loadDiscoveryMetadata, type DiscoveryMetadata } from './discovery-store'
+import { loadDiscoveryMetadata } from './discovery-store'
 import { loadListingSnapshot } from './listing-store'
 import { createNotificationStore } from './notification-store'
 import { readSettings } from './settings-store'
@@ -25,16 +25,17 @@ const viennaParts = new Intl.DateTimeFormat('en-CA', {
   hourCycle: 'h23',
 })
 
-export interface SavedSearchSnapshot {
-  rows: ListingRow[]
+type MatchSet = Map<number | string, CollectionItem>
+
+interface SavedSearchSnapshot {
+  totalInScope: number
   filters: SavedFilter[]
   settings: Settings
-  discoveries: Map<string, DiscoveryMetadata>
-  matches: Map<number, CollectionItem[]>
+  counts(filterId: number | null): { matchCount: number; newCount: number }
   items(filterId: number | null, section: CollectionSection): CollectionItem[]
 }
 
-/** Reads each listing source once, then evaluates every saved search against it. */
+/** Each search is evaluated once per snapshot, and only if the caller uses it. */
 export function loadSavedSearchSnapshot(
   db: AppDatabase,
   now: Date = new Date(),
@@ -42,65 +43,91 @@ export function loadSavedSearchSnapshot(
   const settings = readSettings(db)
   const rows = loadListingSnapshot(db)
   const filters = listSavedFilters(db)
+  const filtersById = new Map(filters.map((filter) => [filter.id, filter]))
   const discoveries = loadDiscoveryMetadata(db)
-  const matches = new Map<number, CollectionItem[]>()
-  for (const filter of filters) {
-    matches.set(
-      filter.id,
-      applyListingQuery(rows, filter.query).rows.map((listing) => ({
-        listing,
-        current: listing,
-        filterIds: [filter.id],
-        discoveryId: discoveries.get(listing.caseKey)?.id ?? null,
-      })),
-    )
+  const matches = new Map<number | null, MatchSet>()
+  const recent = new Set<number>()
+  const end = now.getTime()
+  const start = end - 7 * DAY_MS
+  for (const discovery of discoveries.values()) {
+    if (discovery.kind !== 'live') continue
+    const committed = Date.parse(discovery.committedAt)
+    if (committed >= start && committed <= end) recent.add(discovery.id)
   }
+  const auctionWindow = upcomingWindow(now)
 
-  const items = (filterId: number | null, section: CollectionSection): CollectionItem[] => {
-    if (filterId !== null && !matches.has(filterId)) {
-      throw new AppError('not_found', `Saved filter ${filterId} does not exist`)
-    }
-    const selected = filterId === null ? [...matches.values()] : [matches.get(filterId) ?? []]
-    const combined = new Map<string, CollectionItem>()
-    for (const group of selected) {
-      for (const item of group) {
-        const identity =
-          item.discoveryId === null
-            ? `case:${item.listing.caseKey}`
-            : `discovery:${item.discoveryId}`
-        const existing = combined.get(identity)
-        if (existing !== undefined) {
-          existing.filterIds.push(
-            ...item.filterIds.filter((id) => !existing.filterIds.includes(id)),
-          )
-          continue
+  function matchesFor(filterId: number | null): MatchSet {
+    const cached = matches.get(filterId)
+    if (cached !== undefined) return cached
+    const result: MatchSet = new Map()
+    if (filterId === null) {
+      for (const filter of filters) {
+        for (const [identity, item] of matchesFor(filter.id)) {
+          const existing = result.get(identity)
+          if (existing !== undefined) existing.filterIds.push(filter.id)
+          else {
+            const listing = withPriceBasis(item.listing, settings.priceBasis)
+            result.set(identity, { ...item, listing, current: listing, filterIds: [filter.id] })
+          }
         }
-        const listing =
-          filterId === null ? withPriceBasis(item.listing, settings.priceBasis) : item.listing
-        combined.set(identity, {
-          ...item,
-          listing,
-          current: listing,
-          filterIds: [...item.filterIds],
-        })
+      }
+    } else {
+      const filter = filtersById.get(filterId)
+      if (filter === undefined)
+        throw new AppError('not_found', `Saved filter ${filterId} does not exist`)
+      for (const listing of applyListingQuery(rows, filter.query).rows) {
+        const discoveryId = discoveries.get(listing.caseKey)?.id ?? null
+        const identity = discoveryId ?? listing.caseKey
+        if (!result.has(identity)) {
+          result.set(identity, { listing, current: listing, filterIds: [filterId], discoveryId })
+        }
       }
     }
-    return [...combined.values()]
-      .filter((item) => inSection(item, section, discoveries, now))
-      .sort((a, b) => {
-        if (section === 'upcoming') {
-          return (
-            (a.listing.auctionAt ?? '').localeCompare(b.listing.auctionAt ?? '') ||
-            a.listing.id.localeCompare(b.listing.id)
-          )
-        }
-        const atA = discoveries.get(a.listing.caseKey)?.committedAt ?? ''
-        const atB = discoveries.get(b.listing.caseKey)?.committedAt ?? ''
-        return atB.localeCompare(atA) || a.listing.id.localeCompare(b.listing.id)
-      })
+    matches.set(filterId, result)
+    return result
   }
 
-  return { rows, filters, settings, discoveries, matches, items }
+  function counts(filterId: number | null) {
+    const group = matchesFor(filterId)
+    let newCount = 0
+    for (const item of group.values()) {
+      if (item.discoveryId !== null && recent.has(item.discoveryId)) newCount++
+    }
+    return { matchCount: group.size, newCount }
+  }
+
+  function items(filterId: number | null, section: CollectionSection): CollectionItem[] {
+    const group = [...matchesFor(filterId).values()]
+    if (section === 'upcoming') {
+      return group
+        .filter(
+          ({ listing }) =>
+            listing.source === 'court_auction' &&
+            (listing.status === 'upcoming' || listing.status === 'postponed') &&
+            listing.auctionAt !== null &&
+            listing.auctionAt >= auctionWindow.start &&
+            listing.auctionAt < auctionWindow.end,
+        )
+        .sort(
+          (a, b) =>
+            (a.listing.auctionAt ?? '').localeCompare(b.listing.auctionAt ?? '') ||
+            a.listing.id.localeCompare(b.listing.id),
+        )
+    }
+    const selected =
+      section === 'new'
+        ? group.filter(({ discoveryId }) => discoveryId !== null && recent.has(discoveryId))
+        : section === 'starred'
+          ? group.filter(({ listing }) => listing.starred)
+          : group
+    return selected.sort((a, b) => {
+      const atA = discoveries.get(a.listing.caseKey)?.committedAt ?? ''
+      const atB = discoveries.get(b.listing.caseKey)?.committedAt ?? ''
+      return atB.localeCompare(atA) || a.listing.id.localeCompare(b.listing.id)
+    })
+  }
+
+  return { totalInScope: rows.length, filters, settings, counts, items }
 }
 
 export function queryListingCollection(
@@ -150,33 +177,13 @@ export function searchInScope(filter: SavedFilter, settings: Settings): boolean 
   )
 }
 
-function inSection(
-  item: CollectionItem,
-  section: CollectionSection,
-  discoveries: ReadonlyMap<string, DiscoveryMetadata>,
-  now: Date,
-): boolean {
-  if (section === 'all') return true
-  if (section === 'starred') return item.listing.starred
-  if (section === 'new') {
-    const discovery = discoveries.get(item.listing.caseKey)
-    if (discovery?.kind !== 'live') return false
-    const committed = Date.parse(discovery.committedAt)
-    return committed >= now.getTime() - 7 * DAY_MS && committed <= now.getTime()
-  }
-  const row = item.listing
-  if (
-    row.source !== 'court_auction' ||
-    row.auctionAt === null ||
-    (row.status !== 'upcoming' && row.status !== 'postponed')
-  )
-    return false
-  const localNow = viennaLocalDateTime(now)
-  const [date, time] = localNow.split('T')
+/** The next 14 Vienna calendar days, also when the UTC offset changes. */
+function upcomingWindow(now: Date): { start: string; end: string } {
+  const start = viennaLocalDateTime(now)
+  const [date, time] = start.split('T')
   const endDate = new Date(`${date}T00:00:00.000Z`)
   endDate.setUTCDate(endDate.getUTCDate() + 14)
-  const localEnd = `${endDate.toISOString().slice(0, 10)}T${time}`
-  return row.auctionAt >= localNow && row.auctionAt < localEnd
+  return { start, end: `${endDate.toISOString().slice(0, 10)}T${time}` }
 }
 
 function viennaLocalDateTime(date: Date): string {

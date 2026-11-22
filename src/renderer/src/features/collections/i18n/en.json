@@ -25,6 +25,7 @@
     "perSqm": "Price per m²",
     "areaUnknown": "Area not stated",
     "areaUnverified": "€/m² cannot be verified without an area",
+    "currentPrices": "Current prices",
     "currentStatus": "Current status: {{status}}",
     "unavailable": "No longer available",
     "updated": "Changed since this notification",

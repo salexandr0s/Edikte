@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { INTL_LOCALE, type UiLanguage } from '../i18n'
 
@@ -84,9 +83,12 @@ function formatSiteTime(format: Intl.DateTimeFormat, value: string): string {
   return format.format(new Date(utc))
 }
 
+// Each listing row uses the same locale. Share the Intl instances across the table.
+const formats: Partial<Record<UiLanguage, Formatters>> = {}
+
 /** Formatters for the current UI language; components re-render on a language switch. */
 export function useFormat(): Formatters {
   const { i18n } = useTranslation()
   const language: UiLanguage = i18n.language === 'de' ? 'de' : 'en'
-  return useMemo(() => createFormatters(language), [language])
+  return (formats[language] ??= createFormatters(language))
 }

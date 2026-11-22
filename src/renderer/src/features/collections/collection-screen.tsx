@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SavedFilter } from '@shared/domain'
 import type { AppErrorCode } from '@shared/errors'
-import type { CollectionPage, ListingCollection, NotificationSummary } from '@shared/notifications'
+import type { CollectionItem, ListingCollection, NotificationSummary } from '@shared/notifications'
 import { Button } from '../../components/ui/button'
 import { EmptyState } from '../../components/ui/empty-state'
 import { AlertCircleIcon, ChevronLeftIcon, SearchIcon } from '../../components/ui/icons'
@@ -16,9 +16,31 @@ import { OpportunityList } from './opportunity-list'
 
 interface CollectionAnswer {
   collection: ListingCollection
-  page: CollectionPage
-  filters: SavedFilter[]
+  items: CollectionItem[]
+  total: number
+  filters: Pick<SavedFilter, 'id' | 'name' | 'presetKey'>[]
   notification: NotificationSummary | null
+}
+
+async function loadCollection(collection: ListingCollection): Promise<CollectionAnswer> {
+  if (collection.kind === 'notification') {
+    const { notification, items } = await invoke('notifications:get', {
+      id: collection.notificationId,
+    })
+    const { filterId, filterName, presetKey } = notification
+    return {
+      collection,
+      items,
+      total: notification.count,
+      filters: filterId === null ? [] : [{ id: filterId, name: filterName, presetKey }],
+      notification,
+    }
+  }
+  const [page, filters] = await Promise.all([
+    invoke('listings:queryCollection', collection),
+    collection.kind === 'saved_searches' ? invoke('filters:list') : Promise.resolve([]),
+  ])
+  return { collection, items: page.items, total: page.total, filters, notification: null }
 }
 
 /** Shows current search collections or a digest's immutable membership. */
@@ -31,7 +53,8 @@ export function CollectionScreen({
 }) {
   const { t } = useTranslation()
   const format = useFormat()
-  const { navigate } = useApp()
+  const { navigate, view } = useApp()
+  const active = view.screen === 'collection'
   const [answer, setAnswer] = useState<CollectionAnswer | null>(null)
   const [failure, setFailure] = useState<{
     collection: ListingCollection
@@ -56,20 +79,15 @@ export function CollectionScreen({
       : t('collections.title')
 
   useEffect(() => {
+    if (!active) return
     let ignore = false
     const timer = window.setTimeout(
       () => {
         setLoading(true)
-        Promise.all([
-          invoke('listings:queryCollection', collection),
-          invoke('filters:list'),
-          collection.kind === 'notification'
-            ? invoke('notifications:get', { id: collection.notificationId })
-            : Promise.resolve(null),
-        ]).then(
-          ([page, filters, detail]) => {
+        loadCollection(collection).then(
+          (answer) => {
             if (ignore) return
-            setAnswer({ collection, page, filters, notification: detail?.notification ?? null })
+            setAnswer(answer)
             setFailure(null)
             setLoading(false)
           },
@@ -86,7 +104,7 @@ export function CollectionScreen({
       ignore = true
       window.clearTimeout(timer)
     }
-  }, [collection, refreshes])
+  }, [active, collection, refreshes])
 
   useEffect(() => {
     if (collection.kind !== 'notification') return
@@ -104,8 +122,8 @@ export function CollectionScreen({
     }
   }, [collection, readRetries])
 
-  useBridgeEvent('listings:changed', reload)
-  useBridgeEvent('filters:changed', reload)
+  useBridgeEvent('listings:changed', reload, active)
+  useBridgeEvent('filters:changed', reload, active && collection.kind === 'saved_searches')
 
   const names = new Map(
     (data?.filters ?? []).map((filter) => [
@@ -186,7 +204,7 @@ export function CollectionScreen({
       ) : (
         <>
           <div aria-live="polite" className="flex items-center gap-2 text-sm text-fg-muted">
-            <p>{t('collections.count', { count: data.page.total })}</p>
+            <p>{t('collections.count', { count: data.total })}</p>
             {loading && <Spinner className="size-3.5" />}
           </div>
           {error !== null && (
@@ -194,7 +212,7 @@ export function CollectionScreen({
               {t('collections.updateFailed')} {t(`errors.${error}`)}
             </p>
           )}
-          {data.page.items.length === 0 ? (
+          {data.items.length === 0 ? (
             <EmptyState
               icon={<SearchIcon />}
               title={t('collections.emptyTitle')}
@@ -202,7 +220,7 @@ export function CollectionScreen({
             />
           ) : (
             <OpportunityList
-              items={data.page.items}
+              items={data.items}
               filterNames={names}
               historical={historical}
               showBothPrices={collection.kind === 'saved_searches' && collection.filterId === null}

@@ -136,77 +136,84 @@ export function NotificationsScreen() {
           </Button>
         }
       />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedControl
-          aria-label={t('notifications.filter')}
-          value={mode}
-          onValueChange={selectMode}
-          size="sm"
-          segments={[
-            { value: 'all', label: t('notifications.all') },
-            { value: 'unread', label: t('notifications.unread') },
-          ]}
-        />
-        <Button variant="ghost" size="sm" loading={loading} onClick={reload}>
-          <RefreshIcon />
-          {t('notifications.refresh')}
-        </Button>
-      </div>
-      {failure !== null && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center gap-3 rounded-md border border-danger-subtle bg-danger-subtle/40 p-4 text-sm"
-        >
-          <AlertCircleIcon className="text-danger-text" />
-          <p className="min-w-0 flex-1">
-            {t('notifications.loadFailed')} {t(`errors.${failure}`)}
-          </p>
-          <Button variant="outline" size="sm" onClick={reload}>
-            {t('common.retry')}
-          </Button>
-        </div>
-      )}
-      {page === null ? (
-        failure === null && (
-          <div className="flex justify-center py-12">
-            <Spinner label={t('common.loading')} />
-          </div>
-        )
-      ) : page.items.length === 0 ? (
-        <EmptyState
-          className="rounded-lg border border-border bg-surface"
-          icon={<BellIcon />}
-          title={t(mode === 'unread' ? 'notifications.noUnread' : 'notifications.empty')}
-          description={t(
-            mode === 'unread' ? 'notifications.noUnreadHelp' : 'notifications.emptyHelp',
-          )}
-          action={
-            mode === 'all' ? (
-              <Button variant="outline" onClick={() => navigate({ screen: 'dashboard' })}>
-                {t('notifications.openDashboard')}
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div className="flex flex-col gap-3" aria-busy={loading}>
-          {page.items.map((notification) => (
-            <NotificationPreview key={notification.id} notification={notification} onOpen={open} />
-          ))}
-          {page.nextCursor !== null && (
-            <Button
-              variant="outline"
-              className="self-center"
-              loading={more}
-              disabled={loading}
-              onClick={() => void loadMore()}
-            >
-              {t('notifications.loadMore')}
+      <div className="grid items-start gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="min-w-0 rounded-lg border border-border bg-surface shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <SegmentedControl
+              aria-label={t('notifications.filter')}
+              value={mode}
+              onValueChange={selectMode}
+              size="sm"
+              segments={[
+                { value: 'all', label: t('notifications.all') },
+                { value: 'unread', label: t('notifications.unread') },
+              ]}
+            />
+            <Button variant="ghost" size="sm" loading={loading} onClick={reload}>
+              <RefreshIcon />
+              {t('notifications.refresh')}
             </Button>
+          </div>
+          {failure !== null && (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center gap-3 rounded-md border border-danger-subtle bg-danger-subtle/40 p-4 text-sm"
+            >
+              <AlertCircleIcon className="text-danger-text" />
+              <p className="min-w-0 flex-1">
+                {t('notifications.loadFailed')} {t(`errors.${failure}`)}
+              </p>
+              <Button variant="outline" size="sm" onClick={reload}>
+                {t('common.retry')}
+              </Button>
+            </div>
+          )}
+          {page === null ? (
+            failure === null && (
+              <div className="flex justify-center py-12">
+                <Spinner label={t('common.loading')} />
+              </div>
+            )
+          ) : page.items.length === 0 ? (
+            <EmptyState
+              icon={<BellIcon />}
+              title={t(mode === 'unread' ? 'notifications.noUnread' : 'notifications.empty')}
+              description={t(
+                mode === 'unread' ? 'notifications.noUnreadHelp' : 'notifications.emptyHelp',
+              )}
+              action={
+                mode === 'all' ? (
+                  <Button variant="outline" onClick={() => navigate({ screen: 'dashboard' })}>
+                    {t('notifications.openDashboard')}
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="flex flex-col p-2" aria-busy={loading}>
+              <ul className="divide-y divide-border">
+                {page.items.map((notification) => (
+                  <li key={notification.id}>
+                    <NotificationPreview notification={notification} onOpen={open} />
+                  </li>
+                ))}
+              </ul>
+              {page.nextCursor !== null && (
+                <Button
+                  variant="outline"
+                  className="my-3 self-center"
+                  loading={more}
+                  disabled={loading}
+                  onClick={() => void loadMore()}
+                >
+                  {t('notifications.loadMore')}
+                </Button>
+              )}
+            </div>
           )}
         </div>
-      )}
-      <DesktopDelivery />
+        <DesktopDelivery />
+      </div>
     </Page>
   )
 }
@@ -248,21 +255,7 @@ function DesktopDelivery() {
     }
   }
   return (
-    <Card
-      title={t('notifications.delivery.title')}
-      description={t('notifications.delivery.help')}
-      actions={
-        <Button
-          variant="outline"
-          size="sm"
-          loading={testing}
-          disabled={status !== null && !status.supported}
-          onClick={() => void test()}
-        >
-          {t('notifications.delivery.test')}
-        </Button>
-      }
-    >
+    <Card title={t('notifications.delivery.title')} description={t('notifications.delivery.help')}>
       <div className="flex flex-col gap-2 text-sm">
         {status !== null && (
           <p>
@@ -287,6 +280,16 @@ function DesktopDelivery() {
           </p>
         )}
         {status === null && failure === null && <Spinner label={t('common.loading')} />}
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2 self-start"
+          loading={testing}
+          disabled={status !== null && !status.supported}
+          onClick={() => void test()}
+        >
+          {t('notifications.delivery.test')}
+        </Button>
       </div>
     </Card>
   )

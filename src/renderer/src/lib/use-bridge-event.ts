@@ -7,7 +7,10 @@ import { subscribe } from './bridge'
 export function useBridgeEvent<E extends EventChannel>(
   event: E,
   listener: (payload: EventPayload<E>) => void,
+  enabled = true,
 ): void {
   const onEvent = useEffectEvent(listener)
-  useEffect(() => subscribe(event, (payload) => onEvent(payload)), [event])
+  useEffect(() => {
+    if (enabled) return subscribe(event, (payload) => onEvent(payload))
+  }, [event, enabled])
 }

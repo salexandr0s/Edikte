@@ -1,7 +1,6 @@
 import type * as Leaflet from 'leaflet'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { priceForBasis } from '@shared/area'
 import type { GeocodeProgress, ListingRow } from '@shared/domain'
 import { BASEMAP_TILE_TEMPLATE, TILE_MAX_ZOOM, TILE_URL_TEMPLATE } from '@shared/map'
 import { Button } from '../../components/ui/button'
@@ -14,7 +13,7 @@ import { cx } from '../../lib/cx'
 import { useFormat } from '../../lib/format'
 import { PinCard } from './map-card'
 import { Attribution, MapStatus, ScaleBar, TilesFailedNotice, ZoomButtons } from './map-controls'
-import { clusterPins, groupPins, pinsSignature, type Pin, type Place } from './map-pins'
+import { clusterPins, groupPins, pinPrice, pinsSignature, type Pin, type Place } from './map-pins'
 import 'leaflet/dist/leaflet.css'
 import './listing-map.css'
 
@@ -229,24 +228,30 @@ export function ListingMap({ rows, geocode, onOpen }: ListingMapProps) {
     group.clearLayers()
     markerByKey.current.clear()
     for (const pin of pins) {
-      const cheapest = pin.rows[0]
-      if (cheapest === undefined) continue
-      const price = priceForBasis(cheapest.priceBasis, cheapest)
-      const priceText =
-        price === null ? t(`propertyType.${cheapest.propertyType}`) : format.eur(price)
-      const text = pin.rows.length > 1 ? t('map.from', { value: priceText }) : priceText
-      const name = t('map.pin', { price: text, count: pin.rows.length })
+      const first = pin.rows[0]
+      if (first === undefined) continue
+      const count = pin.rows.length
+      const price = pinPrice(pin.rows)
+      const countLabel = t('collections.count', { count })
+      let text = count > 1 ? countLabel : t(`propertyType.${first.propertyType}`)
+      if (price !== null) {
+        const amount = format.eur(price.amount)
+        text = t(`listings.row.otherPrice.${price.basis}`, {
+          value: count > 1 ? t('map.from', { value: amount }) : amount,
+        })
+      }
+      const name = price === null && count > 1 ? countLabel : t('map.pin', { price: text, count })
       const label = document.createElement('span')
       label.className = 'edk-pin__label'
       const content = document.createElement('span')
       content.className = 'edk-pin__text'
       content.textContent = text
       label.append(content)
-      if (pin.rows.length > 1) {
-        const count = document.createElement('span')
-        count.className = 'edk-pin__count'
-        count.textContent = format.number(pin.rows.length)
-        label.append(count)
+      if (price !== null && count > 1) {
+        const countBadge = document.createElement('span')
+        countBadge.className = 'edk-pin__count'
+        countBadge.textContent = format.number(count)
+        label.append(countBadge)
       }
       const marker = L.marker([pin.lat, pin.lng], {
         icon: L.divIcon({

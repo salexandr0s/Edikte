@@ -1,6 +1,7 @@
 {
   "listings": {
     "title": "Listings",
+    "search": "Search listings",
     "empty": "No listings yet",
     "emptyText": "Choose Sync now to load current listings from your selected sources.",
     "noMatches": "No listings match these filters",

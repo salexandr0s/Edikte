@@ -1,3 +1,4 @@
+import { version } from '../../../../package.json'
 import type { z } from 'zod'
 import {
   DEFAULT_SETTINGS,
@@ -423,7 +424,7 @@ function fakeAppInfo(): AppInfo {
   const agent = navigator.userAgent
   return {
     name: 'Edikte',
-    version: '0.2.0',
+    version,
     platform: agent.includes('Windows') ? 'win32' : agent.includes('Mac') ? 'darwin' : 'linux',
     arch: 'unknown',
     isPackaged: false,
