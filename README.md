@@ -59,8 +59,8 @@ Die App ist für den privaten Gebrauch gedacht. Sie ist kein Angebot des Bundesm
       <sub><b>Filter:</b> Änderungen wirken sofort auf die Liste.</sub>
     </td>
     <td width="50%" valign="top">
-      <img src="docs/screenshots/settings-de-light.png" alt="Einstellungen mit den KI-Anbietern ChatGPT, Claude und Codex">
-      <sub><b>Einstellungen:</b> KI-Anbieter mit Konto, Modell und Programmpfad.</sub>
+      <img src="docs/screenshots/settings-de-light.png" alt="Einstellungen für Datenquellen, Bundesländer und Synchronisierung">
+      <sub><b>Einstellungen:</b> Datenquellen, Bundesländer und Synchronisierung.</sub>
     </td>
   </tr>
 </table>
@@ -167,7 +167,7 @@ node scripts/run-self-check.mjs dist/mac-arm64/Edikte.app/Contents/MacOS/Edikte
 Für ein Release erhöhen Sie die Version und pushen den Tag:
 
 ```sh
-npm version 0.2.0 -m "chore(release): %s"
+npm version patch -m "chore(release): %s"
 git push --follow-tags
 ```
 
@@ -222,8 +222,8 @@ The app is meant for personal use. It is not a service of the Austrian Federal M
       <sub><b>Filters:</b> changes apply to the list at once.</sub>
     </td>
     <td width="50%" valign="top">
-      <img src="docs/screenshots/settings-en-light.png" alt="Settings with the AI providers ChatGPT, Claude and Codex">
-      <sub><b>Settings:</b> AI providers with account, model and program path.</sub>
+      <img src="docs/screenshots/settings-en-light.png" alt="Settings for data sources, regions and sync">
+      <sub><b>Settings:</b> Data sources, regions and sync.</sub>
     </td>
   </tr>
 </table>
@@ -330,7 +330,7 @@ node scripts/run-self-check.mjs dist/mac-arm64/Edikte.app/Contents/MacOS/Edikte
 To release, raise the version and push the tag:
 
 ```sh
-npm version 0.2.0 -m "chore(release): %s"
+npm version patch -m "chore(release): %s"
 git push --follow-tags
 ```
 
